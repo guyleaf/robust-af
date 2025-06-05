@@ -1,0 +1,13 @@
+name: detrex
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu117
+      # avoid ModuleNotFoundError: No module named 'torch' error while buiding detectron2
+      - setuptools<80
+      - torch==1.13.1
+      - torchvision==0.14.1
+      - numpy<2
