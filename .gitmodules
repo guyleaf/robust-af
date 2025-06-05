@@ -1,0 +1,4 @@
+[submodule "detrex"]
+	path = 3rdparty/detrex
+	url = https://github.com/IDEA-Research/detrex.git
+	branch = main
