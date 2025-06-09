@@ -30,4 +30,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.robust_u2u_od]
-only-include = ["robust_u2u_od"]
+only-packages = true
