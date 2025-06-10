@@ -1,5 +1,6 @@
 import os
 
+from detectron2.data import MetadataCatalog
 from detectron2.data.datasets import register_coco_instances
 
 DATASET_NAME = "robust_anti_uav"
@@ -23,8 +24,10 @@ def register_robust_anti_uav(root: str, name: str):
     train_ann_file = os.path.join(root, TRAIN_ANN_FILE)
     val_ann_file = os.path.join(root, VAL_ANN_FILE)
 
-    register_coco_instances(f"{name}_train", METADATA, train_ann_file, images_root)
-    register_coco_instances(f"{name}_val", METADATA, val_ann_file, images_root)
+    register_coco_instances(f"{name}_train", {}, train_ann_file, images_root)
+    register_coco_instances(f"{name}_val", {}, val_ann_file, images_root)
+    # one metadata for all subsets
+    MetadataCatalog.get(name).set(**METADATA)
 
 
 _root = os.path.expanduser(os.getenv("DETECTRON2_DATASETS", "datasets"))
