@@ -9,6 +9,11 @@ from robust_u2u_od.detrex.data.datasets.register_robust_anti_uav import DATASET_
 
 dataloader: DictConfig = get_config("common/data/coco_detr.py").dataloader
 dataloader.train.dataset = L(get_detection_dataset_dicts)(names=f"{DATASET_NAME}_train")
+dataloader.train.persistent_workers = True
+dataloader.train.pin_memory = True
+
 dataloader.test.dataset = L(get_detection_dataset_dicts)(
     names=f"{DATASET_NAME}_val", filter_empty=False
 )
+dataloader.test.persistent_workers = True
+dataloader.test.pin_memory = True
