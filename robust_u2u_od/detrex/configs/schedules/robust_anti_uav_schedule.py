@@ -1,4 +1,3 @@
-import math
 
 from detectron2.data import MetadataCatalog
 from detrex.config.configs.common.common_schedule import multistep_lr_scheduler
@@ -38,7 +37,7 @@ def default_robust_anti_uav_scheduler(
         DictConfig: configs that define the multiplier for LR during training
     """
     num_images: int = MetadataCatalog.get(f"{DATASET_NAME}_train").num_images
-    num_batches = math.ceil(num_images / total_batch_size)
+    num_batches = num_images // total_batch_size
 
     # num_batches == num_iters in training
     total_steps = epochs * num_batches
