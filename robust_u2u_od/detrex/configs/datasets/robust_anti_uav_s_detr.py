@@ -1,7 +1,8 @@
-from .robust_anti_uav_detr import dataset_metadata
+from detectron2.data import MetadataCatalog
 
-# for better logging, such as wandb.
-dataset_metadata.tags += [
+from robust_u2u_od.detrex.data.datasets.register_robust_anti_uav import DATASET_NAME
+
+MetadataCatalog.get(DATASET_NAME).tags += [
     "Small",
     "Low-Poly",
 ]
