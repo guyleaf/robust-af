@@ -12,3 +12,5 @@ dependencies:
       - torchvision==0.14.1
       - numpy<2
       - -e .
+variables:
+  GPUS: 4
