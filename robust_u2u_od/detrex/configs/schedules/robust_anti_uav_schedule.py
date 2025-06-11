@@ -6,8 +6,8 @@ from omegaconf import OmegaConf
 
 from robust_u2u_od.detrex.data.datasets.register_robust_anti_uav import DATASET_NAME
 
-# train with 8 GPUs or 4 GPUs
-BATCH_SIZES = [16, 8]
+# train with 8/4/2/1 GPUs (bs per gpu = 2)
+BATCH_SIZES = [16, 8, 4, 2]
 EPOCHS = [
     (50, 40, 0),
     (36, 30, 0),
