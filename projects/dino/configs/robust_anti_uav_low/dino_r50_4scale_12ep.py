@@ -12,7 +12,7 @@ metadata = MetadataCatalog.get(DATASET_NAME)
 train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
 
 # get default config
-dataloader = get_config("datasets/robust_anti_uav_s_detr.py").dataloader
+dataloader = get_config("datasets/robust_anti_uav_low_detr.py").dataloader
 optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     "schedules/robust_anti_uav_schedule.py"
