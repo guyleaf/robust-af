@@ -15,5 +15,3 @@ dataloader.train.pin_memory = True
 dataloader.test.dataset = L(get_detection_dataset_dicts)(
     names=f"{DATASET_NAME}_val", filter_empty=False
 )
-dataloader.test.persistent_workers = True
-dataloader.test.pin_memory = True
