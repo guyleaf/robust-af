@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-set -uv
+set -euv
 
 CWD=$(dirname "$0")
-ROOT=$(dirname "$(dirname "$CWD")")
+DETREX_ROOT="$(dirname "$(dirname "$CWD")")/3rdparty/detrex"
 
 CONFIG=$1
 CHECKPOINT=$2
-# use different seed to avoid bias.
-SEED=${3:-3202}
 
-python "$ROOT/tools/train_net.py" \
+python "$DETREX_ROOT/tools/train_net.py" \
     --config-file "$CONFIG" \
     --eval-only \
     "${@:4}" \
-    train.init_checkpoint="$CHECKPOINT" train.seed="$SEED"
+    train.init_checkpoint="$CHECKPOINT"
