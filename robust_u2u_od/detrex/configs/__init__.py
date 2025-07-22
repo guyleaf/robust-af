@@ -1,5 +1,4 @@
 import importlib.resources
-import os
 
 from detectron2.config import LazyConfig
 
@@ -15,10 +14,13 @@ def get_config(config_path):
     Returns:
         omegaconf.DictConfig: a config object
     """
-    cfg_file = importlib.resources.files("robust_u2u_od.detrex.configs") / config_path
-    if os.path.exists(cfg_file):
-        raise RuntimeError(
-            "{} not available in robust_u2u_od.detrex configs!".format(config_path)
-        )
-    cfg = LazyConfig.load(cfg_file)
+    path = importlib.resources.files("robust_u2u_od.detrex.configs").joinpath(
+        config_path
+    )
+    with importlib.resources.as_file(path) as cfg_file:
+        if not cfg_file.is_file():
+            raise RuntimeError(
+                "{} not available in robust_u2u_od.detrex configs!".format(config_path)
+            )
+        cfg = LazyConfig.load(str(cfg_file))
     return cfg
