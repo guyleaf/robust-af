@@ -1,0 +1,13 @@
+name: robust_u2u_od
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu117
+      - torch==1.13.1
+      - torchvision==0.14.1
+      - numpy<2
+      - -e .[dev]
