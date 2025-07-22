@@ -11,13 +11,14 @@ TRAIN_ANN_FILE = os.path.join("annotations", "train.json")
 VAL_ANN_FILE = os.path.join("annotations", "val.json")
 
 METADATA = dict(
+    num_classes=1,
     tags=[
         "Robust Anti-UAV",
         "Harmonized",
         "Image2Weather",
         "Clear",
         "Cloudy",
-    ]
+    ],
 )
 
 
