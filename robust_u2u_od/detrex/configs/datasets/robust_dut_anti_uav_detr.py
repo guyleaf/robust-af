@@ -5,7 +5,7 @@ from detectron2.data import (
 from detrex.config import get_config
 from omegaconf import DictConfig
 
-from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
+from ...data.datasets.register_robust_dut_anti_uav import DATASET_NAME
 
 dataloader: DictConfig = get_config("common/data/coco_detr.py").dataloader
 dataloader.train.dataset = L(get_detection_dataset_dicts)(names=f"{DATASET_NAME}_train")
