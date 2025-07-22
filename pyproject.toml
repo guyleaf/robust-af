@@ -31,3 +31,6 @@ dev = [
 
 [tool.hatch.build.targets.robust_u2u_od]
 only-packages = true
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
