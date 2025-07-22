@@ -1,4 +1,3 @@
-
 from detectron2.data import MetadataCatalog
 from detrex.config.configs.common.common_schedule import multistep_lr_scheduler
 from omegaconf import OmegaConf
@@ -48,7 +47,7 @@ def default_robust_anti_uav_scheduler(
         values=[1, 0.1],
         warmup_steps=warmup_steps,
         num_updates=total_steps,
-        milestones=[decay_steps, total_steps],
+        milestones=[decay_steps],
     )
 
 
@@ -58,13 +57,16 @@ def default_robust_anti_uav_detr_schedulers(
     schedulers = OmegaConf.create()
     for bs in batch_sizes:
         for total_epochs, decay_epochs, warmup_epochs in epochs:
-            key = f"lr_multiplier_{epochs}ep"
+            key = f"lr_multiplier_{total_epochs}ep"
             if warmup_epochs != 0:
                 key += "_warmup"
             key += f"_{bs}bs"
 
             schedulers[key] = default_robust_anti_uav_scheduler(
-                total_epochs, decay_epochs, warmup_epochs
+                bs,
+                epochs=total_epochs,
+                decay_epochs=decay_epochs,
+                warmup_epochs=warmup_epochs,
             )
     return schedulers
 
