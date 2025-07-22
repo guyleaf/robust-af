@@ -1,0 +1,30 @@
+{
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "/home/leafying/work/work_dirs"
+    },
+    {
+      "path": "/home/leafying/work/experiments"
+    },
+    {
+      "path": "/home/leafying/data/checkpoints"
+    },
+    {
+      "path": "/home/leafying/archive"
+    }
+  ],
+  "settings": {
+    "python.analysis.exclude": [
+      "**/node_modules",
+      "**/__pycache__",
+      "**/.*",
+      "${workspaceFolder:work_dirs}",
+      "${workspaceFolder:archive}",
+      "${workspaceFolder:experiments}",
+      "${workspaceFolder:checkpoints}"
+    ]
+  }
+}
