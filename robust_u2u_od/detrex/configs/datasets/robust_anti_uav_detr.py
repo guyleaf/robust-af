@@ -8,7 +8,9 @@ from omegaconf import DictConfig
 from robust_u2u_od.detrex.data.datasets.register_robust_anti_uav import DATASET_NAME
 
 dataloader: DictConfig = get_config("common/data/coco_detr.py").dataloader
-dataloader.train.dataset = L(get_detection_dataset_dicts)(names=f"{DATASET_NAME}_train")
+dataloader.train.dataset = L(get_detection_dataset_dicts)(
+    names=f"{DATASET_NAME}_train", filter_empty=False
+)
 dataloader.train.persistent_workers = True
 dataloader.train.pin_memory = True
 
