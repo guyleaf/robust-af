@@ -15,7 +15,6 @@
 
 import torch
 import torch.nn as nn
-
 from detrex.layers import (
     FFN,
     MLP,
@@ -26,8 +25,8 @@ from detrex.layers import (
     get_sine_pos_embed,
 )
 from detrex.utils import inverse_sigmoid
-
 from fairscale.nn.checkpoint import checkpoint_wrapper
+
 
 class DINOTransformerEncoder(TransformerLayerSequence):
     def __init__(
@@ -88,7 +87,6 @@ class DINOTransformerEncoder(TransformerLayerSequence):
         key_padding_mask=None,
         **kwargs,
     ):
-
         for layer in self.layers:
             query = layer(
                 query,
@@ -144,7 +142,14 @@ class DINOTransformerDecoder(TransformerLayerSequence):
                     ffn_drop=ffn_dropout,
                 ),
                 norm=nn.LayerNorm(embed_dim),
-                operation_order=("self_attn", "norm", "cross_attn", "norm", "ffn", "norm"),
+                operation_order=(
+                    "self_attn",
+                    "norm",
+                    "cross_attn",
+                    "norm",
+                    "ffn",
+                    "norm",
+                ),
             ),
             num_layers=num_layers,
         )
@@ -179,7 +184,9 @@ class DINOTransformerDecoder(TransformerLayerSequence):
         output = query
         bs, num_queries, _ = output.size()
         if reference_points.dim() == 2:
-            reference_points = reference_points.unsqueeze(0).repeat(bs, 1, 1)  # bs, num_queries, 4
+            reference_points = reference_points.unsqueeze(0).repeat(
+                bs, 1, 1
+            )  # bs, num_queries, 4
 
         intermediate = []
         intermediate_reference_points = []
@@ -191,7 +198,9 @@ class DINOTransformerDecoder(TransformerLayerSequence):
                 )
             else:
                 assert reference_points.shape[-1] == 2
-                reference_points_input = reference_points[:, :, None] * valid_ratios[:, None]
+                reference_points_input = (
+                    reference_points[:, :, None] * valid_ratios[:, None]
+                )
 
             query_sine_embed = get_sine_pos_embed(reference_points_input[:, :, 0, :])
             query_pos = self.ref_point_head(query_sine_embed)
@@ -218,7 +227,9 @@ class DINOTransformerDecoder(TransformerLayerSequence):
                 else:
                     assert reference_points.shape[-1] == 2
                     new_reference_points = tmp
-                    new_reference_points[..., :2] = tmp[..., :2] + inverse_sigmoid(reference_points)
+                    new_reference_points[..., :2] = tmp[..., :2] + inverse_sigmoid(
+                        reference_points
+                    )
                     new_reference_points = new_reference_points.sigmoid()
                 reference_points = new_reference_points.detach()
 
@@ -262,7 +273,9 @@ class DINOTransformer(nn.Module):
 
         self.embed_dim = self.encoder.embed_dim
 
-        self.level_embeds = nn.Parameter(torch.Tensor(self.num_feature_levels, self.embed_dim))
+        self.level_embeds = nn.Parameter(
+            torch.Tensor(self.num_feature_levels, self.embed_dim)
+        )
         self.learnt_init_query = learnt_init_query
         if self.learnt_init_query:
             self.tgt_embed = nn.Embedding(self.two_stage_num_proposals, self.embed_dim)
@@ -285,7 +298,9 @@ class DINOTransformer(nn.Module):
         proposals = []
         _cur = 0
         for lvl, (H, W) in enumerate(spatial_shapes):
-            mask_flatten_ = memory_padding_mask[:, _cur : (_cur + H * W)].view(N, H, W, 1)
+            mask_flatten_ = memory_padding_mask[:, _cur : (_cur + H * W)].view(
+                N, H, W, 1
+            )
             valid_H = torch.sum(~mask_flatten_[:, :, 0, 0], 1)
             valid_W = torch.sum(~mask_flatten_[:, 0, :, 0], 1)
 
@@ -295,7 +310,9 @@ class DINOTransformer(nn.Module):
             )
             grid = torch.cat([grid_x.unsqueeze(-1), grid_y.unsqueeze(-1)], -1)
 
-            scale = torch.cat([valid_W.unsqueeze(-1), valid_H.unsqueeze(-1)], 1).view(N, 1, 1, 2)
+            scale = torch.cat([valid_W.unsqueeze(-1), valid_H.unsqueeze(-1)], 1).view(
+                N, 1, 1, 2
+            )
             grid = (grid.unsqueeze(0).expand(N, -1, -1, -1) + 0.5) / scale
             wh = torch.ones_like(grid) * 0.05 * (2.0**lvl)
             proposal = torch.cat((grid, wh), -1).view(N, -1, 4)
@@ -303,17 +320,21 @@ class DINOTransformer(nn.Module):
             _cur += H * W
 
         output_proposals = torch.cat(proposals, 1)
-        output_proposals_valid = ((output_proposals > 0.01) & (output_proposals < 0.99)).all(
-            -1, keepdim=True
-        )
+        output_proposals_valid = (
+            (output_proposals > 0.01) & (output_proposals < 0.99)
+        ).all(-1, keepdim=True)
         output_proposals = torch.log(output_proposals / (1 - output_proposals))
         output_proposals = output_proposals.masked_fill(
             memory_padding_mask.unsqueeze(-1), float("inf")
         )
-        output_proposals = output_proposals.masked_fill(~output_proposals_valid, float("inf"))
+        output_proposals = output_proposals.masked_fill(
+            ~output_proposals_valid, float("inf")
+        )
 
         output_memory = memory
-        output_memory = output_memory.masked_fill(memory_padding_mask.unsqueeze(-1), float(0))
+        output_memory = output_memory.masked_fill(
+            memory_padding_mask.unsqueeze(-1), float(0)
+        )
         output_memory = output_memory.masked_fill(~output_proposals_valid, float(0))
         output_memory = self.enc_output_norm(self.enc_output(output_memory))
         return output_memory, output_proposals
@@ -365,7 +386,7 @@ class DINOTransformer(nn.Module):
         multi_level_feats,
         multi_level_masks,
         multi_level_pos_embeds,
-        query_embed,
+        query_embeds,
         attn_masks,
         **kwargs,
     ):
@@ -396,7 +417,9 @@ class DINOTransformer(nn.Module):
         level_start_index = torch.cat(
             (spatial_shapes.new_zeros((1,)), spatial_shapes.prod(1).cumsum(0)[:-1])
         )
-        valid_ratios = torch.stack([self.get_valid_ratio(m) for m in multi_level_masks], 1)
+        valid_ratios = torch.stack(
+            [self.get_valid_ratio(m) for m in multi_level_masks], 1
+        )
 
         reference_points = self.get_reference_points(
             spatial_shapes, valid_ratios, device=feat.device
@@ -421,9 +444,12 @@ class DINOTransformer(nn.Module):
         # output_memory: bs, num_tokens, c
         # output_proposals: bs, num_tokens, 4. unsigmoided.
 
-        enc_outputs_class = self.decoder.class_embed[self.decoder.num_layers](output_memory)
+        enc_outputs_class = self.decoder.class_embed[self.decoder.num_layers](
+            output_memory
+        )
         enc_outputs_coord_unact = (
-            self.decoder.bbox_embed[self.decoder.num_layers](output_memory) + output_proposals
+            self.decoder.bbox_embed[self.decoder.num_layers](output_memory)
+            + output_proposals
         )  # unsigmoided.
 
         topk = self.two_stage_num_proposals
@@ -434,20 +460,24 @@ class DINOTransformer(nn.Module):
             enc_outputs_coord_unact, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, 4)
         )  # unsigmoided.
         reference_points = topk_coords_unact.detach().sigmoid()
-        if query_embed[1] is not None:
-            reference_points = torch.cat([query_embed[1].sigmoid(), reference_points], 1)
+        if query_embeds[1] is not None:
+            reference_points = torch.cat(
+                [query_embeds[1].sigmoid(), reference_points], 1
+            )
         init_reference_out = reference_points
 
         # extract region features
         target_unact = torch.gather(
-            output_memory, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, output_memory.shape[-1])
+            output_memory,
+            1,
+            topk_proposals.unsqueeze(-1).repeat(1, 1, output_memory.shape[-1]),
         )
         if self.learnt_init_query:
             target = self.tgt_embed.weight[None].repeat(bs, 1, 1)
         else:
             target = target_unact.detach()
-        if query_embed[0] is not None:
-            target = torch.cat([query_embed[0], target], 1)
+        if query_embeds[0] is not None:
+            target = torch.cat([query_embeds[0], target], 1)
 
         # decoder
         inter_states, inter_references = self.decoder(
