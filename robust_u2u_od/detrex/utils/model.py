@@ -28,6 +28,8 @@ def unfreeze_modules_and_parameters(
 
 
 def freeze_all(model: nn.Module) -> nn.Module:
+    # NOTE: if we use model.requires_grad_ directly, the requires_grad_ method in submodules will be ignored.
+
     # freeze top-level parameters
     for param in model.parameters(False):
         param.requires_grad_(False)
