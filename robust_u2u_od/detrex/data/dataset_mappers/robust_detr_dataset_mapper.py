@@ -58,7 +58,7 @@ class RobustDetrDatasetMapper:
         logger = logging.getLogger(__name__)
         mode = "training" if is_train else "inference"
         logger.info(
-            f"[RobustDetrDatasetMapper] Augmentations used in {mode}: {augmentations}"
+            f"[RobustDetrDatasetMapper] Augmentations used in {mode}: {self.augmentations}"
         )
 
     def __call__(self, dataset_dict: dict):
