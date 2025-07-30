@@ -2,6 +2,8 @@ from detectron2.data import MetadataCatalog
 from detrex.config.configs.common.common_schedule import multistep_lr_scheduler
 from omegaconf import OmegaConf
 
+from robust_u2u_od.detrex.utils import count_coco_images
+
 # train with 8/4/2/1 GPUs (bs per gpu = 2)
 BATCH_SIZES = [16, 8, 4, 2]
 EPOCHS = [
@@ -34,7 +36,8 @@ def default_scheduler(
     Returns:
         DictConfig: configs that define the multiplier for LR during training
     """
-    num_images: int = MetadataCatalog.get(dataset_name).num_images
+    json_file: int = MetadataCatalog.get(dataset_name).json_file
+    num_images = count_coco_images(json_file)
     num_batches = num_images // total_batch_size
 
     # num_batches == num_iters in training
