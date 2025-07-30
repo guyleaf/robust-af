@@ -14,10 +14,13 @@
 # limitations under the License.
 
 
-from .dino_transformer import (
-    DINOTransformerEncoder,
-    DINOTransformerDecoder,
-    DINOTransformer,
-)
 from .dino import DINO
+from .dino_transformer import (
+    DINOTransformer,
+    DINOTransformerDecoder,
+    DINOTransformerEncoder,
+)
 from .dn_criterion import DINOCriterion
+from .robust_dino import RobustDINO
+from .robust_dino_transformer import RobustDINOTransformer, RobustDINOTransformerEncoder
+from .robust_dn_criterion import RobustDINOCriterion
