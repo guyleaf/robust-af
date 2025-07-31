@@ -283,6 +283,12 @@ def main(args):
     cfg = LazyConfig.load(args.config_file)
     cfg = LazyConfig.apply_overrides(cfg, args.opts)
     default_setup(cfg, args)
+    
+    # Enable fast debugging by running several iterations to check for any bugs.
+    if cfg.train.fast_dev_run.enabled:
+        cfg.train.max_iter = 20
+        cfg.train.eval_period = 10
+        cfg.train.log_period = 1
 
     if args.eval_only:
         model = instantiate(cfg.model)
