@@ -4,13 +4,13 @@ from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
 
 from robust_u2u_od.detrex.configs import get_config
-from robust_u2u_od.detrex.data.datasets.register_robust_anti_uav import DATASET_NAME
+from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
 from robust_u2u_od.detrex.utils import count_coco_images
 
-from ..models.dino_r50 import model
+from ..models.robust_dino_r50 import model
 
 # get default config
-dataloader = get_config(f"datasets/{DATASET_NAME}_low_detr.py").dataloader
+dataloader = get_config(f"datasets/{DATASET_NAME}_low_detr.py").robust_dataloader
 optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
@@ -35,11 +35,11 @@ lr = base_lr * (total_batch_size / base_batch_size)
 num_epochs = 12
 output_dir = os.path.expanduser(os.getenv("R_U2U_OD_WORKDIR", "./outputs"))
 output_dir = os.path.join(
-    output_dir, f"dino_r50_4scale/{DATASET_NAME}_low/dino_r50_4scale_12ep"
+    output_dir, f"robust_dino_r50_4scale/{DATASET_NAME}_low/robust_dino_r50_4scale_12ep"
 )
 
 # wandb settings
-tags = [*metadata.tags, "Test"]
+tags = [*metadata.tags]
 notes = ""
 
 # ==============================================================
@@ -96,7 +96,7 @@ train.wandb = dict(
     params=dict(
         dir=output_dir,
         project="robust-u2u-od",
-        group="dino_r50_4scale_12ep",
+        group="robust_dino_r50_4scale_12ep",
         job_type="from scratch",
         tags=tags,
         notes=notes,
