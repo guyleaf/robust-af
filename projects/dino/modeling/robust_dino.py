@@ -100,6 +100,7 @@ class RobustDINO(DINO):
         multi_level_feats: tuple[torch.Tensor, ...],
         batched_image_shape: tuple[int, int],
         batched_inputs: list[dict],
+        robust: bool = True,
     ):
         transformer_inputs_dict, transformer_outputs_dict = self._pre_transformer(
             multi_level_feats, batched_image_shape, batched_inputs
@@ -113,7 +114,7 @@ class RobustDINO(DINO):
             enc_state,
             enc_reference,  # [0..1]
             robust_hidden_states,
-        ) = self.transformer(**transformer_inputs_dict)
+        ) = self.transformer(**transformer_inputs_dict, robust=robust)
         # hack implementation for distributed training
         inter_states[0] += self.label_enc.weight[0, 0] * 0.0
 
@@ -150,7 +151,7 @@ class RobustDINO(DINO):
         with torch.no_grad():
             multi_level_feats = self._extract_feats(images.tensor)
             clear_output = self._forward_transformer(
-                multi_level_feats, images.tensor.shape[2:], batched_inputs
+                multi_level_feats, images.tensor.shape[2:], batched_inputs, robust=False
             )
             output["clear_robust_hidden_states"] = clear_output["robust_hidden_states"]
             del clear_output

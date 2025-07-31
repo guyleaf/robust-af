@@ -187,7 +187,7 @@ class RobustDINOTransformer(DINOTransformer):
         multi_level_feats,
         multi_level_masks,
         multi_level_pos_embeds,
-        query_embed,
+        query_embeds,
         attn_masks,
         **kwargs,
     ):
@@ -261,9 +261,9 @@ class RobustDINOTransformer(DINOTransformer):
             enc_outputs_coord_unact, 1, topk_proposals.unsqueeze(-1).repeat(1, 1, 4)
         )  # unsigmoided.
         reference_points = topk_coords_unact.detach().sigmoid()
-        if query_embed[1] is not None:
+        if query_embeds[1] is not None:
             reference_points = torch.cat(
-                [query_embed[1].sigmoid(), reference_points], 1
+                [query_embeds[1].sigmoid(), reference_points], 1
             )
         init_reference_out = reference_points
 
@@ -277,8 +277,8 @@ class RobustDINOTransformer(DINOTransformer):
             target = self.tgt_embed.weight[None].repeat(bs, 1, 1)
         else:
             target = target_unact.detach()
-        if query_embed[0] is not None:
-            target = torch.cat([query_embed[0], target], 1)
+        if query_embeds[0] is not None:
+            target = torch.cat([query_embeds[0], target], 1)
 
         # decoder
         inter_states, inter_references = self.decoder(
