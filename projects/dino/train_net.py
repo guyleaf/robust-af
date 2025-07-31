@@ -32,6 +32,8 @@ from detectron2.engine import (
 from detectron2.engine.defaults import create_ddp_model
 from detectron2.evaluation import inference_on_dataset, print_csv_format
 from detectron2.utils import comm
+from detectron2.utils.file_io import PathManager
+from detrex.utils import WandbWriter
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 
 sys.path.append(
@@ -247,6 +249,12 @@ def do_train(args, cfg):
         trainer=trainer,
     )
 
+    if comm.is_main_process():
+        writers = default_writers(cfg.train.output_dir, cfg.train.max_iter)
+        if cfg.train.wandb.enabled:
+            PathManager.mkdirs(cfg.train.wandb.params.dir)
+            writers.append(WandbWriter(cfg))
+
     trainer.register_hooks(
         [
             hooks.IterationTimer(),
@@ -255,10 +263,7 @@ def do_train(args, cfg):
             if comm.is_main_process()
             else None,
             hooks.EvalHook(cfg.train.eval_period, lambda: do_test(cfg, model)),
-            hooks.PeriodicWriter(
-                default_writers(cfg.train.output_dir, cfg.train.max_iter),
-                period=cfg.train.log_period,
-            )
+            hooks.PeriodicWriter(writers, period=cfg.train.log_period)
             if comm.is_main_process()
             else None,
             hooks.BestCheckpointer(
@@ -283,7 +288,7 @@ def main(args):
     cfg = LazyConfig.load(args.config_file)
     cfg = LazyConfig.apply_overrides(cfg, args.opts)
     default_setup(cfg, args)
-    
+
     # Enable fast debugging by running several iterations to check for any bugs.
     if cfg.train.fast_dev_run.enabled:
         cfg.train.max_iter = 20
