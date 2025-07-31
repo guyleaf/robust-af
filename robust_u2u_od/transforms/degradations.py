@@ -33,14 +33,18 @@ def apply_snow(image: np.ndarray, **kwargs):
     image = _apply_albu_transforms(transforms, image=image)["image"]
 
     aug = iaa.Snowflakes(
-        density=0.35, flake_size=(0.6, 0.8), speed=(0.01, 0.015), angle=0
+        density=0.35,
+        flake_size=(0.6, 0.8),
+        speed=(0.01, 0.015),
+        angle=0,
+        seed=np.random.get_bit_generator(),
     )
     image = aug.augment_image(image)
     return image
 
 
 def apply_fog(image: np.ndarray, **kwargs):
-    aug = iaa.Fog()
+    aug = iaa.Fog(seed=np.random.get_bit_generator())
     image = aug.augment_image(image)
 
     transforms = A.Compose(
@@ -51,7 +55,9 @@ def apply_fog(image: np.ndarray, **kwargs):
 
 
 def apply_rain(image: np.ndarray, **kwargs):
-    aug = iaa.Rain(drop_size=(0.40, 0.50), speed=(0.05, 0.1))
+    aug = iaa.Rain(
+        drop_size=(0.40, 0.50), speed=(0.05, 0.1), seed=np.random.get_bit_generator()
+    )
     image = aug.augment_image(image)
     return image
 
@@ -183,7 +189,7 @@ def apply_degradation(
     assert len(transforms & ignore_transforms) == len(ignore_transforms)
     transforms -= ignore_transforms
 
-    name = random.choice(list(transforms))
+    name = random.choice(sorted(transforms))
     image = DEGRADATION_TRANSFORMS[name](image, **kwargs)
     return image
 
