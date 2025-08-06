@@ -13,4 +13,6 @@ conda activate "$envName"
 pip install -r "$sourcePath/requirements.txt"
 
 # install yolov10
-pip install -e "$sourcePath"
+pip install "$sourcePath"
+
+echo -e "\033[0;32mInstallation Successfully!"
