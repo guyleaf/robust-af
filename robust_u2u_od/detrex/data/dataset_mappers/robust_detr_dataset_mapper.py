@@ -82,7 +82,7 @@ class RobustDetrDatasetMapper:
 
         # augment degraded image
         image = apply_degradation(
-            ori_image, ignore_transforms=self.ignored_degradations
+            ori_image, ignored_transforms=self.ignored_degradations
         )
         assert image.shape[:2] == ori_image.shape[:2]
         image = transforms.apply_image(image)
