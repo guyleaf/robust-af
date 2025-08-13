@@ -3,9 +3,13 @@ from ultralytics.models.yolov10 import (
 )
 
 from ..data import build_yolo_dataset
+from ..utils import DEFAULT_CFG
 
 
 class YOLOv10DetectionValidator(ORIGINAL_YOLOv10DetectionValidator):
+    def __init__(self, *args, cfg=DEFAULT_CFG, **kwargs):
+        super().__init__(*args, cfg=cfg, **kwargs)
+
     def build_dataset(self, img_path, mode="val", batch=None):
         """
         Build YOLO Dataset.
