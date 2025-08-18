@@ -2,7 +2,7 @@ import argparse
 
 from rich import print
 
-from robust_u2u_od.yolov10.models import YOLOv10
+from robust_u2u_od.yolov10.models import RobustYOLOv10, YOLOv10
 from robust_u2u_od.yolov10.utils import is_huggingface_hub_model, load_global_cfg
 
 
@@ -11,6 +11,12 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("cfg", type=str, help="Path to the config.")
+    parser.add_argument(
+        "--robust",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Use the robust version of YOLOv10.",
+    )
     # parser.add_argument(
     #     "opts",
     #     help="""
@@ -35,10 +41,15 @@ if __name__ == "__main__":
     model = cfg.get("model")
     pretrained = cfg.get("pretrained")
 
-    if is_huggingface_hub_model(model):
-        model = YOLOv10.from_pretrained(model, task=task)
+    if args.robust:
+        model_cls = RobustYOLOv10
     else:
-        model = YOLOv10(model, task=task)
+        model_cls = YOLOv10
+
+    if is_huggingface_hub_model(model):
+        model = model_cls.from_pretrained(model, task=task)
+    else:
+        model = model_cls(model, task=task)
 
     if isinstance(pretrained, str):
         model.load(pretrained)
