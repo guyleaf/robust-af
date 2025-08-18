@@ -1,3 +1,4 @@
+import torch
 from ultralytics.data import YOLODataset as ORIGINAL_YOLODataset
 from ultralytics.data.augment import Compose
 from ultralytics.utils import LOGGER
@@ -25,3 +26,12 @@ class YOLODataset(ORIGINAL_YOLODataset):
         return transforms
 
     # TODO: support mosaic & mixup with multiple degraded images?
+
+    @staticmethod
+    def collate_fn(batch: list[dict]):
+        """Collates data samples into batches."""
+        new_batch = ORIGINAL_YOLODataset.collate_fn(batch)
+        if "clear_img" in batch[0]:
+            clear_imgs = [sample["clear_img"] for sample in batch]
+            new_batch["clear_img"] = torch.stack(clear_imgs, 0)
+        return new_batch

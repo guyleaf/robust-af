@@ -9,20 +9,23 @@ from ultralytics.utils import (
 # Default configuration
 DEFAULT_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,
-    # TODO: move to default.yml?
     degradation=dict(enabled=False, seed=None, identity=True, ignored_degradations=[]),
 )
-DEFAULT_CFG_KEYS = DEFAULT_CFG_DICT.keys()
+DEFAULT_ROBUST_CFG_DICT = dict(
+    **DEFAULT_CFG_DICT,
+    cst_loss=dict(module="nn.MSELoss", weight=10),
+)
 DEFAULT_CFG = IterableSimpleNamespace(**DEFAULT_CFG_DICT)
+DEFAULT_ROBUST_CFG = IterableSimpleNamespace(**DEFAULT_ROBUST_CFG_DICT)
 
 
 def validate_global_cfg(cfg: dict):
     f"""Referenced from {entrypoint}"""
     full_args_dict = {
         **DEFAULT_CFG_DICT,
+        **DEFAULT_ROBUST_CFG_DICT,
         **{k: None for k in TASKS},
         **{k: None for k in MODES},
-        "degradation": {},
     }
 
     # Check keys
