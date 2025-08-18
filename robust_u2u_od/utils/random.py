@@ -7,6 +7,23 @@ import numpy as np
 import torch
 
 
+def save_random_states():
+    py_random_state = random.getstate()
+    np_random_state = np.random.get_state()
+    torch_random_state = torch.random.get_rng_state()
+    return py_random_state, np_random_state, torch_random_state
+
+
+def restore_random_states(
+    py_random_state: tuple,
+    np_random_state: dict,
+    torch_random_state: torch.Tensor,
+):
+    random.setstate(py_random_state)
+    np.random.set_state(np_random_state)
+    torch.random.set_rng_state(torch_random_state)
+
+
 class RandomContext(ContextDecorator):
     def __init__(
         self,
@@ -53,3 +70,16 @@ class RandomContext(ContextDecorator):
         if self.original_torch_rng_state is not None:
             self.torch_generator.set_state(torch.random.get_rng_state())
             torch.random.set_rng_state(self.original_torch_rng_state)
+
+
+class ReproducibleRandomContext(ContextDecorator):
+    def __enter__(self):
+        self.states = save_random_states()
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ):
+        restore_random_states(*self.states)
