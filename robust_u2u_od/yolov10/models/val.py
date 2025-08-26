@@ -3,6 +3,7 @@ from ultralytics.models.yolov10 import (
 )
 from ultralytics.utils.plotting import plot_images
 
+from ...utils.random import ReproducibleRandomContext
 from ..data import build_yolo_dataset
 from ..utils import DEFAULT_CFG, DEFAULT_ROBUST_CFG
 
@@ -31,12 +32,29 @@ class RobustYOLOv10DetectionValidator(YOLOv10DetectionValidator):
 
     def preprocess(self, batch: dict):
         """Preprocesses a batch of images by scaling and converting to float."""
-        batch = super().preprocess(batch)
-        batch["clear_img"] = batch["clear_img"].to(self.device, non_blocking=True)
-        batch["clear_img"] = (
-            batch["clear_img"].half() if self.args.half else batch["clear_img"].float()
-        ) / 255
+        with ReproducibleRandomContext():
+            batch = super().preprocess(batch)
+        batch["clear"] = super().preprocess(batch["clear"])
         return batch
+
+    def build_dataset(self, img_path, mode="val", batch=None):
+        """
+        Build YOLO Dataset.
+
+        Args:
+            img_path (str): Path to the folder containing images.
+            mode (str): `train` mode or `val` mode, users are able to customize different augmentations for each mode.
+            batch (int, optional): Size of batches, this is for `rect`. Defaults to None.
+        """
+        return build_yolo_dataset(
+            self.args,
+            img_path,
+            batch,
+            self.data,
+            mode=mode,
+            stride=self.stride,
+            robust=True,
+        )
 
     def plot_val_samples(self, batch: dict, ni: int):
         """Plot validation image samples."""

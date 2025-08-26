@@ -1,11 +1,13 @@
 from ultralytics.utils import colorstr
 
-from .dataset import YOLODataset
+from .dataset import RobustYOLODataset, YOLODataset
 
 
-def build_yolo_dataset(cfg, img_path, batch, data, mode="train", rect=False, stride=32):
+def build_yolo_dataset(
+    cfg, img_path, batch, data, mode="train", rect=False, stride=32, robust=False
+):
     """Build YOLO Dataset."""
-    return YOLODataset(
+    kwargs = dict(
         img_path=img_path,
         imgsz=cfg.imgsz,
         batch_size=batch,
@@ -22,3 +24,7 @@ def build_yolo_dataset(cfg, img_path, batch, data, mode="train", rect=False, str
         data=data,
         fraction=cfg.fraction if mode == "train" else 1.0,
     )
+    if robust:
+        return RobustYOLODataset(**kwargs)
+    else:
+        return YOLODataset(**kwargs)

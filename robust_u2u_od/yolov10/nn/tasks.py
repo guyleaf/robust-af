@@ -158,13 +158,19 @@ class RobustDetectionModel(tasks.DetectionModel):
         if not hasattr(self, "criterion"):
             self.criterion = self.init_criterion()
 
+        img = batch["img"]
+        clear_img = batch["clear"]["img"]
+        assert img.shape == clear_img.shape, (
+            "The degraded and normal images should be a pair."
+        )
+
         # NOTE: we need hidden states. so, we cannot reuse preds without returning hidden states.
         preds, robust_hidden_states = self._predict_once(
-            batch["img"], returns_robust_hidden_states=True
+            img, returns_robust_hidden_states=True
         )
         with torch.no_grad():
             _, clear_robust_hidden_states = self._predict_once(
-                batch["clear_img"], robust=False, returns_robust_hidden_states=True
+                clear_img, robust=False, returns_robust_hidden_states=True
             )
         preds = dict(
             preds=preds,
