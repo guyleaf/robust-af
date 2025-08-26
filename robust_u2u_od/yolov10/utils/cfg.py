@@ -13,7 +13,8 @@ DEFAULT_CFG_DICT = dict(
 )
 DEFAULT_ROBUST_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,
-    cst_loss=dict(module="nn.MSELoss", weight=10),
+    cst_loss=dict(module="nn.MSELoss", weight=20),
+    eval_bn_on_freeze=True,
 )
 DEFAULT_CFG = IterableSimpleNamespace(**DEFAULT_CFG_DICT)
 DEFAULT_ROBUST_CFG = IterableSimpleNamespace(**DEFAULT_ROBUST_CFG_DICT)

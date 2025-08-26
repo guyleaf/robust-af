@@ -10,6 +10,7 @@ from ultralytics.utils.plotting import plot_images
 from ultralytics.utils.torch_utils import de_parallel
 
 from robust_u2u_od.utils import ReproducibleRandomContext
+from robust_u2u_od.yolov10.utils import update_batch_norm_mode
 
 from ..data import build_yolo_dataset
 from ..nn.tasks import RobustYOLOv10DetectionModel
@@ -18,7 +19,6 @@ from ..utils import (
     DEFAULT_CFG_DICT,
     DEFAULT_ROBUST_CFG,
     DEFAULT_ROBUST_CFG_DICT,
-    update_batch_norm_mode,
 )
 from .val import RobustYOLOv10DetectionValidator, YOLOv10DetectionValidator
 
@@ -88,12 +88,29 @@ class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
         """Preprocesses a batch of images by scaling and converting to float."""
         with ReproducibleRandomContext():
             batch = super().preprocess_batch(batch)
-        img = batch["img"]
-        batch["img"] = batch["clear_img"]
-        batch = super().preprocess_batch(batch)
-        batch["clear_img"] = batch["img"]
-        batch["img"] = img
+        batch["clear"] = super().preprocess_batch(batch["clear"])
         return batch
+
+    def build_dataset(self, img_path, mode="train", batch=None):
+        """
+        Build YOLO Dataset.
+
+        Args:
+            img_path (str): Path to the folder containing images.
+            mode (str): `train` mode or `val` mode, users are able to customize different augmentations for each mode.
+            batch (int, optional): Size of batches, this is for `rect`. Defaults to None.
+        """
+        gs = max(int(de_parallel(self.model).stride.max() if self.model else 0), 32)
+        return build_yolo_dataset(
+            self.args,
+            img_path,
+            batch,
+            self.data,
+            mode=mode,
+            rect=mode == "val",
+            stride=gs,
+            robust=True,
+        )
 
     def get_validator(self):
         """Returns a DetectionValidator for YOLO model validation."""
@@ -116,25 +133,26 @@ class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
 
     def get_model(self, cfg=None, weights=None, verbose=True):
         """Return a YOLO detection model."""
-        # wrap the train method to set BatchNorm2d to eval mode if frozon
-        freeze_list = (
-            self.args.freeze
-            if isinstance(self.args.freeze, list)
-            else list(range(self.args.freeze))
-            if isinstance(self.args.freeze, int)
-            else []
-        )
+        if self.args.eval_bn_on_freeze:
+            # wrap the train method to set BatchNorm2d to eval mode if frozon
+            freeze_list = (
+                self.args.freeze
+                if isinstance(self.args.freeze, list)
+                else list(range(self.args.freeze))
+                if isinstance(self.args.freeze, int)
+                else []
+            )
 
-        def _train(self: RobustYOLOv10DetectionModel, mode: bool = True):
-            super(RobustYOLOv10DetectionModel, self).train(mode)
-            if mode:
-                for i in freeze_list:
-                    update_batch_norm_mode(self.model[i], False)
-                if verbose:
-                    LOGGER.info("Set BatchNorms in freeze list to eval mode!")
-            return self
+            def _train(self: RobustYOLOv10DetectionModel, mode: bool = True):
+                super(RobustYOLOv10DetectionModel, self).train(mode)
+                if mode:
+                    for i in freeze_list:
+                        update_batch_norm_mode(self.model[i], False)
+                    if verbose:
+                        LOGGER.info("Set BatchNorms in freeze list to eval mode!")
+                return self
 
-        RobustYOLOv10DetectionModel.train = _train
+            RobustYOLOv10DetectionModel.train = _train
 
         model = RobustYOLOv10DetectionModel(
             cfg,
