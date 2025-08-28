@@ -174,12 +174,14 @@ class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
             fname=self.save_dir / f"train_batch{ni}.jpg",
             on_plot=self.on_plot,
         )
+
+        clear_batch = batch["clear"]
         plot_images(
-            images=batch["clear_img"],
-            batch_idx=batch["batch_idx"],
-            cls=batch["cls"].squeeze(-1),
-            bboxes=batch["bboxes"],
-            paths=batch["im_file"],
+            images=clear_batch["img"],
+            batch_idx=clear_batch["batch_idx"],
+            cls=clear_batch["cls"].squeeze(-1),
+            bboxes=clear_batch["bboxes"],
+            paths=clear_batch["im_file"],
             fname=self.save_dir / f"train_batch{ni}_clear.jpg",
             on_plot=self.on_plot,
         )

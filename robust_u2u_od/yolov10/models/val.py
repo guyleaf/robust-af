@@ -68,12 +68,14 @@ class RobustYOLOv10DetectionValidator(YOLOv10DetectionValidator):
             names=self.names,
             on_plot=self.on_plot,
         )
+
+        clear_batch = batch["clear"]
         plot_images(
-            batch["clear_img"],
-            batch["batch_idx"],
-            batch["cls"].squeeze(-1),
-            batch["bboxes"],
-            paths=batch["im_file"],
+            clear_batch["img"],
+            clear_batch["batch_idx"],
+            clear_batch["cls"].squeeze(-1),
+            clear_batch["bboxes"],
+            paths=clear_batch["im_file"],
             fname=self.save_dir / f"val_batch{ni}_labels_clear.jpg",
             names=self.names,
             on_plot=self.on_plot,
