@@ -12,6 +12,7 @@ dependencies:
       - wandb
       - -e .
 variables:
-  # GPUS: 4
+  GPUS: 4
+  SEED: 2025
   # helper variable for setting workdir in configs
   # R_U2U_OD_WORKDIR: ~/work/work_dirs/rtdetrv2
