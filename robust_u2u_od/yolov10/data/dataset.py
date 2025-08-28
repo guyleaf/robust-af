@@ -12,8 +12,14 @@ class YOLODataset(ORIGINAL_YOLODataset):
     def _build_degradation_transform(self, hyp: SimpleNamespace):
         if hyp.degradation["enabled"]:
             LOGGER.info("Degradation transform enabled!")
+
+            # use diff seed in training stage to avoid using the same random sequence in val/test stage
+            seed = hyp.degradation["seed"]
+            if seed is not None and self.augment:
+                seed += 666
+
             return Degradation(
-                seed=hyp.degradation["seed"],
+                seed=seed,
                 identity=hyp.degradation["identity"],
                 ignored_degradations=hyp.degradation["ignored_degradations"],
             )
@@ -22,6 +28,7 @@ class YOLODataset(ORIGINAL_YOLODataset):
 
     def build_transforms(self, hyp: Optional[SimpleNamespace] = None):
         """Builds and appends transforms to the list."""
+        assert hyp is not None
         transforms = super().build_transforms(hyp)
         if self.augment:
             return transforms
@@ -60,24 +67,26 @@ class RobustYOLODataset(YOLODataset):
             )
             transform.append(formatter)
             robust_transform.append(formatter)
-            transforms = Compose(
-                [
-                    MultiBranch(
-                        "degraded",
-                        reproduce_randomness=True,
-                        clear=transform,
-                        degraded=robust_transform,
-                    )
-                ]
-            )
         else:
-            transforms = Compose(
+            # support calculating loss in validation/testing
+            transform = Compose(
                 [
-                    degradation_transform,
                     LetterBox(new_shape=(self.imgsz, self.imgsz), scaleup=False),
                     formatter,
                 ]
             )
+            robust_transform = Compose([degradation_transform, *transform.tolist()])
+
+        transforms = Compose(
+            [
+                MultiBranch(
+                    "degraded",
+                    reproduce_randomness=True,
+                    clear=transform,
+                    degraded=robust_transform,
+                )
+            ]
+        )
         return transforms
 
     @staticmethod
