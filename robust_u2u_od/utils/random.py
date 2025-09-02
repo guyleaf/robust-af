@@ -7,6 +7,7 @@ import numpy as np
 import torch
 
 
+# TODO: rename to xxx_global_random_states
 def save_random_states():
     py_random_state = random.getstate()
     np_random_state = np.random.get_state()
@@ -25,6 +26,17 @@ def restore_random_states(
 
 
 class RandomContext(ContextDecorator):
+    """A context decorator for controlling the global random states with the following steps.
+
+    1. Saving the global random states
+    2. (Optional) Setting the global random states with generators
+        ...after finishing
+    3. (Optional) Setting the global random states back to generators
+    4. Restoring the global random states
+
+    By default, it can be used for reproducing the global random states.
+    """
+
     def __init__(
         self,
         np_random_generator: Optional[np.random.Generator] = None,
@@ -32,7 +44,7 @@ class RandomContext(ContextDecorator):
         torch_generator: Optional[torch.Generator] = None,
         # TODO: support GPU version?
     ):
-        self.random_generator = np_random_generator
+        self.np_random_generator = np_random_generator
         self.py_random = py_random
         self.torch_generator = torch_generator
 
@@ -40,18 +52,33 @@ class RandomContext(ContextDecorator):
         self.original_py_random_state = None
         self.original_torch_rng_state = None
 
-    def __enter__(self):
-        if self.random_generator is not None:
-            self.original_np_bit_generator = np.random.get_bit_generator()
-            np.random.set_bit_generator(self.random_generator.bit_generator)
+    @property
+    def with_numpy(self):
+        return self.np_random_generator is not None
 
-        if self.py_random is not None:
-            self.original_py_random_state = random.getstate()
+    @property
+    def with_python(self):
+        return self.py_random is not None
+
+    @property
+    def with_torch(self):
+        return self.torch_generator is not None
+
+    def __enter__(self):
+        # 1.
+        self.original_np_bit_generator = np.random.get_bit_generator()
+        self.original_py_random_state = random.getstate()
+        self.original_torch_rng_state = torch.random.get_rng_state()
+
+        # 2.
+        if self.with_numpy:
+            np.random.set_bit_generator(self.np_random_generator.bit_generator)
+
+        if self.with_python:
             random.setstate(self.py_random.getstate())
 
-        if self.torch_generator is not None:
+        if self.with_torch:
             assert self.torch_generator.device.type == "cpu"
-            self.original_torch_rng_state = torch.random.get_rng_state()
             torch.random.set_rng_state(self.torch_generator.get_state())
 
     def __exit__(
@@ -60,26 +87,27 @@ class RandomContext(ContextDecorator):
         exc_value: Optional[BaseException],
         traceback: Optional[TracebackType],
     ):
+        # 3.
+        # In numpy, the bit generator manages its own random states
+        # So, we don't need to set back to the generator.
+
+        if self.with_python:
+            self.py_random.setstate(random.getstate())
+
+        if self.with_torch:
+            self.torch_generator.set_state(torch.random.get_rng_state())
+
+        # 4.
         if self.original_np_bit_generator is not None:
             np.random.set_bit_generator(self.original_np_bit_generator)
 
         if self.original_py_random_state is not None:
-            self.py_random.setstate(random.getstate())
             random.setstate(self.original_py_random_state)
 
         if self.original_torch_rng_state is not None:
-            self.torch_generator.set_state(torch.random.get_rng_state())
             torch.random.set_rng_state(self.original_torch_rng_state)
 
 
-class ReproducibleRandomContext(ContextDecorator):
-    def __enter__(self):
-        self.states = save_random_states()
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ):
-        restore_random_states(*self.states)
+# (deprecated, backward compatibility) legacy class
+# TODO: remove it
+ReproducibleRandomContext = RandomContext
