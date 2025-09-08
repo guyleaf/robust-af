@@ -1,0 +1,20 @@
+__include__: ["./dataloader.yml"]
+
+train_dataloader:
+  dataset:
+    type: RobustCocoDetection
+    robust_transforms:
+      type: Compose
+      ops:
+        - { type: Degradation, identity: True }
+
+  collate_fn:
+    type: RobustBatchImageCollateFuncion
+
+val_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - { type: Degradation, identity: True }
+        - { type: Resize, size: [640, 640] }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }

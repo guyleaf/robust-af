@@ -18,4 +18,5 @@ torchrun \
     --print-method rich \
     --seed "$SEED" \
     --test-only \
+    --preloads "robust_u2u_od.rtdetrv2" \
     "${@:3}"

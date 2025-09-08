@@ -1,5 +1,6 @@
 
 dataset/*
 !dataset/*.md
+output
 output/
-log.txt
+*.txt
