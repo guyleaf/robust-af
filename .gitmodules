@@ -6,3 +6,7 @@
 	path = 3rdparty/yolov10
 	url = https://github.com/guyleaf/yolov10.git
 	branch = main
+[submodule "3rdparty/yolov9"]
+	path = 3rdparty/yolov9
+	url = https://github.com/guyleaf/yolov9.git
+	branch = main
