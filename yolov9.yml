@@ -12,7 +12,5 @@ dependencies:
       - numpy<2
       - wandb
       - -e .
-# variables:
-  # GPUS: 4
-  # helper variable for setting workdir in configs
-  # R_U2U_OD_WORKDIR: ~/work/work_dirs/yolov10
+variables:
+  GPUS: 4
