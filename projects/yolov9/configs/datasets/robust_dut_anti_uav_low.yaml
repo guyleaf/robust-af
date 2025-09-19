@@ -1,0 +1,8 @@
+path: Robust_DUT_Anti_UAV_Low # dataset root dir
+train: train.txt # train images (relative to 'path')
+val: val.txt # val images (relative to 'path')
+test: val.txt # test images (relative to 'path')
+
+# Classes
+names:
+  0: drone
