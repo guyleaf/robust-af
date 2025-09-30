@@ -1,11 +1,11 @@
 __include__: ["../rtdetrv2_r18vd_120e_robust_dut_anti_uav_low.yml"]
 
-output_dir: ./output/rtdetrv2_r18vd/robust_dut_anti_uav_low/robust_dut_anti_uav_low/rtdetrv2_r18vd_120e_testing_degraded_2
+output_dir: ./output/rtdetrv2_r18vd/robust_dut_anti_uav_low/robust_dut_anti_uav_low/rtdetrv2_r18vd_120e_testing_degraded
 
 val_dataloader:
   dataset:
     transforms:
       ops:
-        - { type: Degradation, identity: False, seed: 2222 }
+        - { type: Degradation, identity: False, seed: 2025 }
         - { type: Resize, size: [640, 640] }
         - { type: ConvertPILImage, dtype: "float32", scale: True }

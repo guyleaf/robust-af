@@ -8,6 +8,7 @@ GPUS=${GPUS:-4}
 PORT=${PORT:-9909}
 SEED=${SEED:-2025}
 
+# TODO: missing --use-amp
 torchrun \
     --master-port "$PORT" \
     --nproc-per-node "$GPUS" \
