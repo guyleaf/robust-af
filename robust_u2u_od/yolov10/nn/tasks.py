@@ -192,7 +192,7 @@ class RobustYOLOv10DetectionModel(RobustDetectionModel):
         return RobustDetectLoss(v10DetectLoss(self), cst_loss, weight=weight)
 
 
-def get_module(module: str) -> nn.Module:
+def get_module(module: str) -> type[nn.Module]:
     if module.startswith("nn."):
         return getattr(nn, module[3:])
     elif module.startswith("robust_modules."):
