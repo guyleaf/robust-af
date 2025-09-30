@@ -17,7 +17,7 @@ from ultralytics.data.augment import (
 from ultralytics.utils import LOGGER, RANK
 
 from ...transforms import apply_degradation
-from ..utils import get_worker_id, restore_random_states, save_random_states
+from ...utils import get_worker_id, restore_random_states, save_random_states
 
 
 class Identity:
