@@ -1,11 +1,14 @@
 import os
 
+from detectron2.config import LazyCall as L
 from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
+from omegaconf import OmegaConf
 
 from robust_u2u_od.detrex.configs import get_config
 from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
 from robust_u2u_od.detrex.utils import count_coco_images
+from robust_u2u_od.models.robust_layers import SpatialAMFG
 
 from ..models.robust_dino_r50 import model
 
@@ -36,16 +39,18 @@ num_epochs = 12
 output_dir = os.path.expanduser(os.getenv("R_U2U_OD_WORKDIR", "./outputs"))
 output_dir = os.path.join(
     output_dir,
-    f"robust_dino_r50_4scale/{DATASET_NAME}_low/robust_dino_r50_4scale_12ep_spatial_att_1",
+    f"robust_dino_r50_4scale/{DATASET_NAME}_low/robust_dino_r50_4scale_12ep_spatial_spatial_att_1",
 )
 
 # wandb settings
-tags = ["1x1 Patch", *metadata.tags]
+tags = ["Spatial AMFG", "1x1 Patch", *metadata.tags]
 notes = ""
 
 # ==============================================================
 
-model.transformer.encoder.robust_layer.spatial_attention = 1
+model.transformer.encoder.robust_layer = OmegaConf.merge(
+    model.transformer.encoder.robust_layer, L(SpatialAMFG)(spatial_attention=1)
+)
 
 # modify training config
 train.init_checkpoint = "/home/leafying/work/work_dirs/detrex/dino_r50_4scale/robust_dut_anti_uav_low/dino_r50_4scale_12ep/model_final.pth"
