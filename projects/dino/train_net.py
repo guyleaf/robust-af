@@ -36,6 +36,8 @@ from detectron2.utils.file_io import PathManager
 from detrex.utils import WandbWriter
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 
+from robust_u2u_od.detrex.engine import BestCheckpointer
+
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
@@ -80,7 +82,7 @@ class Trainer(SimpleTrainer):
                 from torch.cuda.amp import GradScaler
 
                 grad_scaler = GradScaler()
-            self.grad_scaler = grad_scaler
+        self.grad_scaler = grad_scaler
 
         # set True to use amp training
         self.amp = amp
@@ -266,7 +268,7 @@ def do_train(args, cfg):
             hooks.PeriodicWriter(writers, period=cfg.train.log_period)
             if comm.is_main_process()
             else None,
-            hooks.BestCheckpointer(
+            BestCheckpointer(
                 cfg.train.eval_period, checkpointer, **cfg.train.best_checkpointer
             )
             if comm.is_main_process() and cfg.train.get("best_checkpointer") is not None
