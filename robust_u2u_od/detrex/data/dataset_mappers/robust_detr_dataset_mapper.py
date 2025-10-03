@@ -33,6 +33,7 @@ class RobustDetrDatasetMapper:
             masks into this format.
         recompute_boxes: whether to overwrite bounding box annotations
             by computing tight bounding boxes from instance mask annotations.
+        identity: whether add identity (skip connection) to degradations.
         ignored_degradations: a list of ignored degradations which won't be used.
     """
 
@@ -45,6 +46,7 @@ class RobustDetrDatasetMapper:
         use_instance_mask: bool = False,
         instance_mask_format: str = "polygon",
         recompute_boxes: bool = False,
+        identity: bool = True,
         ignored_degradations: list[str] = [],
     ):
         self.use_instance_mask = use_instance_mask
@@ -53,6 +55,7 @@ class RobustDetrDatasetMapper:
         self.augmentations = T.AugmentationList(augmentations)
         self.image_format = image_format
         self.is_train = is_train
+        self.identity = identity
         self.ignored_degradations = ignored_degradations
 
         logger = logging.getLogger(__name__)
@@ -82,7 +85,9 @@ class RobustDetrDatasetMapper:
 
         # augment degraded image
         image = apply_degradation(
-            ori_image, ignore_transforms=self.ignored_degradations
+            ori_image,
+            identity=self.identity,
+            ignore_transforms=self.ignored_degradations,
         )
         assert image.shape[:2] == ori_image.shape[:2]
         image = transforms.apply_image(image)
