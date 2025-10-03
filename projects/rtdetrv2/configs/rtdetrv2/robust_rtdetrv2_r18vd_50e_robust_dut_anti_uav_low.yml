@@ -7,7 +7,7 @@ __include__:
     "./include/robust_rtdetrv2_r50vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/robust_dut_anti_uav_low/robust_rtdetrv2_r18vd_50e_no_color_augs_in_clear
+output_dir: ./output/rtdetrv2_r18vd/robust_dut_anti_uav_low/robust_rtdetrv2_r18vd_50e_2
 
 PResNet:
   depth: 18
