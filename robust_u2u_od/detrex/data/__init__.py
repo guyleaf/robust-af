@@ -1,3 +1,4 @@
-from . import datasets
+# ruff: noqa: F401
+from . import dataset_mappers, datasets
 
-__all__ = ["datasets"]
+__all__ = list(globals().keys())

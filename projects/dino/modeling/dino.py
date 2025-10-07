@@ -15,19 +15,18 @@
 
 import copy
 import math
-import numpy as np
 from typing import List, Optional
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from detrex.layers import MLP, box_cxcywh_to_xyxy, box_xyxy_to_cxcywh
-from detrex.utils import inverse_sigmoid
-
+from detectron2.data.detection_utils import convert_image_to_rgb
 from detectron2.modeling import detector_postprocess
 from detectron2.structures import Boxes, ImageList, Instances
 from detectron2.utils.events import get_event_storage
-from detectron2.data.detection_utils import convert_image_to_rgb
+from detrex.layers import MLP, box_cxcywh_to_xyxy, box_xyxy_to_cxcywh
+from detrex.utils import inverse_sigmoid
 
 
 class DINO(nn.Module):
@@ -126,8 +125,12 @@ class DINO(nn.Module):
 
         # if two-stage, the last class_embed and bbox_embed is for region proposal generation
         num_pred = transformer.decoder.num_layers + 1
-        self.class_embed = nn.ModuleList([copy.deepcopy(self.class_embed) for i in range(num_pred)])
-        self.bbox_embed = nn.ModuleList([copy.deepcopy(self.bbox_embed) for i in range(num_pred)])
+        self.class_embed = nn.ModuleList(
+            [copy.deepcopy(self.class_embed) for i in range(num_pred)]
+        )
+        self.bbox_embed = nn.ModuleList(
+            [copy.deepcopy(self.bbox_embed) for i in range(num_pred)]
+        )
         nn.init.constant_(self.bbox_embed[0].layers[-1].bias.data[2:], -2.0)
 
         # two-stage
@@ -145,96 +148,93 @@ class DINO(nn.Module):
         self.input_format = input_format
         self.vis_period = vis_period
         if vis_period > 0:
-            assert input_format is not None, "input_format is required for visualization!"
+            assert input_format is not None, (
+                "input_format is required for visualization!"
+            )
 
+    def _extract_feats(self, images: torch.Tensor) -> tuple[torch.Tensor, ...]:
+        # original features
+        features = self.backbone(images)  # output feature dict
 
-    def forward(self, batched_inputs):
-        """Forward function of `DINO` which excepts a list of dict as inputs.
+        # project backbone features to the required dimension of transformer
+        # we use multi-scale features in DINO
+        features = self.neck(features)
+        return features
 
-        Args:
-            batched_inputs (List[dict]): A list of instance dict, and each instance dict must consists of:
-                - dict["image"] (torch.Tensor): The unnormalized image tensor.
-                - dict["height"] (int): The original image height.
-                - dict["width"] (int): The original image width.
-                - dict["instance"] (detectron2.structures.Instances):
-                    Image meta informations and ground truth boxes and labels during training.
-                    Please refer to
-                    https://detectron2.readthedocs.io/en/latest/modules/structures.html#detectron2.structures.Instances
-                    for the basic usage of Instances.
-
-        Returns:
-            dict: Returns a dict with the following elements:
-                - dict["pred_logits"]: the classification logits for all queries (anchor boxes in DAB-DETR).
-                            with shape ``[batch_size, num_queries, num_classes]``
-                - dict["pred_boxes"]: The normalized boxes coordinates for all queries in format
-                    ``(x, y, w, h)``. These values are normalized in [0, 1] relative to the size of
-                    each individual image (disregarding possible padding). See PostProcess for information
-                    on how to retrieve the unnormalized bounding box.
-                - dict["aux_outputs"]: Optional, only returned when auxilary losses are activated. It is a list of
-                            dictionnaries containing the two above keys for each decoder layer.
-        """
-        images = self.preprocess_image(batched_inputs)
-
+    def _pre_transformer(
+        self,
+        multi_level_feats: tuple[torch.Tensor, ...],
+        batched_image_shape: tuple[int, int],
+        batched_inputs: list[dict],
+    ):
+        batch_size = len(batched_inputs)
+        H, W = batched_image_shape
         if self.training:
-            batch_size, _, H, W = images.tensor.shape
-            img_masks = images.tensor.new_ones(batch_size, H, W)
-            for img_id in range(batch_size):
-                img_h, img_w = batched_inputs[img_id]["instances"].image_size
+            img_masks = multi_level_feats[0].new_ones(batch_size, H, W)
+            for img_id, batched_input in enumerate(batched_inputs):
+                img_h, img_w = batched_input["instances"].image_size
                 img_masks[img_id, :img_h, :img_w] = 0
         else:
-            batch_size, _, H, W = images.tensor.shape
-            img_masks = images.tensor.new_zeros(batch_size, H, W)
+            # NOTE: in the testing stage, the batch size is always 1 in detrex.
+            assert batch_size == 1
+            img_masks = multi_level_feats[0].new_zeros(batch_size, H, W)
 
-        # original features
-        features = self.backbone(images.tensor)  # output feature dict
-
-        # project backbone features to the reuired dimension of transformer
-        # we use multi-scale features in DINO
-        multi_level_feats = self.neck(features)
         multi_level_masks = []
-        multi_level_position_embeddings = []
+        multi_level_pos_embeds = []
         for feat in multi_level_feats:
             multi_level_masks.append(
-                F.interpolate(img_masks[None], size=feat.shape[-2:]).to(torch.bool).squeeze(0)
+                F.interpolate(img_masks[None], size=feat.shape[-2:])
+                .to(torch.bool)
+                .squeeze(0)
             )
-            multi_level_position_embeddings.append(self.position_embedding(multi_level_masks[-1]))
+            multi_level_pos_embeds.append(
+                self.position_embedding(multi_level_masks[-1])
+            )
 
-        # denoising preprocessing
-        # prepare label query embedding
         if self.training:
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
             targets = self.prepare_targets(gt_instances)
-            input_query_label, input_query_bbox, attn_mask, dn_meta = self.prepare_for_cdn(
-                targets,
-                dn_number=self.dn_number,
-                label_noise_ratio=self.label_noise_ratio,
-                box_noise_scale=self.box_noise_scale,
-                num_queries=self.num_queries,
-                num_classes=self.num_classes,
-                hidden_dim=self.embed_dim,
-                label_enc=self.label_enc,
+            input_query_label, input_query_bbox, attn_mask, dn_meta = (
+                self.prepare_for_cdn(
+                    targets,
+                    dn_number=self.dn_number,
+                    label_noise_ratio=self.label_noise_ratio,
+                    box_noise_scale=self.box_noise_scale,
+                    num_queries=self.num_queries,
+                    num_classes=self.num_classes,
+                    hidden_dim=self.embed_dim,
+                    label_enc=self.label_enc,
+                )
             )
         else:
-            input_query_label, input_query_bbox, attn_mask, dn_meta = None, None, None, None
-        query_embeds = (input_query_label, input_query_bbox)
+            targets = None
+            input_query_label, input_query_bbox, attn_mask, dn_meta = (
+                None,
+                None,
+                None,
+                None,
+            )
 
-        # feed into transformer
-        (
-            inter_states,
-            init_reference,
-            inter_references,
-            enc_state,
-            enc_reference,  # [0..1]
-        ) = self.transformer(
-            multi_level_feats,
-            multi_level_masks,
-            multi_level_position_embeddings,
-            query_embeds,
+        transformer_inputs_dict = dict(
+            multi_level_feats=multi_level_feats,
+            multi_level_masks=multi_level_masks,
+            multi_level_pos_embeds=multi_level_pos_embeds,
+            query_embeds=(input_query_label, input_query_bbox),
             attn_masks=[attn_mask, None],
+            dn_meta=dn_meta,
         )
-        # hack implementation for distributed training
-        inter_states[0] += self.label_enc.weight[0, 0] * 0.0
+        transformer_outputs_dict = dict(targets=targets, dn_meta=dn_meta)
+        return transformer_inputs_dict, transformer_outputs_dict
 
+    def _post_transformer(
+        self,
+        inter_states: torch.Tensor,
+        init_reference: torch.Tensor,
+        inter_references: torch.Tensor,
+        enc_state: torch.Tensor,
+        enc_reference: torch.Tensor,
+        dn_meta: Optional[dict] = None,
+    ):
         # Calculate output coordinates and classes.
         outputs_classes = []
         outputs_coords = []
@@ -265,48 +265,129 @@ class DINO(nn.Module):
                 outputs_class, outputs_coord, dn_meta
             )
 
-        # prepare for loss computation
         output = {"pred_logits": outputs_class[-1], "pred_boxes": outputs_coord[-1]}
+        # prepare for loss computation
         if self.aux_loss:
             output["aux_outputs"] = self._set_aux_loss(outputs_class, outputs_coord)
 
         # prepare two stage output
         interm_coord = enc_reference
         interm_class = self.transformer.decoder.class_embed[-1](enc_state)
-        output["enc_outputs"] = {"pred_logits": interm_class, "pred_boxes": interm_coord}
+        output["enc_outputs"] = {
+            "pred_logits": interm_class,
+            "pred_boxes": interm_coord,
+        }
+        return output
 
+    def _forward_transformer(
+        self,
+        multi_level_feats: tuple[torch.Tensor, ...],
+        batched_image_shape: tuple[int, int],
+        batched_inputs: list[dict],
+    ):
+        transformer_inputs_dict, transformer_outputs_dict = self._pre_transformer(
+            multi_level_feats, batched_image_shape, batched_inputs
+        )
+
+        # feed into transformer
+        (
+            inter_states,
+            init_reference,
+            inter_references,
+            enc_state,
+            enc_reference,  # [0..1]
+        ) = self.transformer(**transformer_inputs_dict)
+        # hack implementation for distributed training
+        inter_states[0] += self.label_enc.weight[0, 0] * 0.0
+
+        output = self._post_transformer(
+            inter_states,
+            init_reference,
+            inter_references,
+            enc_state,
+            enc_reference,
+            dn_meta=transformer_inputs_dict["dn_meta"],
+        )
+        transformer_outputs_dict.update(output)
+        return transformer_outputs_dict
+
+    def _loss(self, batched_inputs: list[dict]):
+        images = self.preprocess_image(batched_inputs)
+        multi_level_feats = self._extract_feats(images.tensor)
+        output = self._forward_transformer(
+            multi_level_feats, images.tensor.shape[2:], batched_inputs
+        )
+
+        # visualize training samples
+        if self.vis_period > 0:
+            storage = get_event_storage()
+            if storage.iter % self.vis_period == 0:
+                box_cls = output["pred_logits"]
+                box_pred = output["pred_boxes"]
+                results = self.inference(box_cls, box_pred, images.image_sizes)
+                self.visualize_training(batched_inputs, results)
+
+        # compute loss
+        targets = output.pop("targets")
+        dn_meta = output.pop("dn_meta")
+        loss_dict = self.criterion(output, targets, dn_meta)
+        weight_dict = self.criterion.weight_dict
+        for k in loss_dict.keys():
+            if k in weight_dict:
+                loss_dict[k] *= weight_dict[k]
+        return loss_dict
+
+    def _predict(self, batched_inputs: list[dict]):
+        images = self.preprocess_image(batched_inputs)
+        multi_level_feats = self._extract_feats(images.tensor)
+        output = self._forward_transformer(
+            multi_level_feats, images.tensor.shape[2:], batched_inputs
+        )
+
+        box_cls = output["pred_logits"]
+        box_pred = output["pred_boxes"]
+        results = self.inference(box_cls, box_pred, images.image_sizes)
+        processed_results = []
+        for results_per_image, input_per_image, image_size in zip(
+            results, batched_inputs, images.image_sizes
+        ):
+            height = input_per_image.get("height", image_size[0])
+            width = input_per_image.get("width", image_size[1])
+            r = detector_postprocess(results_per_image, height, width)
+            processed_results.append({"instances": r})
+        return processed_results
+
+    def forward(self, *args, **kwargs):
+        """Forward function of `DINO` which excepts a list of dict as inputs.
+
+        Args:
+            batched_inputs (List[dict]): A list of instance dict, and each instance dict must consists of:
+                - dict["image"] (torch.Tensor): The unnormalized image tensor.
+                - dict["height"] (int): The original image height.
+                - dict["width"] (int): The original image width.
+                - dict["instance"] (detectron2.structures.Instances):
+                    Image meta informations and ground truth boxes and labels during training.
+                    Please refer to
+                    https://detectron2.readthedocs.io/en/latest/modules/structures.html#detectron2.structures.Instances
+                    for the basic usage of Instances.
+
+        Returns:
+            dict: Returns a dict with the following elements:
+                - dict["pred_logits"]: the classification logits for all queries (anchor boxes in DAB-DETR).
+                            with shape ``[batch_size, num_queries, num_classes]``
+                - dict["pred_boxes"]: The normalized boxes coordinates for all queries in format
+                    ``(x, y, w, h)``. These values are normalized in [0, 1] relative to the size of
+                    each individual image (disregarding possible padding). See PostProcess for information
+                    on how to retrieve the unnormalized bounding box.
+                - dict["aux_outputs"]: Optional, only returned when auxilary losses are activated. It is a list of
+                            dictionnaries containing the two above keys for each decoder layer.
+        """
         if self.training:
-            # visualize training samples
-            if self.vis_period > 0:
-                storage = get_event_storage()
-                if storage.iter % self.vis_period == 0:
-                    box_cls = output["pred_logits"]
-                    box_pred = output["pred_boxes"]
-                    results = self.inference(box_cls, box_pred, images.image_sizes)
-                    self.visualize_training(batched_inputs, results)
-            
-            # compute loss
-            loss_dict = self.criterion(output, targets, dn_meta)
-            weight_dict = self.criterion.weight_dict
-            for k in loss_dict.keys():
-                if k in weight_dict:
-                    loss_dict[k] *= weight_dict[k]
-            return loss_dict
+            return self._loss(*args, **kwargs)
         else:
-            box_cls = output["pred_logits"]
-            box_pred = output["pred_boxes"]
-            results = self.inference(box_cls, box_pred, images.image_sizes)
-            processed_results = []
-            for results_per_image, input_per_image, image_size in zip(
-                results, batched_inputs, images.image_sizes
-            ):
-                height = input_per_image.get("height", image_size[0])
-                width = input_per_image.get("width", image_size[1])
-                r = detector_postprocess(results_per_image, height, width)
-                processed_results.append({"instances": r})
-            return processed_results
+            return self._predict(*args, **kwargs)
 
-    def visualize_training(self, batched_inputs, results):
+    def visualize_training(self, batched_inputs: list[dict], results: list[Instances]):
         from detectron2.utils.visualizer import Visualizer
 
         storage = get_event_storage()
@@ -320,7 +401,10 @@ class DINO(nn.Module):
             anno_img = v_gt.get_image()
             v_pred = Visualizer(img, None)
             v_pred = v_pred.overlay_instances(
-                boxes=results_per_image.pred_boxes[:max_vis_box].tensor.detach().cpu().numpy()
+                boxes=results_per_image.pred_boxes[:max_vis_box]
+                .tensor.detach()
+                .cpu()
+                .numpy()
             )
             pred_img = v_pred.get_image()
             vis_img = np.concatenate((anno_img, pred_img), axis=1)
@@ -329,9 +413,8 @@ class DINO(nn.Module):
             storage.put_image(vis_name, vis_img)
             break  # only visualize one image in a batch
 
-
     @torch.jit.unused
-    def _set_aux_loss(self, outputs_class, outputs_coord):
+    def _set_aux_loss(self, outputs_class: torch.Tensor, outputs_coord: torch.Tensor):
         # this is a workaround to make torchscript happy, as torchscript
         # doesn't support dictionary with non-homogeneous values, such
         # as a dict having both a Tensor and a list.
@@ -342,14 +425,14 @@ class DINO(nn.Module):
 
     def prepare_for_cdn(
         self,
-        targets,
-        dn_number,
-        label_noise_ratio,
-        box_noise_scale,
-        num_queries,
-        num_classes,
-        hidden_dim,
-        label_enc,
+        targets: list[dict],
+        dn_number: int,
+        label_noise_ratio: float,
+        box_noise_scale: float,
+        num_queries: int,
+        num_classes: int,
+        hidden_dim: int,
+        label_enc: nn.Embedding,
     ):
         """
         A major difference of DINO from DN-DETR is that the author process pattern embedding pattern embedding
@@ -407,9 +490,15 @@ class DINO(nn.Module):
 
         pad_size = int(single_padding * 2 * dn_number)
         positive_idx = (
-            torch.tensor(range(len(boxes))).long().cuda().unsqueeze(0).repeat(dn_number, 1)
+            torch.tensor(range(len(boxes)))
+            .long()
+            .cuda()
+            .unsqueeze(0)
+            .repeat(dn_number, 1)
         )
-        positive_idx += (torch.tensor(range(dn_number)) * len(boxes) * 2).long().cuda().unsqueeze(1)
+        positive_idx += (
+            (torch.tensor(range(dn_number)) * len(boxes) * 2).long().cuda().unsqueeze(1)
+        )
         positive_idx = positive_idx.flatten()
         negative_idx = positive_idx + len(boxes)
         if box_noise_scale > 0:
@@ -422,12 +511,16 @@ class DINO(nn.Module):
             diff[:, 2:] = known_bboxs[:, 2:] / 2
 
             rand_sign = (
-                torch.randint_like(known_bboxs, low=0, high=2, dtype=torch.float32) * 2.0 - 1.0
+                torch.randint_like(known_bboxs, low=0, high=2, dtype=torch.float32)
+                * 2.0
+                - 1.0
             )
             rand_part = torch.rand_like(known_bboxs)
             rand_part[negative_idx] += 1.0
             rand_part *= rand_sign
-            known_bbox_ = known_bbox_ + torch.mul(rand_part, diff).cuda() * box_noise_scale
+            known_bbox_ = (
+                known_bbox_ + torch.mul(rand_part, diff).cuda() * box_noise_scale
+            )
             known_bbox_ = known_bbox_.clamp(min=0.0, max=1.0)
             known_bbox_expand[:, :2] = (known_bbox_[:, :2] + known_bbox_[:, 2:]) / 2
             known_bbox_expand[:, 2:] = known_bbox_[:, 2:] - known_bbox_[:, :2]
@@ -467,7 +560,8 @@ class DINO(nn.Module):
                 ] = True
             if i == dn_number - 1:
                 attn_mask[
-                    single_padding * 2 * i : single_padding * 2 * (i + 1), : single_padding * i * 2
+                    single_padding * 2 * i : single_padding * 2 * (i + 1),
+                    : single_padding * i * 2,
                 ] = True
             else:
                 attn_mask[
@@ -475,7 +569,8 @@ class DINO(nn.Module):
                     single_padding * 2 * (i + 1) : pad_size,
                 ] = True
                 attn_mask[
-                    single_padding * 2 * i : single_padding * 2 * (i + 1), : single_padding * 2 * i
+                    single_padding * 2 * i : single_padding * 2 * (i + 1),
+                    : single_padding * 2 * i,
                 ] = True
 
         dn_meta = {
@@ -485,26 +580,38 @@ class DINO(nn.Module):
 
         return input_query_label, input_query_bbox, attn_mask, dn_meta
 
-    def dn_post_process(self, outputs_class, outputs_coord, dn_metas):
-        if dn_metas and dn_metas["single_padding"] > 0:
+    def dn_post_process(
+        self, outputs_class: torch.Tensor, outputs_coord: torch.Tensor, dn_metas: dict
+    ):
+        if dn_metas["single_padding"] > 0:
             padding_size = dn_metas["single_padding"] * dn_metas["dn_num"]
             output_known_class = outputs_class[:, :, :padding_size, :]
             output_known_coord = outputs_coord[:, :, :padding_size, :]
             outputs_class = outputs_class[:, :, padding_size:, :]
             outputs_coord = outputs_coord[:, :, padding_size:, :]
 
-            out = {"pred_logits": output_known_class[-1], "pred_boxes": output_known_coord[-1]}
+            out = {
+                "pred_logits": output_known_class[-1],
+                "pred_boxes": output_known_coord[-1],
+            }
             if self.aux_loss:
-                out["aux_outputs"] = self._set_aux_loss(output_known_class, output_known_coord)
+                out["aux_outputs"] = self._set_aux_loss(
+                    output_known_class, output_known_coord
+                )
             dn_metas["output_known_lbs_bboxes"] = out
         return outputs_class, outputs_coord
 
-    def preprocess_image(self, batched_inputs):
+    def preprocess_image(self, batched_inputs: list[dict]):
         images = [self.normalizer(x["image"].to(self.device)) for x in batched_inputs]
         images = ImageList.from_tensors(images)
         return images
 
-    def inference(self, box_cls, box_pred, image_sizes):
+    def inference(
+        self,
+        box_cls: torch.Tensor,
+        box_pred: torch.Tensor,
+        image_sizes: list[tuple[int, int]],
+    ):
         """
         Arguments:
             box_cls (Tensor): tensor of shape (batch_size, num_queries, K).
@@ -535,9 +642,12 @@ class DINO(nn.Module):
         # For each box we assign the best class or the second best if the best on is `no_object`.
         # scores, labels = F.softmax(box_cls, dim=-1)[:, :, :-1].max(-1)
 
-        for i, (scores_per_image, labels_per_image, box_pred_per_image, image_size) in enumerate(
-            zip(scores, labels, boxes, image_sizes)
-        ):
+        for i, (
+            scores_per_image,
+            labels_per_image,
+            box_pred_per_image,
+            image_size,
+        ) in enumerate(zip(scores, labels, boxes, image_sizes)):
             result = Instances(image_size)
             result.pred_boxes = Boxes(box_cxcywh_to_xyxy(box_pred_per_image))
 
@@ -547,11 +657,13 @@ class DINO(nn.Module):
             results.append(result)
         return results
 
-    def prepare_targets(self, targets):
+    def prepare_targets(self, targets: list[Instances]):
         new_targets = []
         for targets_per_image in targets:
             h, w = targets_per_image.image_size
-            image_size_xyxy = torch.as_tensor([w, h, w, h], dtype=torch.float, device=self.device)
+            image_size_xyxy = torch.as_tensor(
+                [w, h, w, h], dtype=torch.float, device=self.device
+            )
             gt_classes = targets_per_image.gt_classes
             gt_boxes = targets_per_image.gt_boxes.tensor / image_size_xyxy
             gt_boxes = box_xyxy_to_cxcywh(gt_boxes)

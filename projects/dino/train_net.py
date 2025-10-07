@@ -12,13 +12,13 @@ few common configuration parameters currently defined in "configs/common/train.p
 To add more complicated training logic, you can easily add other configs
 in the config file and implement a new train_net.py to handle them.
 """
+
 import logging
 import os
 import sys
 import time
-import torch
-from torch.nn.parallel import DataParallel, DistributedDataParallel
 
+import torch
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import LazyConfig, instantiate
 from detectron2.engine import (
@@ -32,8 +32,15 @@ from detectron2.engine import (
 from detectron2.engine.defaults import create_ddp_model
 from detectron2.evaluation import inference_on_dataset, print_csv_format
 from detectron2.utils import comm
+from detectron2.utils.file_io import PathManager
+from detrex.utils import WandbWriter
+from torch.nn.parallel import DataParallel, DistributedDataParallel
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
+from robust_u2u_od.detrex.engine import BestCheckpointer
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+)
 
 logger = logging.getLogger("detrex")
 
@@ -63,7 +70,9 @@ class Trainer(SimpleTrainer):
     ):
         super().__init__(model=model, data_loader=dataloader, optimizer=optimizer)
 
-        unsupported = "AMPTrainer does not support single-process multi-device training!"
+        unsupported = (
+            "AMPTrainer does not support single-process multi-device training!"
+        )
         if isinstance(model, DistributedDataParallel):
             assert not (model.device_ids and len(model.device_ids) > 1), unsupported
         assert not isinstance(model, DataParallel), unsupported
@@ -73,7 +82,7 @@ class Trainer(SimpleTrainer):
                 from torch.cuda.amp import GradScaler
 
                 grad_scaler = GradScaler()
-            self.grad_scaler = grad_scaler
+        self.grad_scaler = grad_scaler
 
         # set True to use amp training
         self.amp = amp
@@ -99,8 +108,8 @@ class Trainer(SimpleTrainer):
         """
         If you want to do something with the losses, you can wrap the model.
         """
-        loss_dict = self.model(data)
         with autocast(enabled=self.amp):
+            loss_dict = self.model(data)
             if isinstance(loss_dict, torch.Tensor):
                 losses = loss_dict
                 loss_dict = {"total_loss": loss_dict}
@@ -136,11 +145,24 @@ class Trainer(SimpleTrainer):
                 **self.clip_grad_params,
             )
 
+    def state_dict(self):
+        ret = super().state_dict()
+        if self.grad_scaler and self.amp:
+            ret["grad_scaler"] = self.grad_scaler.state_dict()
+        return ret
+
+    def load_state_dict(self, state_dict):
+        super().load_state_dict(state_dict)
+        if self.grad_scaler and self.amp:
+            self.grad_scaler.load_state_dict(state_dict["grad_scaler"])
+
 
 def do_test(cfg, model):
     if "evaluator" in cfg.dataloader:
         ret = inference_on_dataset(
-            model, instantiate(cfg.dataloader.test), instantiate(cfg.dataloader.evaluator)
+            model,
+            instantiate(cfg.dataloader.test),
+            instantiate(cfg.dataloader.evaluator),
         )
         print_csv_format(ret)
         return ret
@@ -170,37 +192,44 @@ def do_train(args, cfg):
     logger.info("Model:\n{}".format(model))
     model.to(cfg.train.device)
 
-    # this is an hack of train_net
-    param_dicts = [
-        {
-            "params": [
-                p
-                for n, p in model.named_parameters()
-                if not match_name_keywords(n, ["backbone"])
-                and not match_name_keywords(n, ["reference_points", "sampling_offsets"])
-                and p.requires_grad
-            ],
-            "lr": 2e-4,
-        },
-        {
-            "params": [
-                p
-                for n, p in model.named_parameters()
-                if match_name_keywords(n, ["backbone"]) and p.requires_grad
-            ],
-            "lr": 2e-5,
-        },
-        {
-            "params": [
-                p
-                for n, p in model.named_parameters()
-                if match_name_keywords(n, ["reference_points", "sampling_offsets"])
-                and p.requires_grad
-            ],
-            "lr": 2e-5,
-        },
-    ]
-    optim = torch.optim.AdamW(param_dicts, 2e-4, weight_decay=1e-4)
+    if args.hacked:
+        # this is an hack of train_net
+        param_dicts = [
+            {
+                "params": [
+                    p
+                    for n, p in model.named_parameters()
+                    if not match_name_keywords(n, ["backbone"])
+                    and not match_name_keywords(
+                        n, ["reference_points", "sampling_offsets"]
+                    )
+                    and p.requires_grad
+                ],
+                "lr": 2e-4,
+            },
+            {
+                "params": [
+                    p
+                    for n, p in model.named_parameters()
+                    if match_name_keywords(n, ["backbone"]) and p.requires_grad
+                ],
+                "lr": 2e-5,
+            },
+            {
+                "params": [
+                    p
+                    for n, p in model.named_parameters()
+                    if match_name_keywords(n, ["reference_points", "sampling_offsets"])
+                    and p.requires_grad
+                ],
+                "lr": 2e-5,
+            },
+        ]
+        optim = torch.optim.AdamW(param_dicts, 2e-4, weight_decay=1e-4)
+    else:
+        # instantiate optimizer
+        cfg.optimizer.params.model = model
+        optim = instantiate(cfg.optimizer)
 
     train_loader = instantiate(cfg.dataloader.train)
 
@@ -211,7 +240,9 @@ def do_train(args, cfg):
         dataloader=train_loader,
         optimizer=optim,
         amp=cfg.train.amp.enabled,
-        clip_grad_params=cfg.train.clip_grad.params if cfg.train.clip_grad.enabled else None,
+        clip_grad_params=cfg.train.clip_grad.params
+        if cfg.train.clip_grad.enabled
+        else None,
     )
 
     checkpointer = DetectionCheckpointer(
@@ -219,6 +250,12 @@ def do_train(args, cfg):
         cfg.train.output_dir,
         trainer=trainer,
     )
+
+    if comm.is_main_process():
+        writers = default_writers(cfg.train.output_dir, cfg.train.max_iter)
+        if cfg.train.wandb.enabled:
+            PathManager.mkdirs(cfg.train.wandb.params.dir)
+            writers.append(WandbWriter(cfg))
 
     trainer.register_hooks(
         [
@@ -228,11 +265,13 @@ def do_train(args, cfg):
             if comm.is_main_process()
             else None,
             hooks.EvalHook(cfg.train.eval_period, lambda: do_test(cfg, model)),
-            hooks.PeriodicWriter(
-                default_writers(cfg.train.output_dir, cfg.train.max_iter),
-                period=cfg.train.log_period,
-            )
+            hooks.PeriodicWriter(writers, period=cfg.train.log_period)
             if comm.is_main_process()
+            else None,
+            BestCheckpointer(
+                cfg.train.eval_period, checkpointer, **cfg.train.best_checkpointer
+            )
+            if comm.is_main_process() and cfg.train.get("best_checkpointer") is not None
             else None,
         ]
     )
@@ -252,6 +291,12 @@ def main(args):
     cfg = LazyConfig.apply_overrides(cfg, args.opts)
     default_setup(cfg, args)
 
+    # Enable fast debugging by running several iterations to check for any bugs.
+    if cfg.train.fast_dev_run.enabled:
+        cfg.train.max_iter = 20
+        cfg.train.eval_period = 10
+        cfg.train.log_period = 1
+
     if args.eval_only:
         model = instantiate(cfg.model)
         model.to(cfg.train.device)
@@ -263,7 +308,11 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = default_argument_parser().parse_args()
+    parser = default_argument_parser()
+    parser.add_argument(
+        "--hacked", action="store_true", help="Use hacked version of DINO."
+    )
+    args = parser.parse_args()
     launch(
         main,
         args.num_gpus,

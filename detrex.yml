@@ -1,8 +1,12 @@
 name: detrex
 channels:
+  - nvidia/label/cuda-11.7.1
+  - conda-forge
   - defaults
 dependencies:
   - python=3.9
+  # required by detectron2 and detrex
+  - cuda-toolkit
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/cu117

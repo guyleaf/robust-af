@@ -9,10 +9,10 @@ from robust_u2u_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAM
 from ..models.dino_r50 import model
 
 # get default config
-dataloader = get_config("datasets/dut_anti_uav_detr.py").dataloader
+dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").dataloader
 optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
-    "schedules/dut_anti_uav_schedule.py"
+    f"schedules/{DATASET_NAME}_schedule.py"
 ).detr_schedulers.lr_multiplier_12ep_8bs
 train = get_upstream_config("common/train.py").train
 

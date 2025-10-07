@@ -14,3 +14,5 @@ pip install -e "$detrexPath/detectron2"
 
 # install detrex
 pip install -e "$detrexPath"
+
+echo -e "\033[0;32mInstallation Successfully!"
