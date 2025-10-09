@@ -5,6 +5,7 @@ from detrex.config import get_config as get_upstream_config
 
 from robust_u2u_od.detrex.configs import get_config
 from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
+from robust_u2u_od.detrex.utils import count_coco_images
 
 from ..models.dino_r50 import model
 
@@ -48,7 +49,7 @@ train.init_checkpoint = "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
 train.output_dir = output_dir
 
 # max training iterations
-num_images: int = train_metadata.num_images
+num_images = count_coco_images(train_metadata.json_file)
 # because drop_last=True
 num_batches = num_images // total_batch_size
 train.max_iter = num_epochs * num_batches

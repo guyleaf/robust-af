@@ -20,6 +20,7 @@ import torch.nn as nn
 from .dn_criterion import DINOCriterion
 
 
+# TODO: use composition over inheritance
 class RobustDINOCriterion(DINOCriterion):
     """This class computes the loss for DETR.
     The process happens in two steps:
