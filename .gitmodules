@@ -2,3 +2,7 @@
 	path = 3rdparty/detrex
 	url = https://github.com/IDEA-Research/detrex.git
 	branch = main
+[submodule "3rdparty/yolov10"]
+	path = 3rdparty/yolov10
+	url = https://github.com/guyleaf/yolov10.git
+	branch = main
