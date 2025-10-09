@@ -1,12 +1,10 @@
 import random
-from typing import Optional, Union
+from typing import Union
 
 import albumentations as A
 import cv2
 import imgaug.augmenters as iaa
 import numpy as np
-
-from ..utils.random import RandomContext
 
 # TODO: better organization (class instead of functional)
 
@@ -180,26 +178,19 @@ def apply_contrast(image: np.ndarray, **kwargs):
 def apply_degradation(
     image: np.ndarray,
     identity: bool = True,
-    ignored_transforms: Union[list[str], set[str]] = [],
-    np_random_generator: Optional[np.random.Generator] = None,
-    py_random: Optional[random.Random] = None,
+    ignore_transforms: Union[list[str], set[str]] = [],
     **kwargs,
 ):
     transforms = set(DEGRADATION_TRANSFORMS.keys())
-    ignored_transforms = set(ignored_transforms)
+    ignore_transforms = set(ignore_transforms)
     if not identity:
-        ignored_transforms.add("identity")
+        ignore_transforms.add("identity")
 
-    assert len(transforms & ignored_transforms) == len(ignored_transforms)
-    transforms -= ignored_transforms
-    transforms = sorted(transforms)
+    assert len(transforms & ignore_transforms) == len(ignore_transforms)
+    transforms -= ignore_transforms
 
-    # to avoid there is a randomness which doesn't use the generator
-    # we set them to the global state temporarily
-    with RandomContext(np_random_generator=np_random_generator, py_random=py_random):
-        name = random.choice(transforms)
-        image = DEGRADATION_TRANSFORMS[name](image, **kwargs)
-
+    name = random.choice(sorted(transforms))
+    image = DEGRADATION_TRANSFORMS[name](image, **kwargs)
     return image
 
 
