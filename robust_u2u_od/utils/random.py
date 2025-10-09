@@ -35,6 +35,8 @@ class RandomContext(ContextDecorator):
     4. Restoring the global random states
 
     By default, it can be used for reproducing the global random states.
+
+    If skip_if_none is True and all generators are None, no actions during the context.
     """
 
     def __init__(
@@ -42,11 +44,17 @@ class RandomContext(ContextDecorator):
         np_random_generator: Optional[np.random.Generator] = None,
         py_random: Optional[random.Random] = None,
         torch_generator: Optional[torch.Generator] = None,
+        skip_if_none: bool = False,
         # TODO: support GPU version?
     ):
         self.np_random_generator = np_random_generator
         self.py_random = py_random
         self.torch_generator = torch_generator
+        self.disabled = skip_if_none and (
+            np_random_generator is None
+            and py_random is None
+            and torch_generator is None
+        )
 
         self.original_np_bit_generator = None
         self.original_py_random_state = None
@@ -65,6 +73,9 @@ class RandomContext(ContextDecorator):
         return self.torch_generator is not None
 
     def __enter__(self):
+        if self.disabled:
+            return
+
         # 1.
         self.original_np_bit_generator = np.random.get_bit_generator()
         self.original_py_random_state = random.getstate()
@@ -87,6 +98,9 @@ class RandomContext(ContextDecorator):
         exc_value: Optional[BaseException],
         traceback: Optional[TracebackType],
     ):
+        if self.disabled:
+            return
+
         # 3.
         # In numpy, the bit generator manages its own random states
         # So, we don't need to set back to the generator.
