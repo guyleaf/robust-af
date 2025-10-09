@@ -1,0 +1,11 @@
+__include__: ["../rtdetrv2_r18vd_120e_coco.yml"]
+
+output_dir: ./output/rtdetrv2_r18vd/coco/coco/rtdetrv2_r18vd_120e_amp_testing
+
+val_dataloader:
+  dataset:
+    transforms:
+      ops:
+        #  - { type: Degradation, identity: False, seed: 2025 }
+        - { type: Resize, size: [640, 640] }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }
