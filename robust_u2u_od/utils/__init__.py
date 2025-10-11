@@ -2,6 +2,7 @@
 from .dataset import format_coco_image
 from .dist import get_worker_id
 from .misc import format_size
+from .model import freeze_all, unfreeze_modules_and_parameters
 from .random import (
     RandomContext,
     ReproducibleRandomContext,

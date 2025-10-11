@@ -1,0 +1,6 @@
+
+dataset/*
+!dataset/*.md
+output
+output/
+*.txt

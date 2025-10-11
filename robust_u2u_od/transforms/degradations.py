@@ -196,7 +196,9 @@ def apply_degradation(
 
     # to avoid there is a randomness which doesn't use the generator
     # we set them to the global state temporarily
-    with RandomContext(np_random_generator=np_random_generator, py_random=py_random):
+    with RandomContext(
+        np_random_generator=np_random_generator, py_random=py_random, skip_if_none=True
+    ):
         name = random.choice(transforms)
         image = DEGRADATION_TRANSFORMS[name](image, **kwargs)
 
