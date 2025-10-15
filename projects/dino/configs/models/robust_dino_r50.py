@@ -33,10 +33,10 @@ model = L(RobustDINO)(
         ),
     ),
     criterion=L(RobustDINOCriterion)(
-        loss_consistency=L(nn.MSELoss)(),
+        loss_cst=L(nn.MSELoss)(reduction="none"),
         start_robust_gap_index="${..transformer.encoder.start_robust_gap_index}",
         weight_dict={
-            "loss_consistency": 20.0,
+            "loss_cst": 20.0,
         },
     ),
 )

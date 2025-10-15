@@ -29,10 +29,10 @@ class RobustDINOCriterion(DINOCriterion):
     """
 
     def __init__(
-        self, *args, loss_consistency: nn.Module, start_robust_gap_index: int, **kwargs
+        self, *args, loss_cst: nn.Module, start_robust_gap_index: int, **kwargs
     ):
         super().__init__(*args, **kwargs)
-        self.loss_consistency = loss_consistency
+        self.loss_cst = loss_cst
         self.start_robust_gap_index = start_robust_gap_index
 
     def forward(self, outputs, targets, dn_metas=None):
@@ -46,12 +46,12 @@ class RobustDINOCriterion(DINOCriterion):
 
         # Compute all the requested losses
 
-        consistency_losses = self.compute_consistency_loss(outputs)
-        losses.update(consistency_losses)
+        cst_losses = self.compute_cst_loss(outputs)
+        losses.update(cst_losses)
 
         return losses
 
-    def compute_consistency_loss(self, outputs: dict):
+    def compute_cst_loss(self, outputs: dict):
         robust_hidden_states: list[torch.Tensor] = outputs["robust_hidden_states"]
         clear_robust_hidden_states: list[torch.Tensor] = outputs[
             "clear_robust_hidden_states"
@@ -62,6 +62,11 @@ class RobustDINOCriterion(DINOCriterion):
             zip(robust_hidden_states, clear_robust_hidden_states),
             start=self.start_robust_gap_index,
         ):
-            loss = self.loss_consistency(robust_hidden_state, clear_robust_hidden_state)
-            losses[f"loss_consistency_{i}"] = loss
+            loss: torch.Tensor = self.loss_cst(
+                robust_hidden_state, clear_robust_hidden_state
+            )
+            # mean over the feature dims & mean over batch_size
+            indices = list(range(1, loss.ndim))
+            loss = loss.mean(indices).mean()
+            losses[f"loss_cst_{i}"] = loss
         return losses
