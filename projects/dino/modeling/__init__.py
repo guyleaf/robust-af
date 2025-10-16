@@ -23,4 +23,3 @@ from .dino_transformer import (
 from .dn_criterion import DINOCriterion
 from .robust_dino import RobustDINO
 from .robust_dino_transformer import RobustDINOTransformer, RobustDINOTransformerEncoder
-from .robust_dn_criterion import RobustDINOCriterion

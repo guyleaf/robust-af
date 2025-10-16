@@ -22,3 +22,5 @@ variables:
   DETECTRON2_DATASETS: datasets
   # helper variable for setting workdir in configs
   R_U2U_OD_WORKDIR: ~/work/work_dirs/detrex
+  # surpress the warning
+  NO_ALBUMENTATIONS_UPDATE: 1
