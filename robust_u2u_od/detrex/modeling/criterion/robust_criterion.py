@@ -1,39 +1,33 @@
-# coding=utf-8
-# Copyright 2022 The IDEA Authors. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-
 import torch
 import torch.nn as nn
 
-from .dn_criterion import DINOCriterion
 
-
-# TODO: use composition over inheritance
-class RobustDINOCriterion(DINOCriterion):
-    """This class computes the loss for DETR.
-    The process happens in two steps:
-        1) we compute hungarian assignment between ground truth boxes and the outputs of the model
-        2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
-    """
+class RobustCriterion(nn.Module):
+    """This class computes the robust loss with any model criterion."""
 
     def __init__(
-        self, *args, loss_cst: nn.Module, start_robust_gap_index: int, **kwargs
+        self,
+        criterion: nn.Module,
+        loss_cst: nn.Module,
+        weight_dict: dict,
+        start_suffix_index: int = 0,
     ):
-        super().__init__(*args, **kwargs)
+        """Create the criterion.
+
+        Parameters:
+            criterion: model criterion.
+            loss_cst: loss for calculating consistency error. Must set reduction=none.
+            weight_dict: dict containing as key the names of the losses and as values their relative weight.
+            start_suffix_index: Start index of losses for robust hidden states. Defaults to 0.
+        """
+        super().__init__()
+        if hasattr(criterion, "weight_dict"):
+            weight_dict.update(criterion.weight_dict)
+
+        self.criterion = criterion
         self.loss_cst = loss_cst
-        self.start_robust_gap_index = start_robust_gap_index
+        self.weight_dict = weight_dict
+        self.start_suffix_index = start_suffix_index
 
     def forward(self, outputs, targets, dn_metas=None):
         """This performs the loss computation.
@@ -42,7 +36,7 @@ class RobustDINOCriterion(DINOCriterion):
              targets: list of dicts, such that len(targets) == batch_size.
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
-        losses = super().forward(outputs, targets, dn_metas=dn_metas)
+        losses = self.criterion(outputs, targets, dn_metas=dn_metas)
 
         # Compute all the requested losses
 
@@ -60,7 +54,7 @@ class RobustDINOCriterion(DINOCriterion):
         losses = {}
         for i, (robust_hidden_state, clear_robust_hidden_state) in enumerate(
             zip(robust_hidden_states, clear_robust_hidden_states),
-            start=self.start_robust_gap_index,
+            start=self.start_suffix_index,
         ):
             loss: torch.Tensor = self.loss_cst(
                 robust_hidden_state, clear_robust_hidden_state
