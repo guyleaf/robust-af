@@ -21,7 +21,7 @@ import torch.nn as nn
 from detectron2.structures import ImageList
 from detectron2.utils.events import get_event_storage
 
-from robust_u2u_od.detrex.utils import freeze_all, unfreeze_modules_and_parameters
+from robust_u2u_od.utils import freeze_all, unfreeze_modules_and_parameters
 
 from .dino import DINO
 
