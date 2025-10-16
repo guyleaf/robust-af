@@ -55,5 +55,6 @@ for i in range(
     model.transformer.encoder.start_robust_gap_index
     + model.transformer.encoder.num_robust_layers,
 ):
-    weight_dict.update({k + f"_{i}": v for k, v in base_weight_dict.items()})
+    for j in range(model.transformer.num_feature_levels):
+        weight_dict.update({k + f"_{i}_{j}": v for k, v in base_weight_dict.items()})
 model.criterion.weight_dict = weight_dict

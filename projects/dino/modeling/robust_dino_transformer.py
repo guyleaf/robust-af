@@ -95,10 +95,13 @@ class RobustDINOTransformerEncoder(DINOTransformerEncoder):
         feats: torch.Tensor,
         spatial_shapes: torch.Tensor,
         level_start_index: torch.Tensor,
-    ) -> torch.Tensor:
+        robust: bool = True,
+    ) -> tuple[torch.Tensor, list[torch.Tensor]]:
         # [B, L, C] -> [levels, B, L, C]
         # level_start_index[0] is always 0. tensor_split doesn't need it.
         mlvl_feats = feats.tensor_split(level_start_index[1:].cpu(), dim=1)
+        if not robust:
+            return feats, mlvl_feats
 
         new_mlvl_feats = []
         for i, (feats, (h, w)) in enumerate(zip(mlvl_feats, spatial_shapes)):
@@ -111,7 +114,8 @@ class RobustDINOTransformerEncoder(DINOTransformerEncoder):
             feats = feats.view(batch_size, feat_dims, -1).transpose(1, 2)
             new_mlvl_feats.append(feats)
 
-        return torch.cat(new_mlvl_feats, dim=1)
+        # return new_mlvl_feats to calculate robust loss
+        return torch.cat(new_mlvl_feats, dim=1), new_mlvl_feats
 
     def forward(
         self,
@@ -132,14 +136,14 @@ class RobustDINOTransformerEncoder(DINOTransformerEncoder):
 
         # before 1st encoder layer
         if self.start_robust_gap_index == 0:
-            if robust:
-                query = self._generate_robust_features(
-                    self.robust_layers[0],
-                    query,
-                    spatial_shapes,
-                    level_start_index,
-                )
-            robust_hidden_states.append(query)
+            query, mlvl_feats = self._generate_robust_features(
+                self.robust_layers[0],
+                query,
+                spatial_shapes,
+                level_start_index,
+                robust=robust,
+            )
+            robust_hidden_states.append(mlvl_feats)
 
         for i, layer in enumerate(self.layers, start=1):
             query = layer(
@@ -157,14 +161,14 @@ class RobustDINOTransformerEncoder(DINOTransformerEncoder):
 
             robust_gap_index = i - self.start_robust_gap_index
             if 0 <= robust_gap_index < self.num_robust_layers:
-                if robust:
-                    query = self._generate_robust_features(
-                        self.robust_layers[robust_gap_index],
-                        query,
-                        spatial_shapes,
-                        level_start_index,
-                    )
-                robust_hidden_states.append(query)
+                query, mlvl_feats = self._generate_robust_features(
+                    self.robust_layers[robust_gap_index],
+                    query,
+                    spatial_shapes,
+                    level_start_index,
+                    robust=robust,
+                )
+                robust_hidden_states.append(mlvl_feats)
 
         if self.post_norm_layer is not None:
             query = self.post_norm_layer(query)
