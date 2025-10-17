@@ -17,6 +17,7 @@ import logging
 import os
 import sys
 import time
+import warnings
 
 import torch
 from detectron2.checkpoint import DetectionCheckpointer
@@ -191,6 +192,15 @@ def do_train(args, cfg):
     logger = logging.getLogger("detectron2")
     logger.info("Model:\n{}".format(model))
     model.to(cfg.train.device)
+
+    if cfg.train.sync_bn:
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        # warn UserWarning once in SyncBatchNorm due to using the private function, _all_gather_base.
+        warnings.filterwarnings(
+            "once",
+            message=r"torch\.distributed\._all_gather_base",
+            category=UserWarning,
+        )
 
     if args.hacked:
         # this is an hack of train_net
