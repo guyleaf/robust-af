@@ -2,9 +2,7 @@ from copy import deepcopy
 
 import detectron2.data.transforms as T
 from detectron2.config import LazyCall as L
-from detectron2.data import (
-    get_detection_dataset_dicts,
-)
+from detectron2.data import get_detection_dataset_dicts
 from detrex.config import get_config
 from omegaconf import DictConfig
 

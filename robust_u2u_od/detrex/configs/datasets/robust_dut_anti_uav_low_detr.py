@@ -1,11 +1,27 @@
-from detectron2.data import MetadataCatalog
+from copy import deepcopy
 
-from .robust_dut_anti_uav_detr import (  # noqa: F401
+from detectron2.config import LazyCall as L
+from detectron2.data import get_detection_dataset_dicts
+
+from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav_low import (
     DATASET_NAME,
-    dataloader,
-    robust_dataloader,
 )
 
-MetadataCatalog.get(DATASET_NAME).tags += [
-    "Low-Poly",
-]
+from .robust_dut_anti_uav_detr import dataloader, robust_dataloader  # noqa: F401
+
+# normal version of dataset
+
+dataloader = deepcopy(dataloader)
+dataloader.train.dataset = L(get_detection_dataset_dicts)(
+    names=f"{DATASET_NAME}_train", filter_empty=False
+)
+
+dataloader.test.dataset = L(get_detection_dataset_dicts)(
+    names=f"{DATASET_NAME}_val", filter_empty=False
+)
+
+# robust version of dataset
+
+robust_dataloader = deepcopy(robust_dataloader)
+robust_dataloader.train.dataset = deepcopy(dataloader.train.dataset)
+robust_dataloader.test.dataset = deepcopy(dataloader.test.dataset)
