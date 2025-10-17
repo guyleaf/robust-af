@@ -52,15 +52,18 @@ class RobustCriterion(nn.Module):
         ]
 
         losses = {}
-        for i, (robust_hidden_state, clear_robust_hidden_state) in enumerate(
+        for i, (mlvl_robust_hidden_state, clear_mlvl_robust_hidden_state) in enumerate(
             zip(robust_hidden_states, clear_robust_hidden_states),
             start=self.start_suffix_index,
         ):
-            loss: torch.Tensor = self.loss_cst(
-                robust_hidden_state, clear_robust_hidden_state
-            )
-            # mean over the feature dims & mean over batch_size
-            indices = list(range(1, loss.ndim))
-            loss = loss.mean(indices).mean()
-            losses[f"loss_cst_{i}"] = loss
+            for j, (robust_hidden_state, clear_robust_hidden_state) in enumerate(
+                zip(mlvl_robust_hidden_state, clear_mlvl_robust_hidden_state)
+            ):
+                loss: torch.Tensor = self.loss_cst(
+                    robust_hidden_state, clear_robust_hidden_state
+                )
+                # mean over the feature dims & mean over batch_size
+                indices = list(range(1, loss.ndim))
+                loss = loss.mean(indices).mean()
+                losses[f"loss_cst_{i}_{j}"] = loss
         return losses

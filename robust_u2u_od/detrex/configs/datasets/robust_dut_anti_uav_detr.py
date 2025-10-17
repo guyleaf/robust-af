@@ -2,14 +2,14 @@ from copy import deepcopy
 
 import detectron2.data.transforms as T
 from detectron2.config import LazyCall as L
-from detectron2.data import (
-    get_detection_dataset_dicts,
-)
+from detectron2.data import get_detection_dataset_dicts
 from detrex.config import get_config
 from omegaconf import DictConfig
 
 from robust_u2u_od.detrex.data.dataset_mappers import RobustDetrDatasetMapper
 from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
+
+# normal version of dataset
 
 dataloader: DictConfig = get_config("common/data/coco_detr.py").dataloader
 dataloader.train.dataset = L(get_detection_dataset_dicts)(

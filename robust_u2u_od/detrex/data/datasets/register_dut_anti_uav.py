@@ -3,7 +3,8 @@ import os
 from detectron2.data import MetadataCatalog
 from detectron2.data.datasets import register_coco_instances
 
-DATASET_NAME = "dut_anti_uav"
+DATASET_FOLDER = "DUT_Anti_UAV"
+DATASET_NAME = DATASET_FOLDER.lower()
 IMAGES_ROOT = "images"
 TRAIN_ANN_FILE = os.path.join("annotations", "train.json")
 VAL_ANN_FILE = os.path.join("annotations", "val.json")
@@ -28,4 +29,5 @@ def register_dut_anti_uav(root: str, name: str):
 
 
 _root = os.path.expanduser(os.getenv("DETECTRON2_DATASETS", "datasets"))
+_root = os.path.join(_root, DATASET_FOLDER)
 register_dut_anti_uav(_root, DATASET_NAME)
