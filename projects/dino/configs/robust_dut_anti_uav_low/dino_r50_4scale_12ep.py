@@ -1,5 +1,3 @@
-import os
-
 from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
 
@@ -33,10 +31,7 @@ total_batch_size = 8
 lr = base_lr * (total_batch_size / base_batch_size)
 
 num_epochs = 12
-output_dir = os.path.expanduser(os.getenv("R_U2U_OD_WORKDIR", "./outputs"))
-output_dir = os.path.join(
-    output_dir, f"dino_r50_4scale/{DATASET_NAME}_low/dino_r50_4scale_12ep"
-)
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}_low/dino_r50_4scale_12ep"
 
 # wandb settings
 tags = [*metadata.tags]
