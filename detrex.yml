@@ -20,5 +20,7 @@ variables:
   GPUS: 4
   # set the default explicitly to let user modify it easily by shell completions.
   DETECTRON2_DATASETS: datasets
+  # register our classes before detectron2
+  DETECTRON2_ENV_MODULE: robust_u2u_od.detrex
   # surpress the warning
   NO_ALBUMENTATIONS_UPDATE: 1
