@@ -4,5 +4,8 @@ from detrex.config import get_config as get_upstream_config
 # You can use your own instead, together with your own train_net.py
 train = get_upstream_config("common/train.py").train
 
-# support SyncBN in custom train_net.py
+# support SyncBN
 train.sync_bn = False
+
+# support saving the best checkpoint based on metric
+train.best_checkpointer = dict(val_metric="bbox/AP", mode="max")
