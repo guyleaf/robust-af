@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euv
+set -eu
 
 CWD=$(dirname "$0")
 
