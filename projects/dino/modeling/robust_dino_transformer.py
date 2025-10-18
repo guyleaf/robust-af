@@ -56,7 +56,7 @@ class RobustDINOTransformerEncoder(DINOTransformerEncoder):
         num_layers: int = 6,
         num_feature_levels: int = 4,
         num_robust_layers: int = 6,
-        start_robust_gap_index: int = 0,
+        start_robust_gap_index: int = 1,
         share_robust_layer: bool = True,
         use_checkpoint: bool = False,
         **kwargs,

@@ -78,12 +78,24 @@ class RobustDetrDatasetMapper:
         )
         utils.check_image_size(dataset_dict, ori_image)
 
-        # augment clear image
+        # prepare clear ver. of dataset_dict
+        clear_dataset_dict = dataset_dict["clear"] = copy.deepcopy(dataset_dict)
+        # we rely on degraded annotations. so, we don't need this.
+        clear_dataset_dict.pop("annotations", None)
+
+        # 1. augment clear image
         aug_input = T.AugInput(ori_image)
         transforms = self.augmentations(aug_input)
-        clear_image = aug_input.image
+        image = aug_input.image
 
-        # augment degraded image
+        # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
+        # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
+        # Therefore it's important to use torch.Tensor.
+        clear_dataset_dict["image"] = torch.as_tensor(
+            np.ascontiguousarray(image.transpose(2, 0, 1))
+        )
+
+        # 2. augment degraded image
         image = apply_degradation(
             ori_image,
             identity=self.identity,
@@ -92,16 +104,11 @@ class RobustDetrDatasetMapper:
         assert image.shape[:2] == ori_image.shape[:2]
         image = transforms.apply_image(image)
 
-        image_shape = image.shape[:2]  # h, w
-
         # Pytorch's dataloader is efficient on torch.Tensor due to shared-memory,
         # but not efficient on large generic data structures due to the use of pickle & mp.Queue.
         # Therefore it's important to use torch.Tensor.
         dataset_dict["image"] = torch.as_tensor(
             np.ascontiguousarray(image.transpose(2, 0, 1))
-        )
-        dataset_dict["clear_image"] = torch.as_tensor(
-            np.ascontiguousarray(clear_image.transpose(2, 0, 1))
         )
 
         if not self.is_train:
@@ -117,6 +124,7 @@ class RobustDetrDatasetMapper:
                 anno.pop("keypoints", None)
 
             # USER: Implement additional transformations if you have other types of data
+            image_shape = image.shape[:2]  # h, w
             annos = [
                 utils.transform_instance_annotations(obj, transforms, image_shape)
                 for obj in dataset_dict.pop("annotations")
@@ -133,5 +141,8 @@ class RobustDetrDatasetMapper:
             # the intersection of original bounding box and the cropping box.
             if self.recompute_boxes:
                 instances.gt_boxes = instances.gt_masks.get_bounding_boxes()
-            dataset_dict["instances"] = utils.filter_empty_instances(instances)
+            instances = utils.filter_empty_instances(instances)
+
+            dataset_dict["instances"] = instances
+            clear_dataset_dict["instances"] = copy.deepcopy(instances)
         return dataset_dict
