@@ -16,9 +16,11 @@
 
 from typing import List, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
-from detectron2.structures import ImageList
+from detectron2.data.detection_utils import convert_image_to_rgb
+from detectron2.structures.instances import Instances
 from detectron2.utils.events import get_event_storage
 
 from robust_u2u_od.utils import freeze_all, unfreeze_modules_and_parameters
@@ -90,10 +92,40 @@ class RobustDINO(DINO):
         unfreeze_modules_and_parameters(self.training_parts)
         return self
 
-    def preprocess_image(self, batched_inputs: list[dict], key: str = "image"):
-        images = [self.normalizer(x[key].to(self.device)) for x in batched_inputs]
-        images = ImageList.from_tensors(images)
-        return images
+    def visualize_training(
+        self,
+        batched_inputs: list[dict],
+        results: list[Instances],
+        vis_name: str = "Left: GT bounding boxes;  Right: Predicted boxes",
+    ):
+        from detectron2.utils.visualizer import Visualizer
+
+        storage = get_event_storage()
+        max_vis_box = 20
+
+        for input, results_per_image in zip(batched_inputs, results):
+            img = input["image"]
+            img = convert_image_to_rgb(img.permute(1, 2, 0), self.input_format)
+            v_gt = Visualizer(img, None)
+            v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
+            anno_img = v_gt.get_image()
+            v_pred = Visualizer(img, None)
+            v_pred = v_pred.overlay_instances(
+                boxes=results_per_image.pred_boxes[:max_vis_box]
+                .tensor.detach()
+                .cpu()
+                .numpy()
+            )
+            pred_img = v_pred.get_image()
+            vis_img = np.concatenate((anno_img, pred_img), axis=1)
+            vis_img = vis_img.transpose(2, 0, 1)
+            storage.put_image(vis_name, vis_img)
+            break  # only visualize one image in a batch
+
+    # def preprocess_image(self, batched_inputs: list[dict], key: str = "image"):
+    #     images = [self.normalizer(x[key].to(self.device)) for x in batched_inputs]
+    #     images = ImageList.from_tensors(images)
+    #     return images
 
     def _forward_transformer(
         self,
@@ -144,17 +176,31 @@ class RobustDINO(DINO):
                 box_cls = output["pred_logits"]
                 box_pred = output["pred_boxes"]
                 results = self.inference(box_cls, box_pred, images.image_sizes)
-                self.visualize_training(batched_inputs, results)
+                self.visualize_training(batched_inputs, results, vis_name="Degraded")
 
         # clear features are only for loss calculation.
-        images = self.preprocess_image(batched_inputs, key="clear_image")
+        clear_batched_inputs = [inputs["clear"] for inputs in batched_inputs]
+        images = self.preprocess_image(clear_batched_inputs)
         with torch.no_grad():
             multi_level_feats = self._extract_feats(images.tensor)
             clear_output = self._forward_transformer(
-                multi_level_feats, images.tensor.shape[2:], batched_inputs, robust=False
+                multi_level_feats,
+                images.tensor.shape[2:],
+                clear_batched_inputs,
+                robust=False,
             )
             output["clear_robust_hidden_states"] = clear_output["robust_hidden_states"]
-            del clear_output
+
+        # visualize training samples
+        if self.vis_period > 0:
+            storage = get_event_storage()
+            if storage.iter % self.vis_period == 0:
+                box_cls = clear_output["pred_logits"]
+                box_pred = clear_output["pred_boxes"]
+                results = self.inference(box_cls, box_pred, images.image_sizes)
+                self.visualize_training(clear_batched_inputs, results, vis_name="Clear")
+
+        del clear_output
 
         # compute loss
         targets = output.pop("targets")
