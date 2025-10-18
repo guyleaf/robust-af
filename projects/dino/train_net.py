@@ -195,9 +195,9 @@ def do_train(args, cfg):
 
     if cfg.train.sync_bn:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        # warn UserWarning once in SyncBatchNorm due to using the private function, _all_gather_base.
+        # suppress UserWarning in SyncBatchNorm due to using the private function, _all_gather_base.
         warnings.filterwarnings(
-            "once",
+            "ignore",
             message=r"torch\.distributed\._all_gather_base",
             category=UserWarning,
         )
