@@ -63,7 +63,10 @@ freeze: [
     # train_head
     # 26,
   ] # (int | list, optional) freeze first n layers, or freeze list of layer indices during training
-eval_bn_on_freeze: True # (bool) set batch norm to eval mode during training if it is on the freeze list
+
+# if True, freeze based on the freeze arg. Otherwise, act like the rule of freeze arg.
+freeze_bn: True # (bool | int | list, optional) freeze batch norm during training.
+
 # multi_scale: False # (bool) Whether to use multiscale during training
 # Segmentation
 # overlap_mask: True # (bool) masks should overlap during training (segment train only)
