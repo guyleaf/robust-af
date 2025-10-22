@@ -9,6 +9,8 @@ class BestCheckpointer(DETECTRON2_BestCheckpointer):
     that produces the metric, e.g. `EvalHook`.
     """
 
+    FILE_FORMAT = "{}_{:07d}"
+
     def _best_checking(self):
         metric_tuple = self.trainer.storage.latest().get(self._val_metric)
         if metric_tuple is None:
@@ -24,7 +26,7 @@ class BestCheckpointer(DETECTRON2_BestCheckpointer):
             if self._update_best(latest_metric, metric_iter):
                 additional_state = {"iteration": metric_iter}
                 self._checkpointer.save(
-                    "{}_{:07d}".format(self._file_prefix, metric_iter),
+                    self.FILE_FORMAT.format(self._file_prefix, metric_iter),
                     **additional_state,
                 )
                 self._logger.info(
@@ -33,7 +35,11 @@ class BestCheckpointer(DETECTRON2_BestCheckpointer):
         elif self._compare(latest_metric, self.best_metric):
             additional_state = {"iteration": metric_iter}
             self._checkpointer.save(
-                "{}_{:07d}".format(self._file_prefix, metric_iter), **additional_state
+                self.FILE_FORMAT.format(self._file_prefix, metric_iter),
+                **additional_state,
+            )
+            self._checkpointer.path_manager.rm(
+                self.FILE_FORMAT.format(self._file_prefix, self.best_iter)
             )
             self._logger.info(
                 f"Saved best model as latest eval score for {self._val_metric} is "
