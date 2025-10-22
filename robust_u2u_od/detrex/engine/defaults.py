@@ -1,10 +1,11 @@
 import argparse
 from typing import Union
 
-import torch
 from detectron2.config.config import CfgNode
 from detectron2.engine import default_setup as original_default_setup
 from omegaconf import DictConfig, OmegaConf
+
+from ...utils import allow_tf32_precision
 
 
 def _try_get_key(cfg: Union[CfgNode, DictConfig], *keys, default=None):
@@ -35,7 +36,6 @@ def default_setup(cfg: Union[CfgNode, DictConfig], args: argparse.Namespace):
     """
     original_default_setup(cfg, args)
 
-    # By default, disable TF32 to get consistent results between before and Ampere (and later) GPU devices
+    # By default, disable TF32 to get consistent results between old and Ampere (and later) GPU devices
     allow_tf32 = _try_get_key(cfg, "ALLOW_TF32", "train.allow_tf32", default=False)
-    torch.backends.cuda.matmul.allow_tf32 = allow_tf32
-    torch.backends.cudnn.allow_tf32 = allow_tf32
+    allow_tf32_precision(allow_tf32)
