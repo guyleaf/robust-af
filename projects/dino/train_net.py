@@ -13,6 +13,7 @@ To add more complicated training logic, you can easily add other configs
 in the config file and implement a new train_net.py to handle them.
 """
 
+import copy
 import logging
 import os
 import sys
@@ -43,7 +44,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
 
-logger = logging.getLogger("detrex")
+logger = logging.getLogger(__name__)
 
 
 def match_name_keywords(n, name_keywords):
@@ -158,15 +159,35 @@ class Trainer(SimpleTrainer):
             self.grad_scaler.load_state_dict(state_dict["grad_scaler"])
 
 
-def do_test(cfg, model):
-    if "evaluator" in cfg.dataloader:
-        ret = inference_on_dataset(
+def do_test(cfg, model, training=False):
+    if "evaluator" not in cfg.dataloader:
+        return
+
+    ret = inference_on_dataset(
+        model,
+        instantiate(cfg.dataloader.test),
+        instantiate(cfg.dataloader.evaluator),
+    )
+    logger.info("Subset: test")
+    print_csv_format(ret)
+
+    if training:
+        test_dataloader = copy.deepcopy(cfg.dataloader.test)
+        cfg.dataloader.test.dataset.names = "${...train.dataset.names}"
+        # cfg.dataloader.evaluator.dataset_name = "${..test.dataset.names}"
+        train_ret = inference_on_dataset(
             model,
             instantiate(cfg.dataloader.test),
             instantiate(cfg.dataloader.evaluator),
         )
-        print_csv_format(ret)
-        return ret
+        logger.info("Subset: train")
+        print_csv_format(train_ret)
+        cfg.dataloader.test = test_dataloader
+
+        # keep compatibility with BestCheckpointer
+        for k, v in ret.items():
+            v["train"] = train_ret[k]
+    return ret
 
 
 def do_train(args, cfg):
@@ -189,7 +210,6 @@ def do_train(args, cfg):
                 ddp (dict)
     """
     model = instantiate(cfg.model)
-    logger = logging.getLogger("detectron2")
     logger.info("Model:\n{}".format(model))
     model.to(cfg.train.device)
 
@@ -274,14 +294,16 @@ def do_train(args, cfg):
             hooks.PeriodicCheckpointer(checkpointer, **cfg.train.checkpointer)
             if comm.is_main_process()
             else None,
-            hooks.EvalHook(cfg.train.eval_period, lambda: do_test(cfg, model)),
+            hooks.EvalHook(
+                cfg.train.eval_period, lambda: do_test(cfg, model, training=True)
+            ),
             hooks.PeriodicWriter(writers, period=cfg.train.log_period)
             if comm.is_main_process()
             else None,
             BestCheckpointer(
                 cfg.train.eval_period, checkpointer, **cfg.train.best_checkpointer
             )
-            if comm.is_main_process() and cfg.train.get("best_checkpointer") is not None
+            if comm.is_main_process()
             else None,
         ]
     )
