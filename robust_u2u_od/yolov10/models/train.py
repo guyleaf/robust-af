@@ -9,11 +9,7 @@ from ultralytics.utils import LOGGER, RANK
 from ultralytics.utils.plotting import plot_images
 from ultralytics.utils.torch_utils import de_parallel
 
-from ...utils import (
-    ReproducibleRandomContext,
-    allow_tf32_precision,
-    convert_to_frozen_batchnorm_2d,
-)
+from ...utils import ReproducibleRandomContext, convert_to_frozen_batchnorm_2d
 from ..data import build_yolo_dataset
 from ..nn.tasks import RobustYOLOv10DetectionModel
 from ..utils import (
@@ -39,9 +35,6 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
         dist.generate_ddp_file = partial(
             dist.generate_ddp_file, default_cfg=DEFAULT_CFG_DICT
         )
-
-        # NOTE: in distributed training, we need to re-apply it in subprocess. Otherwise, it won't work.
-        allow_tf32_precision(self.args.allow_tf32)
 
     def build_dataset(self, img_path, mode="train", batch=None):
         """

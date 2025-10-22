@@ -2,7 +2,6 @@ import argparse
 
 from rich import print
 
-from robust_u2u_od.utils import allow_tf32_precision
 from robust_u2u_od.yolov10.models import RobustYOLOv10, YOLOv10
 from robust_u2u_od.yolov10.utils import is_huggingface_hub_model, load_global_cfg
 
@@ -41,11 +40,6 @@ if __name__ == "__main__":
     task = cfg.get("task")
     model = cfg.get("model")
     pretrained = cfg.get("pretrained")
-    
-    # TODO: ignore in benchmark mode? or only in train mode?
-    # By default, disable TF32 to get consistent results between old and Ampere (and later) GPU devices
-    allow_tf32 = cfg.get("allow_tf32", False)
-    allow_tf32_precision(allow_tf32)
 
     # TODO: move robust arg to config
     if args.robust:

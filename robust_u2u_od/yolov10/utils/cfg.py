@@ -9,7 +9,6 @@ from ultralytics.utils import (
 # Default configuration
 DEFAULT_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,
-    allow_tf32=False,
     degradation=dict(enabled=False, seed=2025, identity=True, ignored_degradations=[]),
 )
 DEFAULT_ROBUST_CFG_DICT = dict(

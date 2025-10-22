@@ -9,6 +9,3 @@ train.sync_bn = False
 
 # support saving the best checkpoint based on metric
 train.best_checkpointer = dict(val_metric="bbox/AP", mode="max")
-
-# disable TF32 to get consistent results between old and Ampere (and later) GPU devices
-train.allow_tf32 = False

@@ -16,3 +16,7 @@ variables:
   # GPUS: 4
   # surpress the warning
   NO_ALBUMENTATIONS_UPDATE: 1
+  # disable TF32 to get consistent results between old and Ampere (and later) GPU devices
+  # if you always use Ampere (and later) GPU, you can comment out or unset it (NOTE: unset => Defaults to the library and framework settings).
+  # https://developer.nvidia.com/blog/accelerating-ai-training-with-tf32-tensor-cores/#global_platform_control
+  NVIDIA_TF32_OVERRIDE: 0

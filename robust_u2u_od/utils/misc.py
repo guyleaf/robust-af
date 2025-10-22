@@ -40,6 +40,7 @@ def format_size(x: int, sig_figs: int = 3, hide_zero: bool = False) -> str:
 
 
 def allow_tf32_precision(mode: bool = True):
+    """(Recommended) Use NVIDIA_TF32_OVERRIDE=0 to disable globally."""
     assert isinstance(mode, bool)
     # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
     # in PyTorch 1.12 and later.
