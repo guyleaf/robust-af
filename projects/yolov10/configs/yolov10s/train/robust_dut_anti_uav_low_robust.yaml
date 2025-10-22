@@ -20,10 +20,10 @@ val_period: 1 # (int) Validation every x epochs
 cache: ram # (bool) True/ram, disk or False. Use cache for data loading
 device: 0,1,2,3 # (int | str | list, optional) device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
 workers: 4 # (int) number of worker threads for data loading (per RANK if DDP)
-project: /home/leafying/work/work_dirs/YOLOv10 # (str, optional) project name
-name: robust_dut_anti_uav_low_robust_100e_10_cst_loss_0_mosaic_new_degradation # (str, optional) experiment name, results saved to 'project/name' directory
+project: yolov10 # (str, optional) project name
+name: yolov10s/robust_dut_anti_uav_low/robust_yolov10s_100e_0_mosaic_new_degradation_spatial_attn_1 # (str, optional) experiment name, results saved to 'project/name' directory
 exist_ok: False # (bool) whether to overwrite existing experiment
-pretrained: /home/leafying/work/work_dirs/YOLOv10/robust_dut_anti_uav_low/weights/last.pt # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
+pretrained: /home/leafying/work/experiments/EVA-15-78/work_dirs/yolov10/robust_dut_anti_uav_low/weights/last.pt # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
 optimizer: SGD # (str) optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]
 verbose: True # (bool) whether to print verbose output
 seed: 2025 # (int) random seed for reproducibility
@@ -126,4 +126,4 @@ degradation:
   ignored_degradations: [] # (list[str]) don't apply these types of degradations.
 cst_loss:
   module: nn.MSELoss
-  weight: 10
+  weight: 20
