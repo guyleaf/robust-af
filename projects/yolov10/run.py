@@ -41,6 +41,7 @@ if __name__ == "__main__":
     model = cfg.get("model")
     pretrained = cfg.get("pretrained")
 
+    # TODO: move robust arg to config
     if args.robust:
         model_cls = RobustYOLOv10
     else:

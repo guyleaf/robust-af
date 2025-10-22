@@ -25,6 +25,7 @@ from detectron2.config import LazyConfig, instantiate
 from detectron2.engine import (
     SimpleTrainer,
     default_argument_parser,
+    default_setup,
     default_writers,
     hooks,
     launch,
@@ -36,7 +37,7 @@ from detectron2.utils.file_io import PathManager
 from detrex.utils import WandbWriter
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 
-from robust_u2u_od.detrex.engine import BestCheckpointer, default_setup
+from robust_u2u_od.detrex.engine import BestCheckpointer
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))

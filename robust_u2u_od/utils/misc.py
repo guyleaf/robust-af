@@ -1,4 +1,6 @@
-# copied from https://github.com/open-mmlab/mmengine/blob/main/mmengine/analysis/print_helper.py#L20
+import torch
+
+
 def format_size(x: int, sig_figs: int = 3, hide_zero: bool = False) -> str:
     """Formats an integer for printing in a table or model representation.
 
@@ -14,6 +16,8 @@ def format_size(x: int, sig_figs: int = 3, hide_zero: bool = False) -> str:
 
     Returns:
         str: The formatted string.
+
+    Copied from https://github.com/open-mmlab/mmengine/blob/main/mmengine/analysis/print_helper.py#L20
     """
     if hide_zero and x == 0:
         return ""
@@ -33,3 +37,14 @@ def format_size(x: int, sig_figs: int = 3, hide_zero: bool = False) -> str:
     if abs(x) > 1e2:
         return fmt(x / 1e3) + "K"
     return str(x)
+
+
+def allow_tf32_precision(mode: bool = True):
+    """(Recommended) Use NVIDIA_TF32_OVERRIDE=0 to disable globally."""
+    assert isinstance(mode, bool)
+    # The flag below controls whether to allow TF32 on matmul. This flag defaults to False
+    # in PyTorch 1.12 and later.
+    torch.backends.cuda.matmul.allow_tf32 = mode
+
+    # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+    torch.backends.cudnn.allow_tf32 = mode
