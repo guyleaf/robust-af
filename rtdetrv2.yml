@@ -14,5 +14,5 @@ dependencies:
 variables:
   GPUS: 4
   SEED: 2025
-  # helper variable for setting workdir in configs
-  # R_U2U_OD_WORKDIR: ~/work/work_dirs/rtdetrv2
+  # surpress the warning
+  NO_ALBUMENTATIONS_UPDATE: 1
