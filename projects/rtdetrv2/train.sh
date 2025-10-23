@@ -16,5 +16,4 @@ torchrun \
     --config "$CONFIG" \
     --print-method rich \
     --seed "$SEED" \
-    --preloads "robust_au_od.rtdetrv2" \
     "${@:2}"
