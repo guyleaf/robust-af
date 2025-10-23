@@ -2,7 +2,7 @@ from detectron2.data import MetadataCatalog
 from detrex.config.configs.common.common_schedule import multistep_lr_scheduler
 from omegaconf import OmegaConf
 
-from robust_u2u_od.detrex.utils import count_coco_images
+from robust_au_od.detrex.utils import count_coco_images
 
 # train with 8/4/2/1 GPUs (bs per gpu = 2)
 BATCH_SIZES = [16, 8, 4, 2]

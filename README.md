@@ -1,12 +1,12 @@
-# robust-u2u-od
-Robust UAV to UAV Object Detection (R-U2U-OD)
+# robust-au-od
+Robust Anti-UAV Object Detection (R-AU-OD)
 
 ## Installation
 ```bash
-git clone --recursive https://github.com/guyleaf/robust-u2u-od.git
+git clone --recursive https://github.com/guyleaf/robust-au-od.git
 
 # or via GitHub CLI
-gh repo clone guyleaf/robust-u2u-od -- --recursive
+gh repo clone guyleaf/robust-au-od -- --recursive
 
 ```
 

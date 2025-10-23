@@ -1,4 +1,4 @@
-name: robust_u2u_od
+name: robust_au_od
 channels:
   - conda-forge
   - defaults

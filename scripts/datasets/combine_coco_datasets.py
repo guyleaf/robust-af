@@ -14,7 +14,7 @@ from pycocotools.coco import COCO
 from rich import print
 from rich.progress import track
 
-from robust_u2u_od.utils.dataset import format_coco_image
+from robust_au_od.utils.dataset import format_coco_image
 
 _COCO_FILE = {
     "info": {

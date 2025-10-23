@@ -1,8 +1,8 @@
 from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
 
-from robust_u2u_od.detrex.configs import get_config
-from robust_u2u_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_au_od.detrex.configs import get_config
+from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 
 from ..models.dino_r50 import model
 
@@ -89,7 +89,7 @@ train.wandb = dict(
     enabled=True,
     params=dict(
         dir=output_dir,
-        project="robust-u2u-od",
+        project="robust-au-od",
         group="dino_r50_4scale_12ep",
         job_type="from scratch",
         tags=tags,

@@ -3,7 +3,7 @@ from copy import deepcopy
 from detectron2.config import LazyCall as L
 from detectron2.data import get_detection_dataset_dicts
 
-from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav_low import (
+from robust_au_od.detrex.data.datasets.register_robust_dut_anti_uav_low import (
     DATASET_NAME,
 )
 
