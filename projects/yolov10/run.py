@@ -11,12 +11,6 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument("cfg", type=str, help="Path to the config.")
-    parser.add_argument(
-        "--robust",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Use the robust version of YOLOv10.",
-    )
     # parser.add_argument(
     #     "opts",
     #     help="""
@@ -40,9 +34,9 @@ if __name__ == "__main__":
     task = cfg.get("task")
     model = cfg.get("model")
     pretrained = cfg.get("pretrained")
+    robust = cfg.get("robust", False)
 
-    # TODO: move robust arg to config
-    if args.robust:
+    if robust:
         model_cls = RobustYOLOv10
     else:
         model_cls = YOLOv10
