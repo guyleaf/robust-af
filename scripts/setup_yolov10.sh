@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-cwd=$(dirname "$0")
+cwd=$(dirname "$(realpath "$0")")
 root=$(dirname "$cwd")
 
 envName="yolov10"
