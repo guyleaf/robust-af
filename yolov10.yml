@@ -11,6 +11,7 @@ dependencies:
       - torchvision==0.15.2
       - numpy<2
       - wandb
+      - tensorboard
       - -e .
 variables:
   # GPUS: 4
