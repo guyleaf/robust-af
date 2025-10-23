@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "robust_u2u_od"
+name = "robust_au_od"
 authors = [{ name = "Leaf Ying", email = "leaf.ying.work@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.9"
@@ -17,7 +17,7 @@ dependencies = [
     "rich",
     "albumentations ~= 1.4.24",
     "imaug ~= 0.4.1",
-    "opencv-python < 5"
+    "opencv-python < 5",
 ]
 
 [project.optional-dependencies]
@@ -29,7 +29,7 @@ dev = [
     "mkdocs-glightbox",
 ]
 
-[tool.hatch.build.targets.robust_u2u_od]
+[tool.hatch.build.targets.wheel]
 only-packages = true
 
 [tool.ruff.lint]

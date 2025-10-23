@@ -38,7 +38,7 @@ from detectron2.utils.file_io import PathManager
 from detrex.utils import WandbWriter
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 
-from robust_u2u_od.detrex.engine import BestCheckpointer
+from robust_au_od.detrex.engine import BestCheckpointer
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))

@@ -1,5 +1,5 @@
-from robust_u2u_od.detrex.configs import get_config
-from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
+from robust_au_od.detrex.configs import get_config
+from robust_au_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
 
 from .robust_dino_r50_4scale_12ep_spatial import model, train
 

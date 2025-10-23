@@ -9,8 +9,8 @@ from projects.dino.modeling import (
     RobustDINOTransformer,
     RobustDINOTransformerEncoder,
 )
-from robust_u2u_od.detrex.modeling.criterion import RobustCriterion
-from robust_u2u_od.models.robust_layers import AMFG
+from robust_au_od.detrex.modeling.criterion import RobustCriterion
+from robust_au_od.models.robust_layers import AMFG
 
 from .dino_r50 import model as dino_model
 

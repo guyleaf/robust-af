@@ -1,4 +1,4 @@
-from robust_u2u_od.detrex.data.datasets.register_robust_dut_anti_uav_low import (
+from robust_au_od.detrex.data.datasets.register_robust_dut_anti_uav_low import (
     DATASET_NAME,
 )
 

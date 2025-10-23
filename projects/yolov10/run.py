@@ -2,8 +2,8 @@ import argparse
 
 from rich import print
 
-from robust_u2u_od.yolov10.models import RobustYOLOv10, YOLOv10
-from robust_u2u_od.yolov10.utils import is_huggingface_hub_model, load_global_cfg
+from robust_au_od.yolov10.models import RobustYOLOv10, YOLOv10
+from robust_au_od.yolov10.utils import is_huggingface_hub_model, load_global_cfg
 
 
 def parse_args():
