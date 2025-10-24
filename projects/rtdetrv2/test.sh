@@ -10,13 +10,12 @@ PORT=${PORT:-9909}
 SEED=${SEED:-2025}
 
 torchrun \
-    --master_port="$PORT" \
-    --nproc_per_node="$GPUS" \
+    --master-port "$PORT" \
+    --nproc-per-node "$GPUS" \
     "$CWD/tools/train.py" \
     --config "$CONFIG" \
     --resume "$CHECKPOINT" \
     --print-method rich \
     --seed "$SEED" \
     --test-only \
-    --preloads "robust_au_od.rtdetrv2" \
     "${@:3}"
