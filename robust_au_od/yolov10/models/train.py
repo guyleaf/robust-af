@@ -41,6 +41,19 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
             dist.generate_ddp_file, default_cfg=DEFAULT_CFG_DICT
         )
 
+    def optimizer_step(self):
+        """Perform a single step of the training optimizer with gradient clipping and EMA update."""
+        self.scaler.unscale_(self.optimizer)  # unscale gradients
+        total_norm = torch.nn.utils.clip_grad_norm_(
+            self.model.parameters(), max_norm=10.0
+        )  # clip gradients
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+        self.optimizer.zero_grad()
+        if self.ema:
+            self.ema.update(self.model)
+        return total_norm
+
     def _do_train(self, world_size=1):
         """Train completed, evaluate and plot if specified by arguments."""
         if world_size > 1:
