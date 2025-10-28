@@ -1,1 +1,12 @@
 __include__: ["../../base/rtdetrv2/include/dataloader.yml"]
+
+# same as val_dataloader
+val_train_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - { type: Resize, size: [640, 640] }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }
+  shuffle: False
+  total_batch_size: 32
+  num_workers: 4
