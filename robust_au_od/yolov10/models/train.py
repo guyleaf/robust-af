@@ -3,9 +3,11 @@ import time
 import warnings
 from copy import deepcopy
 from functools import partial
+from statistics import mean
 
 import numpy as np
 import torch
+import torch.distributed as torch_dist
 import ultralytics.utils.dist as dist
 from ultralytics.models.yolov10.train import (
     YOLOv10DetectionTrainer as ORIGINAL_YOLOv10DetectionTrainer,
@@ -22,6 +24,7 @@ from ..utils import (
     DEFAULT_CFG_DICT,
     DEFAULT_ROBUST_CFG,
     DEFAULT_ROBUST_CFG_DICT,
+    callbacks,
 )
 from .val import RobustYOLOv10DetectionValidator, YOLOv10DetectionValidator
 
@@ -40,6 +43,8 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
         dist.generate_ddp_file = partial(
             dist.generate_ddp_file, default_cfg=DEFAULT_CFG_DICT
         )
+        if RANK in (-1, 0):
+            callbacks.replace_integration_callbacks(self)
 
     def optimizer_step(self):
         """Perform a single step of the training optimizer with gradient clipping and EMA update."""
@@ -53,6 +58,17 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
         if self.ema:
             self.ema.update(self.model)
         return total_norm
+
+    def progress_string(self):
+        """Returns a formatted string of training progress with epoch, GPU memory, loss, instances and size."""
+        return ("\n" + "%11s" * (5 + len(self.loss_names))) % (
+            "Epoch",
+            "GPU_mem",
+            *self.loss_names,
+            "grad_norm",
+            "Instances",
+            "Size",
+        )
 
     def _do_train(self, world_size=1):
         """Train completed, evaluate and plot if specified by arguments."""
@@ -102,25 +118,26 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
                 LOGGER.info(self.progress_string())
                 pbar = TQDM(enumerate(self.train_loader), total=nb)
             self.tloss = None
+            self.grad_norms = []
             self.optimizer.zero_grad()
             for i, batch in pbar:
                 self.run_callbacks("on_train_batch_start")
                 # Warmup
-                ni = i + nb * epoch
-                if ni <= nw:
+                self.iter = i + nb * epoch
+                if self.iter <= nw:
                     xi = [0, nw]  # x interp
                     self.accumulate = max(
                         1,
                         int(
                             np.interp(
-                                ni, xi, [1, self.args.nbs / self.batch_size]
+                                self.iter, xi, [1, self.args.nbs / self.batch_size]
                             ).round()
                         ),
                     )
                     for j, x in enumerate(self.optimizer.param_groups):
                         # Bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
                         x["lr"] = np.interp(
-                            ni,
+                            self.iter,
                             xi,
                             [
                                 self.args.warmup_bias_lr if j == 0 else 0.0,
@@ -129,7 +146,9 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
                         )
                         if "momentum" in x:
                             x["momentum"] = np.interp(
-                                ni, xi, [self.args.warmup_momentum, self.args.momentum]
+                                self.iter,
+                                xi,
+                                [self.args.warmup_momentum, self.args.momentum],
                             )
 
                 # Forward
@@ -148,9 +167,14 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
                 self.scaler.scale(self.loss).backward()
 
                 # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
-                if ni - last_opt_step >= self.accumulate:
-                    self.optimizer_step()
-                    last_opt_step = ni
+                if self.iter - last_opt_step >= self.accumulate:
+                    total_norm = self.optimizer_step().item()
+                    self.grad_norms.append(total_norm)
+                    last_opt_step = self.iter
+
+                    # for loggers
+                    self.grad_norm = {"grad_norm/batch": total_norm}
+                    self.run_callbacks("optimizer_step")
 
                     # Timed stopping
                     if self.args.time:
@@ -159,7 +183,7 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
                         )
                         if RANK != -1:  # if DDP training
                             broadcast_list = [self.stop if RANK == 0 else None]
-                            dist.broadcast_object_list(
+                            torch_dist.broadcast_object_list(
                                 broadcast_list, 0
                             )  # broadcast 'stop' to all ranks
                             self.stop = broadcast_list[0]
@@ -170,27 +194,35 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
                 mem = f"{torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0:.3g}G"  # (GB)
                 loss_len = self.tloss.shape[0] if len(self.tloss.shape) else 1
                 losses = self.tloss if loss_len > 1 else torch.unsqueeze(self.tloss, 0)
+                grad_norm = self.grad_norms[-1] if len(self.grad_norms) > 0 else -1
                 if RANK in (-1, 0):
                     pbar.set_description(
-                        ("%11s" * 2 + "%11.4g" * (2 + loss_len))
+                        ("%11s" * 2 + "%11.4g" * (3 + loss_len))
                         % (
                             f"{epoch + 1}/{self.epochs}",
                             mem,
                             *losses,
+                            grad_norm,
                             batch["cls"].shape[0],
                             batch["img"].shape[-1],
                         )
                     )
                     self.run_callbacks("on_batch_end")
-                    if self.args.plots and ni in self.plot_idx:
-                        self.plot_training_samples(batch, ni)
+                    if self.args.plots and self.iter in self.plot_idx:
+                        self.plot_training_samples(batch, self.iter)
 
                 self.run_callbacks("on_train_batch_end")
 
+            # for loggers
             self.lr = {
                 f"lr/pg{ir}": x["lr"]
                 for ir, x in enumerate(self.optimizer.param_groups)
-            }  # for loggers
+            }
+            self.grad_norm = {
+                "grad_norm/min": min(self.grad_norms),
+                "grad_norm/max": max(self.grad_norms),
+                "grad_norm/avg": mean(self.grad_norms),
+            }
             self.run_callbacks("on_train_epoch_end")
             if RANK in (-1, 0):
                 final_epoch = epoch + 1 == self.epochs
@@ -218,6 +250,7 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
                         **self.label_loss_items(self.tloss),
                         **self.metrics,
                         **self.lr,
+                        **self.grad_norm,
                     }
                 )
                 self.stop |= self.stopper(epoch + 1, self.fitness) or final_epoch
@@ -256,7 +289,7 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
             # Early Stopping
             if RANK != -1:  # if DDP training
                 broadcast_list = [self.stop if RANK == 0 else None]
-                dist.broadcast_object_list(
+                torch_dist.broadcast_object_list(
                     broadcast_list, 0
                 )  # broadcast 'stop' to all ranks
                 self.stop = broadcast_list[0]
