@@ -19,8 +19,10 @@ import os
 import sys
 import time
 import warnings
+from typing import Mapping, Optional
 
 import torch
+import torch.nn.utils
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.config import LazyConfig, instantiate
 from detectron2.engine import (
@@ -92,6 +94,29 @@ class Trainer(SimpleTrainer):
         # gradient clip hyper-params
         self.clip_grad_params = clip_grad_params
 
+    def _write_metrics(
+        self,
+        loss_dict: Mapping[str, torch.Tensor],
+        total_norm: float,
+        data_time: float,
+        prefix: str = "",
+        iter: Optional[int] = None,
+    ) -> None:
+        logger = logging.getLogger(__name__)
+
+        iter = self.iter if iter is None else iter
+        if (iter + 1) % self.gather_metric_period == 0:
+            try:
+                SimpleTrainer.write_metrics(loss_dict, data_time, iter, prefix)
+                if comm.is_main_process():
+                    # total_norm is calculated from averaged gradient. So, we don't need to collect them from devices.
+                    self.storage.put_scalar(
+                        "grad_norm", total_norm, smoothing_hint=False, cur_iter=iter
+                    )
+            except Exception:
+                logger.exception("Exception in writing metrics: ")
+                raise
+
     def run_step(self):
         """
         Implement the standard training logic described above.
@@ -128,24 +153,29 @@ class Trainer(SimpleTrainer):
             self.grad_scaler.scale(losses).backward()
             if self.clip_grad_params is not None:
                 self.grad_scaler.unscale_(self.optimizer)
-                self.clip_grads(self.model.parameters())
+                total_norm = self.clip_grads(self.model.parameters())
+            else:
+                # only pytorch >= 2.6.0 supports get_total_norm()
+                total_norm = -1
             self.grad_scaler.step(self.optimizer)
             self.grad_scaler.update()
         else:
             losses.backward()
             if self.clip_grad_params is not None:
-                self.clip_grads(self.model.parameters())
+                total_norm = self.clip_grads(self.model.parameters())
+            else:
+                # only pytorch >= 2.6.0 supports get_total_norm()
+                total_norm = -1
             self.optimizer.step()
 
-        self._write_metrics(loss_dict, data_time)
+        self._write_metrics(loss_dict, total_norm, data_time)
 
     def clip_grads(self, params):
         params = list(filter(lambda p: p.requires_grad and p.grad is not None, params))
-        if len(params) > 0:
-            return torch.nn.utils.clip_grad_norm_(
-                parameters=params,
-                **self.clip_grad_params,
-            )
+        return torch.nn.utils.clip_grad_norm_(
+            parameters=params,
+            **self.clip_grad_params,
+        ).item()
 
     def state_dict(self):
         ret = super().state_dict()
