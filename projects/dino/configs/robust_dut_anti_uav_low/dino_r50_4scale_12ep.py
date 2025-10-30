@@ -15,7 +15,7 @@ optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
 ).detr_schedulers.lr_multiplier_12ep_8bs
-train = get_upstream_config("common/train.py").train
+train = get_config("train.py").train
 
 metadata = MetadataCatalog.get(DATASET_NAME)
 train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
@@ -24,19 +24,21 @@ train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
 
 # TODO: auto-scale lr by batch size
 # each gpu is 16/8 = 2
-base_batch_size = 16
-base_lr = 1e-4
+# base_batch_size = 16
+# base_lr = 1e-4
 
 # by default, use 4 gpus.
 # each gpu is 8/4 = 2
-total_batch_size = 8
-lr = base_lr * (total_batch_size / base_batch_size)
+batch_size = 8
+# lr = base_lr * (batch_size / base_batch_size)
+lr = 1e-4
 
 num_epochs = 12
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_12ep"
+eval_per_epochs = 1
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_12ep_1e-4_lr"
 
 # wandb settings
-tags = [*metadata.tags]
+tags = [*metadata.tags, "Original LR"]
 notes = ""
 
 # ==============================================================
@@ -48,10 +50,9 @@ train.output_dir = output_dir
 # max training iterations
 num_images = count_coco_images(train_metadata.json_file)
 # because drop_last=True
-num_batches = num_images // total_batch_size
+num_batches = num_images // batch_size
 train.max_iter = num_epochs * num_batches
-# eval per epoch
-train.eval_period = num_batches
+train.eval_period = eval_per_epochs * num_batches
 train.log_period = 20
 train.checkpointer.period = num_batches
 train.checkpointer.max_to_keep = 3
@@ -82,17 +83,17 @@ dataloader.train.num_workers = 4
 # please notice that this is total batch size.
 # surpose you're using 4 gpus for training and the batch size for
 # each gpu is 16/4 = 4
-dataloader.train.total_batch_size = total_batch_size
+dataloader.train.batch_size = batch_size
 
 # dump the testing results into output_dir for visualization
-dataloader.evaluator.output_dir = train.output_dir
+dataloader.evaluator.output_dir = output_dir
 
 # wandb settings
 train.wandb = dict(
     enabled=True,
     params=dict(
         dir=output_dir,
-        project="robust-au-od",
+        project="detrex",
         group="dino_r50_4scale_12ep",
         job_type="from scratch",
         tags=tags,
