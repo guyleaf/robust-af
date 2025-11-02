@@ -25,9 +25,10 @@ def on_train_end(trainer: YOLOv10DetectionTrainer):
     wb.on_train_end(trainer)
 
 
-def optimizer_step(trainer: YOLOv10DetectionTrainer):
-    data = {**trainer.grad_norm, "grad_norm/step": trainer.iter}
-    wb.wb.run.log(data, step=trainer.epoch + 1)
+# NOTE: wandb only supports monotonic increasing. So, I don't use it.
+# def optimizer_step(trainer: YOLOv10DetectionTrainer):
+#     data = {**trainer.grad_norm, "grad_norm/step": trainer.iter}
+#     wb.wb.run.log(data, step=trainer.epoch + 1)
 
 
 callbacks = (
@@ -36,7 +37,7 @@ callbacks = (
         "on_train_epoch_end": on_train_epoch_end,
         "on_fit_epoch_end": on_fit_epoch_end,
         "on_train_end": on_train_end,
-        "optimizer_step": optimizer_step,
+        # "optimizer_step": optimizer_step,
     }
     if wb.wb is not None
     else {}
