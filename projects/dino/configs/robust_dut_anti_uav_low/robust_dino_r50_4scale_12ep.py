@@ -15,7 +15,7 @@ optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
 ).detr_schedulers.lr_multiplier_12ep_8bs
-train = get_upstream_config("common/train.py").train
+train = get_config("train.py").train
 
 metadata = MetadataCatalog.get(DATASET_NAME)
 train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
@@ -33,7 +33,7 @@ total_batch_size = 8
 lr = base_lr * (total_batch_size / base_batch_size)
 
 num_epochs = 12
-output_dir = f"./outputs/robust_dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_4scale_12ep_spatial_att_1_loss_test"
+output_dir = f"./outputs/robust_dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_4scale_12ep_spatial_att_1_sync_bn_test"
 
 # wandb settings
 tags = ["1x1 Patch", *metadata.tags]
@@ -42,10 +42,13 @@ notes = ""
 # ==============================================================
 
 model.transformer.encoder.robust_layer.spatial_attention = 1
+model.vis_period = 2000
 
 # modify training config
 train.init_checkpoint = "/home/leafying/work/work_dirs/detrex/dino_r50_4scale/robust_dut_anti_uav_low/dino_r50_4scale_12ep/model_final.pth"
 train.output_dir = output_dir
+
+train.sync_bn = True
 
 # max training iterations
 num_images = count_coco_images(train_metadata.json_file)
