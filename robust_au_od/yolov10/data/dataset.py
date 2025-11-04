@@ -12,14 +12,8 @@ class YOLODataset(ORIGINAL_YOLODataset):
     def _build_degradation_transform(self, hyp: SimpleNamespace):
         if hyp.degradation["enabled"]:
             LOGGER.info("Degradation transform enabled!")
-
-            # use diff seed in training stage to avoid using the same random sequence in val/test stage
-            seed = hyp.degradation["seed"]
-            if seed is not None and self.augment:
-                seed += 666
-
             return Degradation(
-                seed=seed,
+                seed=hyp.degradation["seed"],
                 identity=hyp.degradation["identity"],
                 ignored_degradations=hyp.degradation["ignored_degradations"],
             )
