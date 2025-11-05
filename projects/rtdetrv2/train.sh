@@ -16,4 +16,4 @@ torchrun \
     --config "$CONFIG" \
     --print-method rich \
     --seed "$SEED" \
-    "${@:2}"
+    "${@:2}" 2>&1 | tee "log_$(date +%Y%m%d%H%M%S).txt"

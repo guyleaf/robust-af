@@ -18,4 +18,4 @@ torchrun \
     --print-method rich \
     --seed "$SEED" \
     --test-only \
-    "${@:3}"
+    "${@:3}" 2>&1 | tee "log_test_$(date +%Y%m%d%H%M%S).txt"
