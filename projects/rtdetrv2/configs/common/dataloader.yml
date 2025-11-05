@@ -1,4 +1,4 @@
-__include__: ["../../base/rtdetrv2/include/dataloader.yml"]
+__include__: ["../base/rtdetrv2/include/dataloader.yml"]
 
 # same as val_dataloader
 val_train_dataloader:

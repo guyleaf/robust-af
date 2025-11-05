@@ -1,13 +1,13 @@
 __include__:
   [
-    '../base/dataset/coco_detection.yml',
-    "../runtime.yml",
-    "./include/dataloader.yml",
-    "./include/optimizer.yml",
-    "./include/rtdetrv2_r50vd.yml",
+    "../common/dataset/robust_dut_anti_uav_low_detection.yml",
+    "../common/runtime.yml",
+    "../common/dataloader.yml",
+    "../common/optimizer.yml",
+    "../common/models/rtdetrv2_r50vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/coco/rtdetrv2_r18vd_120e
+output_dir: ./output/rtdetrv2_r18vd/robust_dut_anti_uav_low/rtdetrv2_r18vd_120e
 
 PResNet:
   depth: 18

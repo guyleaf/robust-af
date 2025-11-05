@@ -1,0 +1,11 @@
+__include__: ["../rtdetrv2_r50vd_84e_m_7x_robust_dut_anti_uav_low.yml"]
+
+output_dir: ./output/rtdetrv2_r50vd/robust_dut_anti_uav_low/rtdetrv2_r50vd_84e_m_7x_no_amp
+
+val_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - { type: Degradation, identity: False, seed: 2025 }
+        - { type: Resize, size: [640, 640] }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }

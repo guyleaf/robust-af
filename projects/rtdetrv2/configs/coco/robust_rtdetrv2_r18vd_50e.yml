@@ -1,10 +1,10 @@
 __include__:
   [
     "../base/dataset/coco_detection.yml",
-    "../runtime.yml",
-    "./include/robust_dataloader.yml",
-    "./include/optimizer.yml",
-    "./include/robust_rtdetrv2_r50vd.yml",
+    "../common/runtime.yml",
+    "../common/robust_dataloader.yml",
+    "../common/optimizer.yml",
+    "../common/models/robust_rtdetrv2_r50vd.yml",
   ]
 
 output_dir: ./output/rtdetrv2_r18vd/coco/robust_rtdetrv2_r18vd_50e_no_color_augs_in_clear
