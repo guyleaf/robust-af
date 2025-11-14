@@ -11,6 +11,7 @@ DEFAULT_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,
     robust=False,
     degradation=dict(enabled=False, seed=2025, identity=True, ignored_degradations=[]),
+    sync_bn=False,
 )
 DEFAULT_ROBUST_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,

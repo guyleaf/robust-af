@@ -4,6 +4,7 @@ import warnings
 from copy import deepcopy
 from functools import partial
 from statistics import mean
+from types import SimpleNamespace
 
 import numpy as np
 import torch
@@ -12,6 +13,7 @@ import ultralytics.utils.dist as dist
 from ultralytics.models.yolov10.train import (
     YOLOv10DetectionTrainer as ORIGINAL_YOLOv10DetectionTrainer,
 )
+from ultralytics.nn import DetectionModel
 from ultralytics.utils import LOGGER, RANK, TQDM, colorstr
 from ultralytics.utils.plotting import plot_images
 from ultralytics.utils.torch_utils import de_parallel
@@ -27,6 +29,37 @@ from ..utils import (
     callbacks,
 )
 from .val import RobustYOLOv10DetectionValidator, YOLOv10DetectionValidator
+
+
+def _freeze_bn(cfg: SimpleNamespace, model: DetectionModel, verbose: bool = True):
+    if isinstance(cfg.freeze_bn, bool):
+        freeze_list = cfg.freeze
+    elif isinstance(cfg.freeze_bn, (int, list)):
+        freeze_list = cfg.freeze_bn
+    else:
+        raise ValueError("The freeze_bn argument only supports boolean, int or list.")
+
+    freeze_list = (
+        freeze_list
+        if isinstance(freeze_list, list)
+        else list(range(freeze_list))
+        if isinstance(freeze_list, int)
+        else []
+    )
+    for i in freeze_list:
+        # NOTE: currently, only supports freezing BatchNorm2d
+        model.model[i] = convert_to_frozen_batchnorm_2d(model.model[i])
+
+    if verbose:
+        LOGGER.info("Freeze BatchNorms!")
+    return model
+
+
+def _convert_sync_bn(model: DetectionModel, verbose: bool = True):
+    model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    if verbose:
+        LOGGER.info("Convert BatchNorms to SyncBatchNorms!")
+    return model
 
 
 class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
@@ -347,6 +380,12 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
             _callbacks=self.callbacks,
         )
 
+    def get_model(self, cfg=None, weights=None, verbose=True):
+        model = super().get_model(cfg, weights, verbose)
+        if self.args.sync_bn:
+            model = _convert_sync_bn(model, verbose=verbose)
+        return model
+
 
 class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
     def __init__(self, cfg=DEFAULT_ROBUST_CFG, overrides=None, _callbacks=None):
@@ -414,28 +453,9 @@ class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
             model.load(weights)
 
         if self.args.freeze_bn:
-            if isinstance(self.args.freeze_bn, bool):
-                freeze_list = self.args.freeze
-            elif isinstance(self.args.freeze_bn, (int, list)):
-                freeze_list = self.args.freeze_bn
-            else:
-                raise ValueError(
-                    "The freeze_bn argument only supports boolean, int or list."
-                )
-
-            freeze_list = (
-                freeze_list
-                if isinstance(freeze_list, list)
-                else list(range(freeze_list))
-                if isinstance(freeze_list, int)
-                else []
-            )
-            for i in freeze_list:
-                # NOTE: currently, only supports freezing BatchNorm2d
-                model.model[i] = convert_to_frozen_batchnorm_2d(model.model[i])
-
-            if verbose:
-                LOGGER.info("Freeze BatchNorms!")
+            model = _freeze_bn(self.args, model, verbose=verbose)
+        if self.args.sync_bn:
+            model = _convert_sync_bn(model, verbose=verbose)
         return model
 
     def plot_training_samples(self, batch: dict, ni: int):
