@@ -78,6 +78,7 @@ class YOLOv10DetectionTrainer(ORIGINAL_YOLOv10DetectionTrainer):
         )
         if RANK in (-1, 0):
             callbacks.replace_integration_callbacks(self)
+            callbacks.add_custom_callbacks(self)
 
     def optimizer_step(self):
         """Perform a single step of the training optimizer with gradient clipping and EMA update."""

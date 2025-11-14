@@ -28,3 +28,24 @@ def replace_integration_callbacks(instance):
         for k, v in new_callbacks.items():
             if v not in instance.callbacks[k]:
                 instance.callbacks[k].append(v)
+
+
+def add_custom_callbacks(instance):
+    """
+    Args:
+        instance (Trainer, Predictor, Validator, Exporter): An object with a 'callbacks' attribute that is a dictionary
+            of callback lists.
+    """
+    callbacks_list = []
+
+    # Load training callbacks
+    if "Trainer" in instance.__class__.__name__:
+        from .model_info import callbacks as mi_cb
+
+        callbacks_list.extend([mi_cb])
+
+    # Add the callbacks to the callbacks dictionary
+    for callbacks in callbacks_list:
+        for k, v in callbacks.items():
+            if v not in instance.callbacks[k]:
+                instance.callbacks[k].append(v)
