@@ -25,7 +25,7 @@ model = L(RobustDINO)(
         encoder=L(RobustDINOTransformerEncoder)(
             robust_layer=L(AMFG)(
                 embed_dims="${..embed_dim}",
-                spatial_attention=4,
+                spatial_attention=1,
             ),
             num_robust_layers=1,
             start_robust_gap_index=0,
