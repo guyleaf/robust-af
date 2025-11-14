@@ -1,3 +1,4 @@
+from copy import deepcopy
 from types import SimpleNamespace
 from typing import Optional
 
@@ -37,6 +38,13 @@ class YOLODataset(ORIGINAL_YOLODataset):
 
 
 class RobustYOLODataset(YOLODataset):
+    def _build_degradation_transform(self, hyp: SimpleNamespace):
+        # use diff seed in training stage to avoid using the same random sequence in val/test stage
+        if hyp.degradation["seed"] is not None and self.augment:
+            hyp = deepcopy(hyp)
+            hyp.degradation["seed"] += 666
+        return super()._build_degradation_transform(hyp)
+
     def build_transforms(self, hyp: Optional[SimpleNamespace] = None):
         """Builds and appends transforms to the list."""
         assert hyp is not None
