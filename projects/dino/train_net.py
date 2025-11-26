@@ -46,7 +46,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 )
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger("detectron2")
 
 
 def match_name_keywords(n, name_keywords):
@@ -102,8 +102,6 @@ class Trainer(SimpleTrainer):
         prefix: str = "",
         iter: Optional[int] = None,
     ) -> None:
-        logger = logging.getLogger(__name__)
-
         iter = self.iter if iter is None else iter
         if (iter + 1) % self.gather_metric_period == 0:
             try:
@@ -114,7 +112,7 @@ class Trainer(SimpleTrainer):
                         "grad_norm", total_norm, smoothing_hint=False, cur_iter=iter
                     )
             except Exception:
-                logger.exception("Exception in writing metrics: ")
+                LOGGER.exception("Exception in writing metrics: ")
                 raise
 
     def run_step(self):
@@ -198,7 +196,7 @@ def do_test(cfg, model, training=False):
         instantiate(cfg.dataloader.test),
         instantiate(cfg.dataloader.evaluator),
     )
-    logger.info("Subset: test")
+    LOGGER.info("Subset: test")
     print_csv_format(ret)
 
     if training:
@@ -210,7 +208,7 @@ def do_test(cfg, model, training=False):
             instantiate(cfg.dataloader.test),
             instantiate(cfg.dataloader.evaluator),
         )
-        logger.info("Subset: train")
+        LOGGER.info("Subset: train")
         print_csv_format(train_ret)
         cfg.dataloader.test = test_dataloader
 
@@ -240,7 +238,7 @@ def do_train(args, cfg):
                 ddp (dict)
     """
     model = instantiate(cfg.model)
-    logger.info("Model:\n{}".format(model))
+    LOGGER.info("Model:\n{}".format(model))
     model.to(cfg.train.device)
 
     if cfg.train.sync_bn:
@@ -251,6 +249,7 @@ def do_train(args, cfg):
             message=r"torch\.distributed\._all_gather_base",
             category=UserWarning,
         )
+        LOGGER.info("Convert BatchNorm to SyncBatchNorm!")
 
     if args.hacked:
         # this is an hack of train_net
