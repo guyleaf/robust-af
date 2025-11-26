@@ -12,6 +12,8 @@ EPOCHS = [
     (24, 20, 0),
     (12, 11, 0),
     (50, 40, 1e-3),
+    (36, 30, 1e-3),
+    (24, 20, 1e-3),
     (12, 11, 1e-3),
 ]
 
@@ -21,7 +23,7 @@ def default_scheduler(
     total_batch_size: int,
     epochs: int = 50,
     decay_epochs: int = 40,
-    warmup_epochs: int = 0,
+    warmup_epochs: float = 0,
 ):
     """
     Returns the config for a default multi-step LR scheduler such as "50epochs",
@@ -31,7 +33,7 @@ def default_scheduler(
         total_batch_size (int): total batch size (all gpus)
         epochs (int): total training epochs.
         decay_epochs (int): lr decay steps.
-        warmup_epochs (int): warmup epochs.
+        warmup_epochs (float): warmup epochs (support fraction).
 
     Returns:
         DictConfig: configs that define the multiplier for LR during training
