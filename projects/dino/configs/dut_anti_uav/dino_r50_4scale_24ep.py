@@ -1,7 +1,6 @@
+import os
+
 from robust_au_od.detrex.configs import get_config
-from robust_au_od.detrex.data.datasets.register_dut_anti_uav import (
-    DATASET_NAME as VAL_DATASET_NAME,
-)
 
 from .dino_r50_4scale_12ep import (  # noqa: F401
     DATASET_NAME,
@@ -28,17 +27,19 @@ model.position_embedding.offset = 0.0
 
 # modify training config
 train.output_dir = (
-    f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_24ep_1e-4_lr_dut_anti_uav_val"
+    f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_24ep_1e-4_lr_4"
 )
 
 # max training iterations
 train.max_iter = num_epochs * num_batches
 
-dataloader.test = get_config(f"datasets/{VAL_DATASET_NAME}_detr.py").dataloader.test
-
 # dump the testing results into output_dir for visualization
 dataloader.evaluator.output_dir = train.output_dir
 
 # wandb settings
-params = dict(dir=train.output_dir, group="dino_r50_4scale_24ep")
+params = dict(
+    dir=train.output_dir,
+    name=os.path.basename(train.output_dir),
+    group="dino_r50_4scale_24ep",
+)
 train.wandb["params"].update(params)

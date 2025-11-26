@@ -7,14 +7,14 @@ from robust_au_od.detrex.configs import get_config
 from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 from robust_au_od.detrex.utils import count_coco_images
 
-from ..models.dino_r50 import model
+from ..models.dino_swin_small_224 import model
 
 # get default config
 dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").dataloader
 optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
-).detr_schedulers.lr_multiplier_12ep_warmup_8bs
+).detr_schedulers.lr_multiplier_12ep_8bs
 train = get_config("train.py").train
 
 metadata = MetadataCatalog.get(DATASET_NAME)
@@ -35,7 +35,7 @@ lr = 1e-4
 
 num_epochs = 12
 eval_per_epochs = 1
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_12ep_1e-4_lr_warmup"
+output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/dino_swin_small_224_4scale_12ep_1e-4_lr"
 
 # wandb settings
 tags = [*metadata.tags]
@@ -44,7 +44,7 @@ notes = ""
 # ==============================================================
 
 # modify training config
-train.init_checkpoint = "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
+train.init_checkpoint = "https://github.com/SwinTransformer/storage/releases/download/v1.0.8/swin_small_patch4_window7_224_22kto1k_finetune.pth?matching_heuristics=True"
 train.output_dir = output_dir
 
 # max training iterations
@@ -97,7 +97,7 @@ train.wandb = dict(
         dir=output_dir,
         name=os.path.basename(output_dir),
         project="detrex",
-        group="dino_r50_4scale_12ep",
+        group="dino_swin_small_224_4scale",
         job_type="from scratch",
         tags=tags,
         notes=notes,

@@ -7,14 +7,14 @@ from robust_au_od.detrex.configs import get_config
 from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 from robust_au_od.detrex.utils import count_coco_images
 
-from ..models.dino_r50 import model
+from ..models.robust_dino_r50 import model
 
 # get default config
-dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").dataloader
+dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").robust_dataloader
 optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
-).detr_schedulers.lr_multiplier_12ep_warmup_8bs
+).detr_schedulers.lr_multiplier_12ep_8bs
 train = get_config("train.py").train
 
 metadata = MetadataCatalog.get(DATASET_NAME)
@@ -24,8 +24,8 @@ train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
 
 # TODO: auto-scale lr by batch size
 # each gpu is 16/8 = 2
-# base_batch_size = 16
-# base_lr = 1e-4
+# base_batch_size = dataloader.train.total_batch_size
+# base_lr = optimizer.lr
 
 # by default, use 4 gpus.
 # each gpu is 8/4 = 2
@@ -35,17 +35,22 @@ lr = 1e-4
 
 num_epochs = 12
 eval_per_epochs = 1
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_12ep_1e-4_lr_warmup"
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_4scale_12ep_1e-4_lr_sync_bn"
 
 # wandb settings
-tags = [*metadata.tags]
+tags = [*metadata.tags, "Original LR"]
 notes = ""
 
 # ==============================================================
 
+# model.transformer.encoder.robust_layer.spatial_attention = 1
+# model.vis_period = 2000
+
 # modify training config
-train.init_checkpoint = "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
+train.init_checkpoint = "/home/leafying/git/robust-u2u-od/projects/dino/outputs/dino_r50_4scale/dut_anti_uav/dino_r50_4scale_24ep_1e-4_lr/model_final.pth"
 train.output_dir = output_dir
+
+train.sync_bn = True
 
 # max training iterations
 num_images = count_coco_images(train_metadata.json_file)
@@ -97,7 +102,7 @@ train.wandb = dict(
         dir=output_dir,
         name=os.path.basename(output_dir),
         project="detrex",
-        group="dino_r50_4scale_12ep",
+        group="robust_dino_r50_4scale_12ep",
         job_type="from scratch",
         tags=tags,
         notes=notes,
