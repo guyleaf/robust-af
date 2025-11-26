@@ -237,6 +237,9 @@ def do_train(args, cfg):
                 checkpointer (dict)
                 ddp (dict)
     """
+    assert (cfg.train.eval_period % cfg.train.log_period) == 0, (
+        "The eval period should be divisible by log period."
+    )
     model = instantiate(cfg.model)
     LOGGER.info("Model:\n{}".format(model))
     model.to(cfg.train.device)
