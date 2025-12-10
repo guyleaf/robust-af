@@ -34,10 +34,12 @@ class AMFG(nn.Module):
 
 
 class SpatialAMFG(nn.Module):
-    def __init__(self, embed_dims: int = 256, spatial_attention: int = 4):
+    def __init__(
+        self, embed_dims: int = 256, spatial_attention: int = 4, selector: bool = False
+    ):
         super().__init__()
         self.dnc_block_combined = DNCBlock_combined(
-            embed_dims, spatial_attention=spatial_attention
+            embed_dims, spatial_attention=spatial_attention, selector=selector
         )
         self.conv_layer = nn.Conv2d(
             embed_dims * 2, embed_dims, kernel_size=3, padding=1
