@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class AMFG(nn.Module):
+class AMFGv2(nn.Module):
     def __init__(
         self, embed_dims: int = 256, spatial_attention: int = 4, selector: bool = False
     ):
@@ -33,7 +33,7 @@ class AMFG(nn.Module):
         return x
 
 
-class SpatialAMFG(nn.Module):
+class SpatialAMFGv2(nn.Module):
     def __init__(
         self, embed_dims: int = 256, spatial_attention: int = 4, selector: bool = False
     ):
@@ -52,7 +52,7 @@ class SpatialAMFG(nn.Module):
         return x
 
 
-class FrequencyAMFG(nn.Module):
+class FrequencyAMFGv2(nn.Module):
     def __init__(self, embed_dims: int = 256):
         super().__init__()
         self.fgm_block = FGMBlock(embed_dims)
