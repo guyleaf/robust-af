@@ -1,3 +1,5 @@
+import os
+
 import torch
 
 
@@ -48,3 +50,8 @@ def allow_tf32_precision(mode: bool = True):
 
     # The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
     torch.backends.cudnn.allow_tf32 = mode
+
+
+def is_debug_mode():
+    mode = os.environ.get("DEBUG", "false")
+    return mode.lower() in ("1", "true")

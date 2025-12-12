@@ -1,15 +1,37 @@
+import logging
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from ...utils import is_debug_mode
+
+
+def _check_nan(x):
+    if not is_debug_mode():
+        return
+
+    logger = logging.getLogger("detectron2")
+    if torch.any(torch.isnan(x)):
+        logger.error("x has NaNs.", stack_info=True)
+    if torch.any(torch.isinf(x)):
+        logger.error("x has infs.", stack_info=True)
+
 
 class AMFGv2(nn.Module):
     def __init__(
-        self, embed_dims: int = 256, spatial_attention: int = 4, selector: bool = False
+        self,
+        embed_dims: int = 256,
+        spatial_attention: int = 4,
+        selector: bool = False,
+        affine: bool = False,
     ):
         super().__init__()
         self.dnc_block_combined = DNCBlock_combined(
-            embed_dims, spatial_attention=spatial_attention, selector=selector
+            embed_dims,
+            spatial_attention=spatial_attention,
+            selector=selector,
+            affine=affine,
         )
         # 0.262656M
         self.fgm_block = FGMBlock(embed_dims * 2)
@@ -27,19 +49,30 @@ class AMFGv2(nn.Module):
 
     def forward(self, x: torch.Tensor):
         # x: [b, c, h, w] -> [b, 2*c, h, w]
+        _check_nan(x)
         x = self.dnc_block_combined(x)
+        _check_nan(x)
         x = self.fgm_block(x)
+        _check_nan(x)
         x = self.conv_layer(x)
+        _check_nan(x)
         return x
 
 
 class SpatialAMFGv2(nn.Module):
     def __init__(
-        self, embed_dims: int = 256, spatial_attention: int = 4, selector: bool = False
+        self,
+        embed_dims: int = 256,
+        spatial_attention: int = 4,
+        selector: bool = False,
+        affine: bool = False,
     ):
         super().__init__()
         self.dnc_block_combined = DNCBlock_combined(
-            embed_dims, spatial_attention=spatial_attention, selector=selector
+            embed_dims,
+            spatial_attention=spatial_attention,
+            selector=selector,
+            affine=affine,
         )
         self.conv_layer = nn.Conv2d(
             embed_dims * 2, embed_dims, kernel_size=3, padding=1
@@ -65,7 +98,11 @@ class FrequencyAMFGv2(nn.Module):
 
 class DNCBlock_combined(nn.Module):
     def __init__(
-        self, embed_dims: int, spatial_attention: int = 4, selector: bool = False
+        self,
+        embed_dims: int,
+        spatial_attention: int = 4,
+        selector: bool = False,
+        affine: bool = False,
     ):
         super().__init__()
         self.SEMBlock = SKDown(
@@ -78,6 +115,7 @@ class DNCBlock_combined(nn.Module):
             spatial_attention,
             first=False,
             selector=selector,
+            affine=affine,
         )
         # concat along channel dimension
         # 0.296528M
@@ -85,6 +123,7 @@ class DNCBlock_combined(nn.Module):
 
     def forward(self, x):
         x_in = self.SEMBlock(x)
+        _check_nan(x_in)
         x_all = torch.cat([x, x_in], dim=1)
         output = self.channel_attention(x_all)
         return output
@@ -141,6 +180,7 @@ class SelectiveConv(nn.Module):
         spatial_attention,
         first=False,
         selector=False,
+        affine=False,
     ):
         super().__init__()
         self.first = first
@@ -161,7 +201,7 @@ class SelectiveConv(nn.Module):
         else:
             self.selector = None
 
-        self.IN = nn.InstanceNorm2d(in_channels)
+        self.IN = nn.InstanceNorm2d(in_channels, affine=affine)
         self.relu = nn.LeakyReLU(inplace=True)
 
     def forward(self, x):
@@ -170,12 +210,16 @@ class SelectiveConv(nn.Module):
         else:
             # s_input = self.IN(x.clone())
             s_input = self.IN(x)
+            _check_nan(s_input)
             s_input = self.relu(s_input)
-
+        _check_nan(s_input)
         out = self.conv(s_input)
+        _check_nan(out)
         if self.selector is not None:
             att = self.selector(out)
+            _check_nan(att)
             out = torch.mul(out, att)
+            _check_nan(out)
 
         return out
 
@@ -192,6 +236,7 @@ class SKDown(nn.Module):
         spatial_attention,
         first=False,
         selector=False,
+        affine=False,
     ):
         super().__init__()
         args = (
@@ -204,7 +249,7 @@ class SKDown(nn.Module):
             spatial_attention,
         )
         self.maxpool_conv = nn.Sequential(
-            SelectiveConv(*args, first=first, selector=selector)
+            SelectiveConv(*args, first=first, selector=selector, affine=affine)
         )
 
     def forward(self, x):
@@ -237,10 +282,13 @@ class FGMBlock(nn.Module):
         self.conv_layer = nn.Conv2d(embed_dims, embed_dims, kernel_size=1)
 
     def forward(self, x):
+        _check_nan(x)
         fft_map = torch.fft.fft2(x, dim=(-2, -1))
+        _check_nan(fft_map)
 
         magnitude_map = torch.abs(fft_map)
         phase_map = torch.angle(fft_map)
+        _check_nan(phase_map)
 
         modified_magnitude = self.conv_layer(magnitude_map)
 

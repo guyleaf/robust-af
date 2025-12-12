@@ -1,11 +1,26 @@
+import logging
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from ...utils import is_debug_mode
+
+
+def _check_nan(x):
+    if not is_debug_mode():
+        return
+
+    logger = logging.getLogger("detectron2")
+    if torch.any(torch.isnan(x)):
+        logger.error("x has NaNs.", stack_info=True)
+    if torch.any(torch.isinf(x)):
+        logger.error("x has infs.", stack_info=True)
+
 
 class AMFG(nn.Module):
     def __init__(self, embed_dims: int = 256, spatial_attention: int = 4):
-        super(AMFG, self).__init__()
+        super().__init__()
         # 4.630608M
         self.dnc_block_combined = DNCBlock_combined(
             embed_dims, spatial_attention=spatial_attention
@@ -25,16 +40,20 @@ class AMFG(nn.Module):
         # )
 
     def forward(self, x: torch.Tensor):
+        _check_nan(x)
         # x: [b, c, h, w] -> [b, 2*c, h, w]
         x = self.dnc_block_combined(x)
+        _check_nan(x)
         x = self.fgm_block(x)
+        _check_nan(x)
         x = self.conv_layer(x)
+        _check_nan(x)
         return x
 
 
 class SpatialAMFG(nn.Module):
     def __init__(self, embed_dims: int = 256, spatial_attention: int = 4):
-        super(SpatialAMFG, self).__init__()
+        super().__init__()
         self.dnc_block_combined = DNCBlock_combined(
             embed_dims, spatial_attention=spatial_attention
         )
@@ -51,7 +70,7 @@ class SpatialAMFG(nn.Module):
 
 class FrequencyAMFG(nn.Module):
     def __init__(self, embed_dims: int = 256):
-        super(FrequencyAMFG, self).__init__()
+        super().__init__()
         self.fgm_block = FGMBlock(embed_dims)
 
     def forward(self, x: torch.Tensor):
@@ -63,19 +82,31 @@ class FrequencyAMFG(nn.Module):
 # 4.630608M
 class DNCBlock_combined(nn.Module):
     def __init__(self, embed_dims: int, spatial_attention: int = 4):
-        super(DNCBlock_combined, self).__init__()
+        super().__init__()
         # 4.33408M
         self.SEMBlock = SKDown(
-            3, 1, False, 16, embed_dims, embed_dims, spatial_attention, first=False
+            3,
+            1,
+            False,
+            16,
+            embed_dims,
+            embed_dims,
+            spatial_attention,
+            first=False,
         )
         # concat along channel dimension
         # 0.296528M
         self.channel_attention = CABlock(embed_dims * 2)
 
     def forward(self, x):
+        _check_nan(x)
         x_in = self.SEMBlock(x)
+        _check_nan(x)
+        _check_nan(x_in)
         x_all = torch.cat([x, x_in], dim=1)
+        _check_nan(x_all)
         output = self.channel_attention(x_all)
+        _check_nan(output)
         return output
 
 
@@ -83,7 +114,7 @@ class DNCBlock_combined(nn.Module):
 # spatial_attention=1, 256 * 16 + (16 * 256 + 256) * 2 = 12.8K
 class Selector(nn.Module):
     def __init__(self, channel, reduction=16, spatial_attention=4):
-        super(Selector, self).__init__()
+        super().__init__()
         self.spatial_attention = spatial_attention
         self.in_channel = channel * (self.spatial_attention**2)
         self.avg_pool = nn.AdaptiveAvgPool2d(
@@ -144,7 +175,7 @@ class SelectiveConv(nn.Module):
         spatial_attention,
         first=False,
     ):
-        super(SelectiveConv, self).__init__()
+        super().__init__()
         self.first = first
         # 256 * 256 * 3 * 3 = 589.824K = 0.589824M
         self.conv1 = nn.Conv2d(
@@ -180,18 +211,30 @@ class SelectiveConv(nn.Module):
         else:
             # f_input = self.BN(x.clone())
             f_input = self.BN(x)
+            _check_nan(f_input)
             f_input = self.relu(f_input)
 
             # s_input = self.IN(x.clone())
             s_input = self.IN(x)
+            _check_nan(s_input)
             s_input = self.relu(s_input)
+
+        _check_nan(f_input)
+        _check_nan(s_input)
 
         out1 = self.conv1(f_input)
         out2 = self.conv2(s_input)
 
+        _check_nan(out1)
+        _check_nan(out2)
+
         out = out1 + out2
 
+        _check_nan(out)
+
         att1, att2 = self.selector(out)
+        _check_nan(att1)
+        _check_nan(att2)
         out = torch.mul(out1, att1) + torch.mul(out2, att2)
 
         return out
@@ -209,19 +252,17 @@ class SKDown(nn.Module):
         spatial_attention,
         first=False,
     ):
-        super(SKDown, self).__init__()
-        self.maxpool_conv = nn.Sequential(
-            SelectiveConv(
-                kernel_size,
-                padding,
-                bias,
-                reduction,
-                in_channels,
-                out_channels,
-                spatial_attention,
-                first=first,
-            )
+        super().__init__()
+        args = (
+            kernel_size,
+            padding,
+            bias,
+            reduction,
+            in_channels,
+            out_channels,
+            spatial_attention,
         )
+        self.maxpool_conv = nn.Sequential(SelectiveConv(*args, first=first))
 
     def forward(self, x):
         return self.maxpool_conv(x)
@@ -230,7 +271,7 @@ class SKDown(nn.Module):
 # 0.296528M
 class CABlock(nn.Module):
     def __init__(self, channels, reduction_ratio=16):
-        super(CABlock, self).__init__()
+        super().__init__()
         self.squeeze = nn.AdaptiveAvgPool2d(1)
         self.excitation = nn.Sequential(
             nn.Linear(channels, channels // reduction_ratio),
@@ -249,14 +290,26 @@ class CABlock(nn.Module):
 # 0.262656M
 class FGMBlock(nn.Module):
     def __init__(self, embed_dims: int):
-        super(FGMBlock, self).__init__()
+        super().__init__()
         self.conv_layer = nn.Conv2d(embed_dims, embed_dims, kernel_size=1)
 
     def forward(self, x):
+        _check_nan(x)
         fft_map = torch.fft.fft2(x, dim=(-2, -1))
+        _check_nan(fft_map)
+
+        tmp = torch.where(fft_map == 0, 0, fft_map / (fft_map.abs().pow(2)))
+        if torch.isnan(tmp).any():
+            logger = logging.getLogger("detectron2")
+            logger.error("NaN occurred!")
+            logger.error(fft_map)
+            # if is_main_process():
+            #     torch.save(fft_map, "fft_map.pt")
+            #     torch.save(tmp, "tmp.pt")
 
         magnitude_map = torch.abs(fft_map)
         phase_map = torch.angle(fft_map)
+        _check_nan(phase_map)
 
         modified_magnitude = self.conv_layer(magnitude_map)
 
