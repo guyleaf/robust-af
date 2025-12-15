@@ -7,7 +7,7 @@ class MultiScaleProcessor(nn.Module):
         super().__init__()
         self.module_mapper = nn.ModuleDict(kwargs)
 
-    def forward(self, feats: dict[str, torch.Tensor]):
+    def forward(self, *inputs: dict[str, torch.Tensor]):
         """Forward function for MultiScaleProcessor
 
         Args:
@@ -17,6 +17,7 @@ class MultiScaleProcessor(nn.Module):
             Dict[str, torch.Tensor]: A dict of the processed features.
         """
         new_feats = {}
-        for k, feat in feats.items():
-            new_feats[k] = self.module_mapper[k](feat)
+        for k in inputs[0]:
+            args = [feats[k] for feats in inputs]
+            new_feats[k] = self.module_mapper[k](*args)
         return new_feats

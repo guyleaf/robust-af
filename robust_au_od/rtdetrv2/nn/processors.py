@@ -24,9 +24,8 @@ class MultiScaleProcessor(nn.Module):
 
         self.module_mapper = module_mapper
 
-    def forward(self, feats: list[torch.Tensor]):
-        assert len(feats) == len(self.module_mapper)
+    def forward(self, *inputs: list[torch.Tensor]):
         new_feats = []
-        for feat, module in zip(feats, self.module_mapper):
-            new_feats.append(module(feat))
+        for feats, module in zip(zip(*inputs), self.module_mapper):
+            new_feats.append(module(*feats))
         return new_feats
