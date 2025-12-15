@@ -1,5 +1,5 @@
 import logging
-from typing import Union
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -16,6 +16,15 @@ def _check_nan(x):
         logger.error("x has NaNs.", stack_info=True)
     if torch.any(torch.isinf(x)):
         logger.error("x has infs.", stack_info=True)
+
+
+def _build_activation(name: str, **kwargs) -> nn.Module:
+    kwargs.setdefault("inplace", True)
+    act = getattr(nn, name)
+    try:
+        return act(**kwargs)
+    except Exception:
+        return act()
 
 
 class AFR(nn.Module):
@@ -48,6 +57,23 @@ class AFR(nn.Module):
         return x
 
 
+class SpatialAFRNonParameteric(nn.Module):
+    """Anti-degradation Feature Restoration Module (spatial only)"""
+
+    def __init__(
+        self,
+        embed_dims: int = 256,
+    ):
+        super().__init__()
+        self.IN = nn.InstanceNorm2d(embed_dims)
+
+    def forward(self, x: torch.Tensor, clear_x: torch.Tensor):
+        x = self.IN(x)
+        target_mean = clear_x.mean(dim=(2, 3), keepdim=True)
+        target_std = clear_x.std(dim=(2, 3), keepdim=True)
+        return x * target_std + target_mean
+
+
 class SpatialAFRDebug(nn.Module):
     """Anti-degradation Feature Restoration Module (spatial only)"""
 
@@ -55,19 +81,25 @@ class SpatialAFRDebug(nn.Module):
         self,
         embed_dims: int = 256,
         affine: bool = False,
+        activation: Optional[str] = None,
     ):
         super().__init__()
-        s_block = SpatialBlockDebug(embed_dims, embed_dims, 3, affine=affine)
+        # s_block = SpatialBlockDebug(embed_dims, affine=affine)
+        s_block = SpatialBlockDebugWithNN(embed_dims, embed_dims, affine=affine)
         self.sf_block = SpatialFusionBlock(s_block, embed_dims)
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
-        self.act = nn.LeakyReLU(inplace=True)
+        if activation is not None:
+            self.act = _build_activation(activation)
+        else:
+            self.act = None
 
     def forward(self, x: torch.Tensor):
         # x: [b, c, h, w] -> [b, 2*c, h, w]
         x = self.sf_block(x)
         x = self.conv(x)
-        x = self.act(x)
+        if self.act is not None:
+            x = self.act(x)
         return x
 
 
@@ -126,36 +158,53 @@ class SpatialFusionBlock(nn.Module):
 
 
 class SpatialBlockDebug(nn.Module):
+    def __init__(self, embed_dims: int, affine: bool = False):
+        super().__init__()
+        self.IN = nn.InstanceNorm2d(embed_dims, affine=affine)
+
+    def forward(self, x: torch.Tensor):
+        s_input = self.IN(x)
+        _check_nan(s_input)
+        return s_input
+
+
+class SpatialBlockDebugWithNN(nn.Module):
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: Union[int, tuple[int, int]],
+        kernel_size: Union[int, tuple[int, int]] = 3,
         padding: Union[int, tuple[int, int]] = 1,
         bias: bool = False,
         affine: bool = False,
+        activation: Optional[str] = "LeakyReLU",
     ):
         super().__init__()
         self.IN = nn.InstanceNorm2d(in_channels, affine=affine)
 
         # 256 * 256 * 3 * 3 = 589.824K = 0.589824M
-        # self.conv = nn.Conv2d(
-        #     in_channels,
-        #     out_channels,
-        #     kernel_size=kernel_size,
-        #     padding=padding,
-        #     bias=bias,
-        # )
-        # self.relu = nn.LeakyReLU(inplace=True)
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            padding=padding,
+            bias=bias,
+        )
+        if activation is not None:
+            self.act = _build_activation(activation)
+        else:
+            self.act = None
 
     def forward(self, x: torch.Tensor):
-        s_input = self.IN(x)
-        _check_nan(s_input)
-        # s_input = self.relu(s_input)
-        # _check_nan(s_input)
-        # out = self.conv(s_input)
-        # _check_nan(out)
-        return s_input
+        x = self.IN(x)
+        _check_nan(x)
+
+        x = self.conv(x)
+        _check_nan(x)
+        if self.act is not None:
+            x = self.act(x)
+            _check_nan(x)
+        return x
 
 
 class SpatialBlock(nn.Module):
