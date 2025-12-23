@@ -18,6 +18,7 @@ dependencies = [
     "albumentations ~= 1.4.24",
     "imaug ~= 0.4.1",
     "opencv-python < 5",
+    "einops < 1",
 ]
 
 [project.optional-dependencies]
