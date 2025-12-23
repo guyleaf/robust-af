@@ -3,6 +3,7 @@ from typing import Optional, Union
 
 import torch
 import torch.nn as nn
+from einops.layers.torch import Rearrange
 
 from ...utils import is_debug_mode
 
@@ -84,8 +85,8 @@ class SpatialAFRDebug(nn.Module):
         activation: Optional[str] = None,
     ):
         super().__init__()
-        # s_block = SpatialBlockDebug(embed_dims, affine=affine)
-        s_block = SpatialBlockDebugWithNN(embed_dims, embed_dims, affine=affine)
+        s_block = SpatialBlockDebug(embed_dims, affine=affine)
+        # s_block = SpatialBlockDebugWithNN(embed_dims, embed_dims, affine=affine)
         self.sf_block = SpatialFusionBlock(s_block, embed_dims)
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
@@ -101,6 +102,110 @@ class SpatialAFRDebug(nn.Module):
         if self.act is not None:
             x = self.act(x)
         return x
+
+
+class SpatialAFRGroup(nn.Module):
+    """Anti-degradation Feature Restoration Module (spatial only)"""
+
+    def __init__(
+        self,
+        embed_dims: int = 256,
+        affine: bool = False,
+    ):
+        super().__init__()
+        # self.IN = nn.InstanceNorm2d(embed_dims, affine=affine)
+
+        dw_channel = embed_dims * 4
+        groups = 16
+
+        # in
+        self.expansion = nn.Conv2d(embed_dims, dw_channel, 1)
+
+        # intra group
+        self.conv = nn.Sequential(
+            nn.GroupNorm(groups, dw_channel),
+            nn.Conv2d(dw_channel, dw_channel, 3, padding=1, groups=groups),
+            nn.GELU(),
+        )
+        self.intra_group_attn = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(dw_channel, dw_channel, 1, groups=groups),
+        )
+
+        # inter group
+        self.to_gw = Rearrange("b (g k) h w -> b g k h w", g=groups)
+        self.inter_group_attn = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(dw_channel, groups, 1),
+            Rearrange("b g h w -> b g 1 h w"),
+        )
+        self.inverse_gw = Rearrange("b g k h w -> b (g k) h w")
+
+        # out
+        self.shrinkage = nn.Conv2d(dw_channel, embed_dims, 1)
+
+        # self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
+        # if activation is not None:
+        #     self.act = _build_activation(activation)
+        # else:
+        #     self.act = None
+
+    def forward(self, x: torch.Tensor):
+        skip = x
+
+        # x = self.IN(x)
+        x = self.expansion(x)
+
+        x = self.conv(x)
+        x = x * self.intra_group_attn(x)
+
+        iga = self.inter_group_attn(x)
+        x = self.inverse_gw(self.to_gw(x) * iga)
+
+        x = self.shrinkage(x)
+        return skip + x
+
+
+class SpatialAFRGroupRefined(nn.Module):
+    def __init__(
+        self,
+        embed_dims: int = 256,
+        affine: bool = False,
+    ):
+        super().__init__()
+        self.IN = nn.InstanceNorm2d(embed_dims, affine=affine)
+
+        num_groups = embed_dims
+        group_channels = embed_dims * 2
+        self.conv = nn.Sequential(
+            nn.GroupNorm(num_groups, group_channels),
+            nn.Conv2d(group_channels, embed_dims, 3, padding=1, groups=num_groups),
+            nn.GELU(),
+        )
+        self.attn = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(embed_dims, embed_dims, 1),
+        )
+
+        # self.combine = nn.Conv2d(
+        #     group_channels, embed_dims, 3, padding=1, groups=num_groups
+        # )
+
+    def forward(self, x: torch.Tensor):
+        B, _, H, W = x.shape
+        skip = x
+
+        # normalize feature maps to remove style information (degradations + other styles)
+        x = self.IN(x)
+
+        # make normalized and original feature map as one group by interleaving
+        # [B, 2, C, H, W] -> [B, C, 2, H, W] -> [B, C*2, H, W]
+        x = torch.stack([skip, x], dim=1).transpose(1, 2).reshape(B, -1, H, W)
+
+        # refine feature map between normalized and original
+        x = self.conv(x)
+        x = x * self.attn(x)
+        return skip + x
 
 
 class SpatialAFR(nn.Module):
