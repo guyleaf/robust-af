@@ -72,3 +72,97 @@ class RobustCriterion(nn.Module):
         losses.update(cst_losses)
 
         return losses
+
+
+@register()
+class RobustCriterionDebug(nn.Module):
+    __inject__ = ["model_loss", "content_loss", "style_loss"]
+
+    def __init__(
+        self,
+        model_loss: nn.Module,
+        content_loss: nn.Module,
+        style_loss: nn.Module,
+        weight_dict: dict = dict(loss_content=20, loss_style=20),
+    ):
+        super().__init__()
+        self.weight_dict = weight_dict
+
+        self.model_loss = model_loss
+        self.content_loss = content_loss
+        self.style_loss = style_loss
+
+    def loss_content(
+        self,
+        rhs: list[torch.Tensor],
+        clear_rhs: list[torch.Tensor],
+        prefix: str = "loss_content",
+    ):
+        global_weight = self.weight_dict.get(prefix)
+        if global_weight is not None:
+            weights = {f"{prefix}_{i}": global_weight for i in range(len(rhs))}
+        else:
+            weights = self.weight_dict
+
+        losses = {}
+        for i, (feats, clear_feats) in enumerate(zip(rhs, clear_rhs)):
+            loss: torch.Tensor = self.content_loss(feats, clear_feats)
+            # mean over the feature dims & mean over batch_size
+            indices = list(range(1, loss.ndim))
+            loss = loss.mean(indices).mean()
+            losses[f"{prefix}_{i}"] = loss * weights[f"{prefix}_{i}"]
+        return losses
+
+    def loss_style(
+        self,
+        rhs: list[torch.Tensor],
+        clear_rhs: list[torch.Tensor],
+        prefix: str = "loss_style",
+    ):
+        global_weight = self.weight_dict.get(prefix)
+        if global_weight is not None:
+            weights = {f"{prefix}_{i}": global_weight for i in range(len(rhs))}
+        else:
+            weights = self.weight_dict
+
+        losses = {}
+        for i, (feats, clear_feats) in enumerate(zip(rhs, clear_rhs)):
+            # calculate statistics of feature maps for each channel
+            indices = list(range(2, feats.ndim))
+            # [B, C]
+            stds, means = torch.std_mean(feats, dim=indices, correction=0)
+            clear_stds, clear_means = torch.std_mean(
+                clear_feats, dim=indices, correction=0
+            )
+
+            # calculate style loss
+            # [B, C]
+            loss_means: torch.Tensor = self.style_loss(means, clear_means)
+            loss_stds: torch.Tensor = self.style_loss(stds, clear_stds)
+            loss = loss_means + loss_stds
+
+            # mean over the channels & mean over batch_size
+            loss = loss.mean(dim=1).mean()
+            losses[f"{prefix}_{i}"] = loss * weights[f"{prefix}_{i}"]
+        return losses
+
+    def forward(self, outputs: dict, targets: list[dict], **kwargs):
+        """
+        This performs the loss computation.
+
+        Parameters:
+             outputs: dict of tensors, see the output specification of the model for the format
+             targets: list of dicts, such that len(targets) == batch_size.
+                      The expected keys in each dict depends on the losses applied, see each loss' doc
+        """
+        losses = self.model_loss(outputs, targets, **kwargs)
+
+        rhs = outputs["robust_hidden_states"]
+        clear_rhs = outputs["clear_robust_hidden_states"]
+
+        content_losses = self.loss_content(rhs, clear_rhs)
+        losses.update(content_losses)
+
+        style_losses = self.loss_style(rhs, clear_rhs)
+        losses.update(style_losses)
+        return losses
