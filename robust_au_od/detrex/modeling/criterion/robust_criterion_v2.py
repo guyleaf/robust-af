@@ -132,8 +132,10 @@ class RobustCriterionv2Debug(nn.Module):
             # calculate statistics of feature maps for each channel
             indices = list(range(2, feats.ndim))
             # [B, C]
-            stds, means = torch.std_mean(feats, dim=indices)
-            clear_stds, clear_means = torch.std_mean(clear_feats, dim=indices)
+            stds, means = torch.std_mean(feats, dim=indices, correction=0)
+            clear_stds, clear_means = torch.std_mean(
+                clear_feats, dim=indices, correction=0
+            )
 
             # calculate style loss
             # [B, C]
