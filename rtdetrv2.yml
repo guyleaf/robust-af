@@ -13,7 +13,6 @@ dependencies:
       - -e .
 variables:
   GPUS: 4
-  SEED: 2025
   # register our classes before rtdetrv2
   RTDETRV2_ENV_MODULE: robust_au_od.rtdetrv2
   # surpress the warning
