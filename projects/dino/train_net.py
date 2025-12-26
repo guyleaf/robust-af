@@ -29,18 +29,20 @@ from detectron2.engine import (
     SimpleTrainer,
     default_argument_parser,
     default_setup,
-    default_writers,
     hooks,
     launch,
 )
 from detectron2.engine.defaults import create_ddp_model
 from detectron2.evaluation import inference_on_dataset, print_csv_format
 from detectron2.utils import comm
+from detectron2.utils.events import JSONWriter, TensorboardXWriter
 from detectron2.utils.file_io import PathManager
 from detrex.utils import WandbWriter
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 
 from robust_au_od.detrex.engine import BestCheckpointer
+from robust_au_od.detrex.utils import CommonMetricPrinter
+from robust_au_od.utils import is_debug_mode
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
@@ -115,6 +117,13 @@ class Trainer(SimpleTrainer):
                 LOGGER.exception("Exception in writing metrics: ")
                 raise
 
+    def train(self, start_iter, max_iter):
+        if is_debug_mode():
+            with torch.autograd.detect_anomaly():
+                return super().train(start_iter, max_iter)
+        else:
+            return super().train(start_iter, max_iter)
+
     def run_step(self):
         """
         Implement the standard training logic described above.
@@ -169,7 +178,7 @@ class Trainer(SimpleTrainer):
         self._write_metrics(loss_dict, total_norm, data_time)
 
     def clip_grads(self, params):
-        params = list(filter(lambda p: p.requires_grad and p.grad is not None, params))
+        params = filter(lambda p: p.requires_grad and p.grad is not None, params)
         return torch.nn.utils.clip_grad_norm_(
             parameters=params,
             **self.clip_grad_params,
@@ -314,7 +323,14 @@ def do_train(args, cfg):
     )
 
     if comm.is_main_process():
-        writers = default_writers(cfg.train.output_dir, cfg.train.max_iter)
+        PathManager.mkdirs(cfg.train.output_dir)
+        writers = [
+            # It may not always print what you want to see, since it prints "common" metrics only.
+            CommonMetricPrinter(cfg.train.max_iter),
+            JSONWriter(os.path.join(cfg.train.output_dir, "metrics.json")),
+            TensorboardXWriter(cfg.train.output_dir),
+        ]
+        # writers = default_writers(cfg.trainƒ.output_dir, cfg.train.max_iter)
         if cfg.train.wandb.enabled:
             PathManager.mkdirs(cfg.train.wandb.params.dir)
             writers.append(WandbWriter(cfg))
