@@ -83,10 +83,11 @@ class SpatialAFRDebug(nn.Module):
         embed_dims: int = 256,
         affine: bool = False,
         activation: Optional[str] = None,
+        se: bool = False,
     ):
         super().__init__()
-        s_block = SpatialBlockDebug(embed_dims, affine=affine)
-        # s_block = SpatialBlockDebugWithNN(embed_dims, embed_dims, affine=affine)
+        # s_block = SpatialBlockDebug(embed_dims, affine=affine)
+        s_block = SpatialBlockDebugWithNN(embed_dims, embed_dims, affine=affine, se=se)
         self.sf_block = SpatialFusionBlock(s_block, embed_dims)
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
@@ -215,9 +216,12 @@ class SpatialAFR(nn.Module):
         self,
         embed_dims: int = 256,
         affine: bool = False,
+        selector: bool = False,
     ):
         super().__init__()
-        s_block = SpatialBlock(embed_dims, embed_dims, 3, affine=affine)
+        s_block = SpatialBlock(
+            embed_dims, embed_dims, 3, affine=affine, selector=selector
+        )
         self.sf_block = SpatialFusionBlock(s_block, embed_dims)
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
@@ -283,6 +287,7 @@ class SpatialBlockDebugWithNN(nn.Module):
         bias: bool = False,
         affine: bool = False,
         activation: Optional[str] = "LeakyReLU",
+        se: bool = False,
     ):
         super().__init__()
         self.IN = nn.InstanceNorm2d(in_channels, affine=affine)
@@ -300,6 +305,11 @@ class SpatialBlockDebugWithNN(nn.Module):
         else:
             self.act = None
 
+        if se:
+            self.ca_block = SEBlock(out_channels)
+        else:
+            self.ca_block = None
+
     def forward(self, x: torch.Tensor):
         x = self.IN(x)
         _check_nan(x)
@@ -308,6 +318,9 @@ class SpatialBlockDebugWithNN(nn.Module):
         _check_nan(x)
         if self.act is not None:
             x = self.act(x)
+            _check_nan(x)
+        if self.ca_block is not None:
+            x = self.ca_block(x)
             _check_nan(x)
         return x
 
@@ -321,6 +334,7 @@ class SpatialBlock(nn.Module):
         padding: Union[int, tuple[int, int]] = 1,
         bias: bool = False,
         affine: bool = False,
+        selector: bool = False,
     ):
         super().__init__()
         self.IN = nn.InstanceNorm2d(in_channels, affine=affine)
@@ -335,6 +349,11 @@ class SpatialBlock(nn.Module):
         )
         self.relu = nn.LeakyReLU(inplace=True)
 
+        if selector:
+            self.selector = SEBlock(out_channels)
+        else:
+            self.selector = None
+
     def forward(self, x: torch.Tensor):
         s_input = self.IN(x)
         _check_nan(s_input)
@@ -342,6 +361,9 @@ class SpatialBlock(nn.Module):
         _check_nan(s_input)
         out = self.conv(s_input)
         _check_nan(out)
+
+        if self.selector is not None:
+            out = self.selector(out)
         return out
 
 
