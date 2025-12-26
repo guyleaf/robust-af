@@ -180,17 +180,23 @@ class SpatialAFRGroupRefined(nn.Module):
         group_channels = embed_dims * 2
         self.conv = nn.Sequential(
             nn.GroupNorm(num_groups, group_channels),
-            nn.Conv2d(group_channels, embed_dims, 3, padding=1, groups=num_groups),
+            nn.Conv2d(group_channels, group_channels, 3, padding=1, groups=num_groups),
             nn.GELU(),
         )
         self.attn = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
-            nn.Conv2d(embed_dims, embed_dims, 1),
+            nn.Conv2d(group_channels, group_channels, 1),
         )
 
-        # self.combine = nn.Conv2d(
-        #     group_channels, embed_dims, 3, padding=1, groups=num_groups
-        # )
+        self.to_gw = Rearrange("b (g k) h w -> b g k h w", g=num_groups)
+        self.inter_group_attn = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(group_channels, num_groups, 1),
+            Rearrange("b g h w -> b g 1 h w"),
+        )
+        self.inverse_gw = Rearrange("b g k h w -> b (g k) h w")
+
+        self.projection = nn.Conv2d(group_channels, embed_dims, 1)
 
     def forward(self, x: torch.Tensor):
         B, _, H, W = x.shape
@@ -206,6 +212,12 @@ class SpatialAFRGroupRefined(nn.Module):
         # refine feature map between normalized and original
         x = self.conv(x)
         x = x * self.attn(x)
+
+        # refine feature map among batch samples
+        iga = self.inter_group_attn(x)
+        x = self.inverse_gw(self.to_gw(x) * iga)
+
+        x = self.projection(x)
         return skip + x
 
 
