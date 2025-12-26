@@ -135,7 +135,7 @@ class DetSolver(ORIGINAL_DetSolver):
                 if self.writer and dist_utils.is_main_process():
                     for i, v in enumerate(test_stats[k]):
                         self.writer.add_scalar(f"Test/{k}_{i}", v, epoch)
-                    for i, v in enumerate(test_train_stats[k]):
+                    for i, v in enumerate(test_train_stats.get(k, [])):
                         self.writer.add_scalar(f"Train/{k}_{i}", v, epoch)
 
                 if k in best_stat:
