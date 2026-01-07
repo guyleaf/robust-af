@@ -17,6 +17,24 @@
     }
   ],
   "settings": {
+    "files.watcherExclude": {
+      "**/.git/objects/**": true,
+      "**/.git/subtree-cache/**": true,
+      "**/.hg/store/**": true,
+      "${workspaceFolder:work_dirs}/**": true,
+      "${workspaceFolder:archive}/**": true,
+      "${workspaceFolder:experiments}/**": true,
+      "${workspaceFolder:checkpoints}/**": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/bower_components": true,
+      "**/*.code-search": true,
+      "${workspaceFolder:work_dirs}": true,
+      "${workspaceFolder:archive}": true,
+      "${workspaceFolder:experiments}": true,
+      "${workspaceFolder:checkpoints}": true
+    },
     "python.analysis.exclude": [
       "**/node_modules",
       "**/__pycache__",
@@ -27,14 +45,12 @@
       "${workspaceFolder:checkpoints}"
     ],
     "python-envs.pythonProjects": [
-        {
-            "path": "",
-            "envManager": "ms-python.python:conda",
-            "packageManager": "ms-python.python:conda",
-        }
+      {
+        "path": "",
+        "envManager": "ms-python.python:conda",
+        "packageManager": "ms-python.python:conda"
+      }
     ],
-    "python.analysis.extraPaths": [
-      "${workspaceFolder}/3rdparty/yolov10"
-    ]
+    "python.analysis.extraPaths": ["${workspaceFolder}/3rdparty/yolov10"]
   }
 }
