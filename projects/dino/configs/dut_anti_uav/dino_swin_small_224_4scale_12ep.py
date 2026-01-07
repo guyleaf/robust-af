@@ -14,7 +14,7 @@ dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").dataloader
 optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
-).detr_schedulers.lr_multiplier_12ep_8bs
+).detr_schedulers.lr_multiplier_12ep_warmup_8bs
 train = get_config("train.py").train
 
 metadata = MetadataCatalog.get(DATASET_NAME)
@@ -35,7 +35,7 @@ lr = 1e-4
 
 num_epochs = 12
 eval_per_epochs = 1
-output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/dino_swin_small_224_4scale_12ep_1e-4_lr"
+output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/dino_swin_small_224_4scale_12ep_1e-4_lr_warmup"
 
 # wandb settings
 tags = [*metadata.tags]
@@ -97,7 +97,7 @@ train.wandb = dict(
         dir=output_dir,
         name=os.path.basename(output_dir),
         project="detrex",
-        group="dino_swin_small_224_4scale",
+        group="dino_swin_small_224_4scale_12ep",
         job_type="from scratch",
         tags=tags,
         notes=notes,

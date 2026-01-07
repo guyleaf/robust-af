@@ -1,13 +1,17 @@
 import os
 
+from detectron2.config import LazyCall as L
 from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
 
 from robust_au_od.detrex.configs import get_config
-from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_au_od.detrex.modeling import MultiScaleProcessor
 from robust_au_od.detrex.utils import count_coco_images
+from robust_au_od.models.robust_layers import AMFGv2
 
-from ..models.robust_dino_r50 import model
+from ..models.robust_dino_r50_v2 import model
+
+DATASET_NAME = "coco"
 
 # get default config
 dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").robust_dataloader
@@ -17,8 +21,7 @@ lr_multiplier = get_config(
 ).detr_schedulers.lr_multiplier_12ep_8bs
 train = get_config("train.py").train
 
-metadata = MetadataCatalog.get(DATASET_NAME)
-train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
+train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_2017_train")
 
 # ==============================================================
 
@@ -31,31 +34,33 @@ train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
 # each gpu is 8/4 = 2
 batch_size = 8
 # lr = base_lr * (batch_size / base_batch_size)
-lr = 1e-4
+lr = 1e-5
 
 num_epochs = 12
 eval_per_epochs = 1
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_4scale_12ep_1e-4_lr_sync_bn_from_36ep"
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_12ep_1e-5_lr_in_only_selector_from_36ep"
 
 # wandb settings
-tags = [*metadata.tags]
+tags = []
 notes = ""
 
 # ==============================================================
 
 # model.transformer.encoder.robust_layer.spatial_attention = 4
 # model.vis_period = 2000
-
-# modify model config
-# use the original implementation of dab-detr position embedding.
-model.position_embedding.temperature = 20
-model.position_embedding.offset = 0.0
+# model.criterion.weight_dict = {k: 10.0 for k in model.criterion.weight_dict}
+# model.train_heads = False
+model.robust_module = L(MultiScaleProcessor)(
+    res3=L(AMFGv2)(embed_dims=512, spatial_attention=1),
+    res4=L(AMFGv2)(embed_dims=1024, spatial_attention=1),
+    res5=L(AMFGv2)(embed_dims=2048, spatial_attention=1),
+)
 
 # modify training config
-train.init_checkpoint = "/home/leafying/work/work_dirs/detrex/dino_r50_4scale/dut_anti_uav/dino_r50_4scale_36ep_5e-5_lr/model_best_0021449.pth"
+train.init_checkpoint = "https://github.com/IDEA-Research/detrex-storage/releases/download/v0.2.0/dino_r50_4scale_12ep_49_2AP.pth"
 train.output_dir = output_dir
 
-train.sync_bn = True
+# train.sync_bn = True
 
 # max training iterations
 num_images = count_coco_images(train_metadata.json_file)
@@ -65,7 +70,7 @@ train.max_iter = num_epochs * num_batches
 train.eval_period = eval_per_epochs * num_batches
 # NOTE: log_period should be divisble by num_batches in order to log eval metrics.
 # Otherwise, some platform will ignore them, such as wandb because of requirement of monotonically increasing.
-train.log_period = 10
+train.log_period = 20
 train.checkpointer.period = num_batches
 train.checkpointer.max_to_keep = 3
 
@@ -73,9 +78,6 @@ train.checkpointer.max_to_keep = 3
 train.clip_grad.enabled = True
 train.clip_grad.params.max_norm = 0.1
 train.clip_grad.params.norm_type = 2
-
-# change the number of classes
-model.num_classes = metadata.num_classes
 
 # set training devices
 train.device = "cuda"
@@ -85,9 +87,14 @@ model.device = train.device
 optimizer.lr = lr
 optimizer.betas = (0.9, 0.999)
 optimizer.weight_decay = 1e-4
-optimizer.params.lr_factor_func = (
-    lambda module_name: 0.1 if "backbone" in module_name else 1
-)
+# optimizer.params.lr_factor_func = (
+#     lambda module_name: 0.1 if "backbone" in module_name else 1
+# )
+# optimizer.params.lr_factor_func = (
+#     lambda module_name: 0.1
+#     if any(k in module_name for k in ("backbone", "class_embed", "bbox_embed"))
+#     else 1
+# )
 
 # modify dataloader config
 dataloader.train.num_workers = 4
@@ -107,7 +114,7 @@ train.wandb = dict(
         dir=output_dir,
         name=os.path.basename(output_dir),
         project="detrex",
-        group="robust_dino_r50_4scale_12ep",
+        group="robust_dino_r50_v2_4scale_12ep",
         job_type="from scratch",
         tags=tags,
         notes=notes,

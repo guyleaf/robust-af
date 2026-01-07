@@ -2,7 +2,7 @@ import os
 
 from robust_au_od.detrex.configs import get_config
 
-from .dino_r50_4scale_12ep import (  # noqa: F401
+from .robust_dino_r50_v2_4scale_12ep import (  # noqa: F401
     DATASET_NAME,
     dataloader,
     model,
@@ -14,30 +14,17 @@ from .dino_r50_4scale_12ep import (  # noqa: F401
 # get default config
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
-).detr_schedulers.lr_multiplier_50ep_warmup_8bs
+).detr_schedulers.lr_multiplier_24ep_8bs
 
-lr = 5e-5
-
-num_epochs = 50
+num_epochs = 24
 
 # ==============================================================
 
-# modify model config
-# use the original implementation of dab-detr position embedding in 50 epochs training.
-model.position_embedding.temperature = 20
-model.position_embedding.offset = 0.0
-
 # modify training config
-train.output_dir = (
-    f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_50ep_5e-5_lr_new_mapper_warmup_2"
-)
+train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_24ep_1e-5_lr_sync_bn_from_36ep"
 
 # max training iterations
 train.max_iter = num_epochs * num_batches
-
-# modify optimizer config
-optimizer.lr = lr
-optimizer.weight_decay = 1e-4
 
 # dump the testing results into output_dir for visualization
 dataloader.evaluator.output_dir = train.output_dir
@@ -46,10 +33,6 @@ dataloader.evaluator.output_dir = train.output_dir
 params = dict(
     dir=train.output_dir,
     name=os.path.basename(train.output_dir),
-    group="dino_r50_4scale_50ep",
+    group="robust_dino_r50_v2_4scale_24ep",
 )
 train.wandb["params"].update(params)
-
-# set the random seed
-# [42, 123, 456, 789, 2025]
-train.seed = 789
