@@ -11,9 +11,7 @@ from detrex.utils import get_rank
 
 from ....transforms import (
     DEGRADATION_TRANSFORMS,
-    DEGRADATION_V2_TRANSFORMS,
     apply_degradation,
-    apply_degradation_v2,
     sample_degradation_name,
 )
 from ....utils import get_worker_id
@@ -49,29 +47,6 @@ class DegradationTransform(Transform):
         The inverse is a no-op.
         """
         return NoOpTransform()
-
-
-class DegradationTransformv2(DegradationTransform):
-    def __init__(
-        self,
-        name: str,
-        np_random_generator: Optional[np.random.Generator] = None,
-        py_random: Optional[random.Random] = None,
-    ):
-        Transform.__init__(self)
-        assert name in DEGRADATION_V2_TRANSFORMS
-        self.name = name
-        self.np_random_generator = np_random_generator
-        self.py_random = py_random
-
-    def apply_image(self, img: np.ndarray):
-        img = apply_degradation_v2(
-            self.name,
-            img,
-            np_random_generator=self.np_random_generator,
-            py_random=self.py_random,
-        )
-        return img
 
 
 class Degradation(Augmentation):
