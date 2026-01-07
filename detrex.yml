@@ -17,6 +17,8 @@ dependencies:
       - numpy<2
       - wandb
       - tensorboard
+      # for analysis
+      - scikit-learn~=1.6.1
       - -e .
 variables:
   GPUS: 4
