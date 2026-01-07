@@ -1,3 +1,4 @@
+import os
 import random
 from contextlib import ContextDecorator
 from types import TracebackType
@@ -5,6 +6,17 @@ from typing import Optional, Type
 
 import numpy as np
 import torch
+
+
+def seed_everything(seed: int):
+    """
+    Set the random seed for the RNG in torch, numpy and python.
+    """
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)
+    torch.cuda.manual_seed_all(str(seed))
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
 
 # TODO: rename to xxx_global_random_states

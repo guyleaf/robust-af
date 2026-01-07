@@ -1,6 +1,11 @@
 import os
+from contextlib import contextmanager
+from functools import partial
+from typing import Optional, TypeVar
 
 import torch
+
+T = TypeVar("T", bound=object)
 
 
 def format_size(x: int, sig_figs: int = 3, hide_zero: bool = False) -> str:
@@ -55,3 +60,23 @@ def allow_tf32_precision(mode: bool = True):
 def is_debug_mode():
     mode = os.environ.get("DEBUG", "false")
     return mode.lower() in ("1", "true")
+
+
+@contextmanager
+def wrap_method(
+    instance: T,
+    name: Optional[str] = None,
+    args: tuple = tuple(),
+    kwargs: dict = {},
+):
+    if name is None:
+        name = "__call__"
+
+    old_func = getattr(instance, name)
+    func = partial(old_func, *args, **kwargs)
+    setattr(instance, name, func)
+
+    try:
+        yield instance
+    finally:
+        setattr(instance, name, old_func)
