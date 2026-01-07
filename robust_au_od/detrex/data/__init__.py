@@ -1,4 +1,5 @@
 # ruff: noqa: F401
-from . import dataset_mappers, datasets
+# only import pre-loaded required modules
+from . import datasets
 
 __all__ = list(globals().keys())
