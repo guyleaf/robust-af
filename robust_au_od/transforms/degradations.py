@@ -177,34 +177,6 @@ def apply_contrast(image: np.ndarray, **kwargs):
     return image
 
 
-def apply_degradation(
-    image: np.ndarray,
-    identity: bool = True,
-    ignored_transforms: Union[list[str], set[str]] = [],
-    np_random_generator: Optional[np.random.Generator] = None,
-    py_random: Optional[random.Random] = None,
-    **kwargs,
-):
-    transforms = set(DEGRADATION_TRANSFORMS.keys())
-    ignored_transforms = set(ignored_transforms)
-    if not identity:
-        ignored_transforms.add("identity")
-
-    assert len(transforms & ignored_transforms) == len(ignored_transforms)
-    transforms -= ignored_transforms
-    transforms = sorted(transforms)
-
-    # to avoid there is a randomness which doesn't use the generator
-    # we set them to the global state temporarily
-    with RandomContext(
-        np_random_generator=np_random_generator, py_random=py_random, skip_if_none=True
-    ):
-        name = random.choice(transforms)
-        image = DEGRADATION_TRANSFORMS[name](image, **kwargs)
-
-    return image
-
-
 DEGRADATION_TRANSFORMS = dict(
     snow=apply_snow,
     fog=apply_fog,
@@ -223,3 +195,69 @@ DEGRADATION_TRANSFORMS = dict(
     contrast=apply_contrast,
     identity=lambda image, **kwargs: image,
 )
+
+
+# ==============================================================
+
+
+def sample_degradation_name(
+    identity: bool = True,
+    ignored_transforms: Union[list[str], set[str]] = [],
+    np_random_generator: Optional[np.random.Generator] = None,
+    py_random: Optional[random.Random] = None,
+):
+    transforms = set(DEGRADATION_TRANSFORMS.keys())
+    ignored_transforms = set(ignored_transforms)
+    if not identity:
+        ignored_transforms.add("identity")
+
+    assert len(transforms & ignored_transforms) == len(ignored_transforms)
+    transforms -= ignored_transforms
+    transforms = sorted(transforms)
+
+    # to avoid there is a randomness which doesn't use the generator
+    # we set them to the global state temporarily
+    with RandomContext(
+        np_random_generator=np_random_generator, py_random=py_random, skip_if_none=True
+    ):
+        return random.choice(transforms)
+
+
+def apply_degradation(
+    name: str,
+    image: np.ndarray,
+    np_random_generator: Optional[np.random.Generator] = None,
+    py_random: Optional[random.Random] = None,
+    **kwargs,
+):
+    # to avoid there is a randomness which doesn't use the generator
+    # we set them to the global state temporarily
+    with RandomContext(
+        np_random_generator=np_random_generator, py_random=py_random, skip_if_none=True
+    ):
+        image = DEGRADATION_TRANSFORMS[name](image, **kwargs)
+    return image
+
+
+def apply_random_degradation(
+    image: np.ndarray,
+    identity: bool = True,
+    ignored_transforms: Union[list[str], set[str]] = [],
+    np_random_generator: Optional[np.random.Generator] = None,
+    py_random: Optional[random.Random] = None,
+    **kwargs,
+):
+    name = sample_degradation_name(
+        identity=identity,
+        ignored_transforms=ignored_transforms,
+        np_random_generator=np_random_generator,
+        py_random=py_random,
+    )
+    image = apply_degradation(
+        name,
+        image,
+        np_random_generator=np_random_generator,
+        py_random=py_random,
+        **kwargs,
+    )
+    return image, name

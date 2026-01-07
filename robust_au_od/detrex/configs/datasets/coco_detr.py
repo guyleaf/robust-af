@@ -5,18 +5,18 @@ from detectron2.config import LazyCall as L
 from detrex.config import get_config
 from omegaconf import DictConfig
 
-from robust_au_od.detrex.data.dataset_mappers import RobustDetrDatasetMapper
+from robust_au_od.detrex.data.dataset_mappers import (
+    DetrDatasetMapper,
+    RobustDetrDatasetMapper,
+)
+from robust_au_od.detrex.data.transforms import Degradation
 
 # normal version of dataset
 
 dataloader: DictConfig = get_config("common/data/coco_detr.py").dataloader
 dataloader.train.persistent_workers = True
 dataloader.train.pin_memory = True
-
-# robust version of dataset
-
-robust_dataloader = deepcopy(dataloader)
-robust_dataloader.train.mapper = L(RobustDetrDatasetMapper)(
+dataloader.train.mapper = L(DetrDatasetMapper)(
     augmentations=[
         L(T.RandomFlip)(),
         L(T.RandomApply)(
@@ -56,14 +56,29 @@ robust_dataloader.train.mapper = L(RobustDetrDatasetMapper)(
     use_instance_mask=False,
     image_format="RGB",
 )
-
-
-robust_dataloader.test.mapper = L(RobustDetrDatasetMapper)(
+dataloader.test.mapper = L(DetrDatasetMapper)(
     augmentations=[
-        L(T.ResizeShortestEdge)(
-            short_edge_length=800,
-            max_size=1333,
-        ),
+        L(T.ResizeShortestEdge)(short_edge_length=800, max_size=1333),
+    ],
+    is_train=False,
+    use_instance_mask=False,
+    image_format="RGB",
+)
+
+# robust version of dataset
+
+robust_dataloader = deepcopy(dataloader)
+robust_dataloader.train.mapper = L(RobustDetrDatasetMapper)(
+    augmentations=robust_dataloader.train.mapper.augmentations,
+    robust_augmentations=[L(Degradation)()],
+    is_train=True,
+    use_instance_mask=False,
+    image_format="RGB",
+)
+robust_dataloader.test.mapper = L(DetrDatasetMapper)(
+    augmentations=[
+        L(Degradation)(),
+        L(T.ResizeShortestEdge)(short_edge_length=800, max_size=1333),
     ],
     is_train=False,
     use_instance_mask=False,
