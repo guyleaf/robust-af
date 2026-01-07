@@ -16,7 +16,7 @@ from ultralytics.data.augment import (
 )
 from ultralytics.utils import LOGGER, RANK
 
-from ...transforms import apply_degradation
+from ...transforms import apply_random_degradation
 from ...utils import get_worker_id, restore_random_states, save_random_states
 
 
@@ -60,7 +60,7 @@ class Degradation:
 
     def _apply_degradation(self, img: np.ndarray):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = apply_degradation(
+        img, _ = apply_random_degradation(
             img,
             identity=self.identity,
             ignored_transforms=self.ignored_degradations,

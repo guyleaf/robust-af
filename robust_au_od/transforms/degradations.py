@@ -260,4 +260,4 @@ def apply_random_degradation(
         py_random=py_random,
         **kwargs,
     )
-    return image
+    return image, name

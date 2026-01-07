@@ -6,17 +6,9 @@ import torchvision.transforms.v2 as T
 from PIL import Image
 from rtdetrv2.core import register
 from rtdetrv2.misc.dist_utils import get_rank
-from torch.utils.data import get_worker_info
 
-from ....transforms import apply_degradation
-
-
-def _get_worker_id():
-    worker_info = get_worker_info()
-    if worker_info is None:
-        return 0
-    else:
-        return worker_info.id
+from ....transforms import apply_random_degradation
+from ....utils import get_worker_id
 
 
 @register()
@@ -59,7 +51,7 @@ class Degradation(T.Transform):
     def _apply_degradation(self, img: Image.Image):
         assert isinstance(img, Image.Image) and img.mode == "RGB"
         img = np.asarray(img)
-        img = apply_degradation(
+        img, _ = apply_random_degradation(
             img,
             identity=self.identity,
             ignored_transforms=self.ignored_degradations,
@@ -76,7 +68,7 @@ class Degradation(T.Transform):
             else:
                 # init random generators lazily to work correctly
                 # ex. transform in a dataloader worker
-                worker_id = _get_worker_id()
+                worker_id = get_worker_id()
                 seed = (self.seed + get_rank() + worker_id) % (2**32)
             self._init_random(seed)
         inpt = self._apply_degradation(inpt)
