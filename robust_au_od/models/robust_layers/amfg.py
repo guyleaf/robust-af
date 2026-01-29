@@ -40,14 +40,14 @@ class AMFG(nn.Module):
         # )
 
     def forward(self, x: torch.Tensor):
-        _check_nan(x)
+        # _check_nan(x)
         # x: [b, c, h, w] -> [b, 2*c, h, w]
         x = self.dnc_block_combined(x)
-        _check_nan(x)
+        # _check_nan(x)
         x = self.fgm_block(x)
-        _check_nan(x)
+        # _check_nan(x)
         x = self.conv_layer(x)
-        _check_nan(x)
+        # _check_nan(x)
         return x
 
 
@@ -99,14 +99,14 @@ class DNCBlock_combined(nn.Module):
         self.channel_attention = CABlock(embed_dims * 2)
 
     def forward(self, x):
-        _check_nan(x)
+        # _check_nan(x)
         x_in = self.SEMBlock(x)
-        _check_nan(x)
-        _check_nan(x_in)
+        # _check_nan(x)
+        # _check_nan(x_in)
         x_all = torch.cat([x, x_in], dim=1)
-        _check_nan(x_all)
+        # _check_nan(x_all)
         output = self.channel_attention(x_all)
-        _check_nan(output)
+        # _check_nan(output)
         return output
 
 
@@ -211,30 +211,30 @@ class SelectiveConv(nn.Module):
         else:
             # f_input = self.BN(x.clone())
             f_input = self.BN(x)
-            _check_nan(f_input)
+            # _check_nan(f_input)
             f_input = self.relu(f_input)
 
             # s_input = self.IN(x.clone())
             s_input = self.IN(x)
-            _check_nan(s_input)
+            # _check_nan(s_input)
             s_input = self.relu(s_input)
 
-        _check_nan(f_input)
-        _check_nan(s_input)
+        # _check_nan(f_input)
+        # _check_nan(s_input)
 
         out1 = self.conv1(f_input)
         out2 = self.conv2(s_input)
 
-        _check_nan(out1)
-        _check_nan(out2)
+        # _check_nan(out1)
+        # _check_nan(out2)
 
         out = out1 + out2
 
-        _check_nan(out)
+        # _check_nan(out)
 
         att1, att2 = self.selector(out)
-        _check_nan(att1)
-        _check_nan(att2)
+        # _check_nan(att1)
+        # _check_nan(att2)
         out = torch.mul(out1, att1) + torch.mul(out2, att2)
 
         return out
@@ -294,22 +294,22 @@ class FGMBlock(nn.Module):
         self.conv_layer = nn.Conv2d(embed_dims, embed_dims, kernel_size=1)
 
     def forward(self, x):
-        _check_nan(x)
+        # _check_nan(x)
         fft_map = torch.fft.fft2(x, dim=(-2, -1))
-        _check_nan(fft_map)
+        # _check_nan(fft_map)
 
-        tmp = torch.where(fft_map == 0, 0, fft_map / (fft_map.abs().pow(2)))
-        if torch.isnan(tmp).any():
-            logger = logging.getLogger("detectron2")
-            logger.error("NaN occurred!")
-            logger.error(fft_map)
-            # if is_main_process():
-            #     torch.save(fft_map, "fft_map.pt")
-            #     torch.save(tmp, "tmp.pt")
+        # tmp = torch.where(fft_map == 0, 0, fft_map / (fft_map.abs().pow(2)))
+        # if torch.isnan(tmp).any():
+        #     logger = logging.getLogger("detectron2")
+        #     logger.error("NaN occurred!")
+        #     logger.error(fft_map)
+        #     # if is_main_process():
+        #     #     torch.save(fft_map, "fft_map.pt")
+        #     #     torch.save(tmp, "tmp.pt")
 
         magnitude_map = torch.abs(fft_map)
         phase_map = torch.angle(fft_map)
-        _check_nan(phase_map)
+        # _check_nan(phase_map)
 
         modified_magnitude = self.conv_layer(magnitude_map)
 

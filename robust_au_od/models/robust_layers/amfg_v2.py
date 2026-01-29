@@ -49,13 +49,13 @@ class AMFGv2(nn.Module):
 
     def forward(self, x: torch.Tensor):
         # x: [b, c, h, w] -> [b, 2*c, h, w]
-        _check_nan(x)
+        # _check_nan(x)
         x = self.dnc_block_combined(x)
-        _check_nan(x)
+        # _check_nan(x)
         x = self.fgm_block(x)
-        _check_nan(x)
+        # _check_nan(x)
         x = self.conv_layer(x)
-        _check_nan(x)
+        # _check_nan(x)
         return x
 
 
@@ -123,7 +123,7 @@ class DNCBlock_combined(nn.Module):
 
     def forward(self, x):
         x_in = self.SEMBlock(x)
-        _check_nan(x_in)
+        # _check_nan(x_in)
         x_all = torch.cat([x, x_in], dim=1)
         output = self.channel_attention(x_all)
         return output
@@ -210,16 +210,16 @@ class SelectiveConv(nn.Module):
         else:
             # s_input = self.IN(x.clone())
             s_input = self.IN(x)
-            _check_nan(s_input)
+            # _check_nan(s_input)
             s_input = self.relu(s_input)
-        _check_nan(s_input)
+        # _check_nan(s_input)
         out = self.conv(s_input)
-        _check_nan(out)
+        # _check_nan(out)
         if self.selector is not None:
             att = self.selector(out)
-            _check_nan(att)
+            # _check_nan(att)
             out = torch.mul(out, att)
-            _check_nan(out)
+            # _check_nan(out)
 
         return out
 
@@ -282,13 +282,13 @@ class FGMBlock(nn.Module):
         self.conv_layer = nn.Conv2d(embed_dims, embed_dims, kernel_size=1)
 
     def forward(self, x):
-        _check_nan(x)
+        # _check_nan(x)
         fft_map = torch.fft.fft2(x, dim=(-2, -1))
-        _check_nan(fft_map)
+        # _check_nan(fft_map)
 
         magnitude_map = torch.abs(fft_map)
         phase_map = torch.angle(fft_map)
-        _check_nan(phase_map)
+        # _check_nan(phase_map)
 
         modified_magnitude = self.conv_layer(magnitude_map)
 

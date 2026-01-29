@@ -34,28 +34,209 @@ class AFR(nn.Module):
     def __init__(
         self,
         embed_dims: int = 256,
-        affine: bool = False,
+        activation: Optional[str] = None,
+        spatial_cfg: dict = dict(),
     ):
         super().__init__()
-        s_block = SpatialBlock(embed_dims, embed_dims, 3, affine=affine)
+        s_block = SpatialBlock(embed_dims, embed_dims, **spatial_cfg)
         self.sf_block = SpatialFusionBlock(s_block, embed_dims)
 
-        # 0.262656M
         self.f_block = FrequencyBlock(embed_dims * 2)
 
-        # 1.179904M
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
+        if activation is not None:
+            self.act = _build_activation(activation)
+        else:
+            self.act = None
 
     def forward(self, x: torch.Tensor):
         # x: [b, c, h, w] -> [b, 2*c, h, w]
-        _check_nan(x)
+        # _check_nan(x)
         x = self.sf_block(x)
-        _check_nan(x)
+        # _check_nan(x)
         x = self.f_block(x)
-        _check_nan(x)
+        # _check_nan(x)
         x = self.conv(x)
-        _check_nan(x)
+        # _check_nan(x)
+        if self.act is not None:
+            x = self.act(x)
+            # _check_nan(x)
         return x
+
+
+class SpatialAFR(nn.Module):
+    """Anti-degradation Feature Restoration Module (spatial only)"""
+
+    def __init__(
+        self,
+        embed_dims: int = 256,
+        activation: Optional[str] = None,
+        spatial_cfg: dict = dict(),
+    ):
+        super().__init__()
+        s_block = SpatialBlock(embed_dims, embed_dims, **spatial_cfg)
+        self.sf_block = SpatialFusionBlock(s_block, embed_dims)
+
+        self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
+        if activation is not None:
+            self.act = _build_activation(activation)
+        else:
+            self.act = None
+
+    def forward(self, x: torch.Tensor):
+        # x: [b, c, h, w] -> [b, 2*c, h, w]
+        x = self.sf_block(x)
+        x = self.conv(x)
+        if self.act is not None:
+            x = self.act(x)
+        return x
+
+
+class FrequencyAFR(nn.Module):
+    """Anti-degradation Feature Restoration Module (frequency only)"""
+
+    def __init__(self, embed_dims: int = 256):
+        super().__init__()
+        self.f_block = FrequencyBlock(embed_dims)
+        # TODO: do we need a layer for projection?
+
+    def forward(self, x: torch.Tensor):
+        # x: [b, c, h, w] -> [b, c, h, w]
+        x = self.f_block(x)
+        return x
+
+
+class SEBlock(nn.Module):
+    """Squeeze-and-Excitation Networks (https://arxiv.org/abs/1709.01507)"""
+
+    def __init__(self, channels: int, reduction: int = 16):
+        super().__init__()
+        assert channels % reduction == 0, (
+            "The channel size should be divisible by reduction ratio."
+        )
+        self.squeeze = nn.AdaptiveAvgPool2d(1)
+        self.excitation = nn.Sequential(
+            nn.Linear(channels, channels // reduction, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Linear(channels // reduction, channels, bias=False),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: torch.Tensor):
+        batch_size, channels, _, _ = x.size()
+        squeeze = self.squeeze(x).view(batch_size, channels)
+        excitation = self.excitation(squeeze).view(batch_size, channels, 1, 1)
+        return x * excitation
+
+
+class SpatialFusionBlock(nn.Module):
+    def __init__(
+        self,
+        s_block: nn.Module,
+        embed_dims: int,
+    ):
+        super().__init__()
+        self.s_block = s_block
+        self.ca_block = SEBlock(embed_dims * 2)
+
+    def forward(self, x: torch.Tensor):
+        x_in = self.s_block(x)
+        # _check_nan(x_in)
+        x_all = torch.cat([x, x_in], dim=1)
+        output = self.ca_block(x_all)
+        return output
+
+
+class SpatialBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: Union[int, tuple[int, int]] = 3,
+        padding: Union[int, tuple[int, int]] = 1,
+        bias: bool = False,
+        affine: bool = False,
+        conv: bool = True,
+        activation: Optional[str] = "LeakyReLU",
+        selector: bool = False,
+    ):
+        super().__init__()
+        self.IN = nn.InstanceNorm2d(in_channels, affine=affine)
+
+        if conv:
+            self.conv = nn.Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size=kernel_size,
+                padding=padding,
+                bias=bias,
+            )
+        else:
+            self.conv = None
+
+        if activation is not None:
+            self.act = _build_activation(activation)
+        else:
+            self.act = None
+
+        if selector:
+            self.selector = SEBlock(out_channels)
+        else:
+            self.selector = None
+
+    def forward(self, x: torch.Tensor):
+        x = self.IN(x)
+        # _check_nan(x)
+
+        if self.conv is not None:
+            x = self.conv(x)
+            # _check_nan(x)
+        if self.act is not None:
+            x = self.act(x)
+            # _check_nan(x)
+        if self.selector is not None:
+            x = self.selector(x)
+            # _check_nan(x)
+        return x
+
+
+class FrequencyBlock(nn.Module):
+    def __init__(self, embed_dims: int):
+        super().__init__()
+        self.conv = nn.Conv2d(embed_dims, embed_dims, kernel_size=1)
+
+    def forward(self, x: torch.Tensor):
+        # _check_nan(x)
+        fft_map = torch.fft.fft2(x, dim=(-2, -1))
+        # _check_nan(fft_map)
+
+        magnitude_map = torch.abs(fft_map)
+        phase_map = torch.angle(fft_map)
+        # _check_nan(phase_map)
+
+        modified_magnitude = self.conv(magnitude_map)
+
+        real_part = modified_magnitude * torch.cos(phase_map)
+        imag_part = modified_magnitude * torch.sin(phase_map)
+        modified_fft_map = torch.complex(real_part, imag_part)
+
+        reconstructed_x = torch.real(torch.fft.ifft2(modified_fft_map, dim=(-2, -1)))
+
+        return reconstructed_x
+
+
+# ===================================== Modules for testing only =====================================
+
+
+class SpatialBlockDebug(nn.Module):
+    def __init__(self, embed_dims: int, affine: bool = False):
+        super().__init__()
+        self.IN = nn.InstanceNorm2d(embed_dims, affine=affine)
+
+    def forward(self, x: torch.Tensor):
+        s_input = self.IN(x)
+        # _check_nan(s_input)
+        return s_input
 
 
 class SpatialAFRNonParameteric(nn.Module):
@@ -87,7 +268,7 @@ class SpatialAFRDebug(nn.Module):
     ):
         super().__init__()
         # s_block = SpatialBlockDebug(embed_dims, affine=affine)
-        s_block = SpatialBlockDebugWithNN(embed_dims, embed_dims, affine=affine, se=se)
+        s_block = SpatialBlock(embed_dims, embed_dims, affine=affine, selector=se)
         self.sf_block = SpatialFusionBlock(s_block, embed_dims)
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
@@ -219,211 +400,3 @@ class SpatialAFRGroupRefined(nn.Module):
 
         x = self.projection(x)
         return skip + x
-
-
-class SpatialAFR(nn.Module):
-    """Anti-degradation Feature Restoration Module (spatial only)"""
-
-    def __init__(
-        self,
-        embed_dims: int = 256,
-        affine: bool = False,
-        selector: bool = False,
-    ):
-        super().__init__()
-        s_block = SpatialBlock(
-            embed_dims, embed_dims, 3, affine=affine, selector=selector
-        )
-        self.sf_block = SpatialFusionBlock(s_block, embed_dims)
-
-        self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
-
-    def forward(self, x: torch.Tensor):
-        # x: [b, c, h, w] -> [b, 2*c, h, w]
-        x = self.sf_block(x)
-        x = self.conv(x)
-        return x
-
-
-class FrequencyAFR(nn.Module):
-    """Anti-degradation Feature Restoration Module (frequency only)"""
-
-    def __init__(self, embed_dims: int = 256):
-        super().__init__()
-        self.f_block = FrequencyBlock(embed_dims)
-
-    def forward(self, x: torch.Tensor):
-        # x: [b, c, h, w] -> [b, c, h, w]
-        x = self.f_block(x)
-        return x
-
-
-class SpatialFusionBlock(nn.Module):
-    def __init__(
-        self,
-        s_block: nn.Module,
-        embed_dims: int,
-    ):
-        super().__init__()
-        self.s_block = s_block
-        # concat along channel dimension
-        # 0.296528M
-        self.ca_block = SEBlock(embed_dims * 2)
-
-    def forward(self, x: torch.Tensor):
-        x_in = self.s_block(x)
-        _check_nan(x_in)
-        x_all = torch.cat([x, x_in], dim=1)
-        output = self.ca_block(x_all)
-        return output
-
-
-class SpatialBlockDebug(nn.Module):
-    def __init__(self, embed_dims: int, affine: bool = False):
-        super().__init__()
-        self.IN = nn.InstanceNorm2d(embed_dims, affine=affine)
-
-    def forward(self, x: torch.Tensor):
-        s_input = self.IN(x)
-        _check_nan(s_input)
-        return s_input
-
-
-class SpatialBlockDebugWithNN(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: Union[int, tuple[int, int]] = 3,
-        padding: Union[int, tuple[int, int]] = 1,
-        bias: bool = False,
-        affine: bool = False,
-        activation: Optional[str] = "LeakyReLU",
-        se: bool = False,
-    ):
-        super().__init__()
-        self.IN = nn.InstanceNorm2d(in_channels, affine=affine)
-
-        # 256 * 256 * 3 * 3 = 589.824K = 0.589824M
-        self.conv = nn.Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size=kernel_size,
-            padding=padding,
-            bias=bias,
-        )
-        if activation is not None:
-            self.act = _build_activation(activation)
-        else:
-            self.act = None
-
-        if se:
-            self.ca_block = SEBlock(out_channels)
-        else:
-            self.ca_block = None
-
-    def forward(self, x: torch.Tensor):
-        x = self.IN(x)
-        _check_nan(x)
-
-        x = self.conv(x)
-        _check_nan(x)
-        if self.act is not None:
-            x = self.act(x)
-            _check_nan(x)
-        if self.ca_block is not None:
-            x = self.ca_block(x)
-            _check_nan(x)
-        return x
-
-
-class SpatialBlock(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: Union[int, tuple[int, int]],
-        padding: Union[int, tuple[int, int]] = 1,
-        bias: bool = False,
-        affine: bool = False,
-        selector: bool = False,
-    ):
-        super().__init__()
-        self.IN = nn.InstanceNorm2d(in_channels, affine=affine)
-
-        # 256 * 256 * 3 * 3 = 589.824K = 0.589824M
-        self.conv = nn.Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size=kernel_size,
-            padding=padding,
-            bias=bias,
-        )
-        self.relu = nn.LeakyReLU(inplace=True)
-
-        if selector:
-            self.selector = SEBlock(out_channels)
-        else:
-            self.selector = None
-
-    def forward(self, x: torch.Tensor):
-        s_input = self.IN(x)
-        _check_nan(s_input)
-        s_input = self.relu(s_input)
-        _check_nan(s_input)
-        out = self.conv(s_input)
-        _check_nan(out)
-
-        if self.selector is not None:
-            out = self.selector(out)
-        return out
-
-
-# 0.296528M
-class SEBlock(nn.Module):
-    """Squeeze-and-Excitation Networks (https://arxiv.org/abs/1709.01507)"""
-
-    def __init__(self, channels: int, reduction: int = 16):
-        super().__init__()
-        assert channels % reduction == 0, (
-            "The channel size should be divisible by reduction ratio."
-        )
-        self.squeeze = nn.AdaptiveAvgPool2d(1)
-        self.excitation = nn.Sequential(
-            nn.Linear(channels, channels // reduction, bias=False),
-            nn.ReLU(inplace=True),
-            nn.Linear(channels // reduction, channels, bias=False),
-            nn.Sigmoid(),
-        )
-
-    def forward(self, x: torch.Tensor):
-        batch_size, channels, _, _ = x.size()
-        squeeze = self.squeeze(x).view(batch_size, channels)
-        excitation = self.excitation(squeeze).view(batch_size, channels, 1, 1)
-        return x * excitation
-
-
-# 0.262656M
-class FrequencyBlock(nn.Module):
-    def __init__(self, embed_dims: int):
-        super().__init__()
-        self.conv = nn.Conv2d(embed_dims, embed_dims, kernel_size=1)
-
-    def forward(self, x: torch.Tensor):
-        _check_nan(x)
-        fft_map = torch.fft.fft2(x, dim=(-2, -1))
-        _check_nan(fft_map)
-
-        magnitude_map = torch.abs(fft_map)
-        phase_map = torch.angle(fft_map)
-        _check_nan(phase_map)
-
-        modified_magnitude = self.conv(magnitude_map)
-
-        real_part = modified_magnitude * torch.cos(phase_map)
-        imag_part = modified_magnitude * torch.sin(phase_map)
-        modified_fft_map = torch.complex(real_part, imag_part)
-
-        reconstructed_x = torch.real(torch.fft.ifft2(modified_fft_map, dim=(-2, -1)))
-
-        return reconstructed_x
