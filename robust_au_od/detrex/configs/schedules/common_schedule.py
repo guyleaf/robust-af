@@ -19,6 +19,26 @@ MULTISTEP_SETTINGS = [
     (36, 30, 1e-3),
     (24, 20, 1e-3),
     (12, 11, 1e-3),
+    (50, 40, 1e-2),
+    (36, 30, 1e-2),
+    (24, 20, 1e-2),
+    (12, 11, 1e-2),
+    (50, 40, 1e-1),
+    (36, 30, 1e-1),
+    (24, 20, 1e-1),
+    (12, 11, 1e-1),
+    (50, 40, 5e-1),
+    (36, 30, 5e-1),
+    (24, 20, 5e-1),
+    (12, 11, 5e-1),
+    (50, 40, 1),
+    (36, 30, 1),
+    (24, 20, 1),
+    (12, 11, 1),
+    (50, 40, 5),
+    (36, 30, 5),
+    (24, 20, 5),
+    (12, 11, 5),
 ]
 LINEAR_SETTINGS = [
     (50, 0),
@@ -151,7 +171,12 @@ def default_detr_schedulers(
         for total_epochs, decay_epochs, warmup_epochs in multistep_settings:
             key = f"lr_multiplier_{total_epochs}ep"
             if warmup_epochs != 0:
-                key += "_warmup"
+                if warmup_epochs == 1e-3:
+                    key += "_warmup"
+                else:
+                    key += f"_{warmup_epochs:.0e}warmup".replace("e-0", "e-").replace(
+                        "e+0", "e+"
+                    )
             key += f"_{bs}bs"
 
             schedulers[key] = default_multistep_lr_scheduler(
