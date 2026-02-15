@@ -2,6 +2,7 @@ from copy import deepcopy
 
 import detectron2.data.transforms as T
 from detectron2.config import LazyCall as L
+from detectron2.data import get_detection_dataset_dicts
 from detrex.config import get_config
 from omegaconf import DictConfig
 
@@ -65,9 +66,17 @@ dataloader.test.mapper = L(DetrDatasetMapper)(
     image_format="RGB",
 )
 
+# (optional) train for test
+dataloader.train_test = deepcopy(dataloader.test)
+dataloader.train_test.dataset = L(get_detection_dataset_dicts)(
+    names="coco_2017_train", filter_empty=False
+)
+
 # robust version of dataset
 
 robust_dataloader = deepcopy(dataloader)
+
+# train
 robust_dataloader.train.mapper = L(RobustDetrDatasetMapper)(
     augmentations=robust_dataloader.train.mapper.augmentations,
     robust_augmentations=[L(Degradation)()],
@@ -75,9 +84,19 @@ robust_dataloader.train.mapper = L(RobustDetrDatasetMapper)(
     use_instance_mask=False,
     image_format="RGB",
 )
-robust_dataloader.test.mapper = L(DetrDatasetMapper)(
+
+# test
+# offline augmentation to get consistent performance between val and test.
+# TODO: register degraded ver. of COCO
+robust_dataloader.test.dataset = L(get_detection_dataset_dicts)(
+    names="coco_2017_val_degraded", filter_empty=False
+)
+
+# (optional) train for test
+# online augmentation same with train subset
+robust_dataloader.train_test.mapper = L(DetrDatasetMapper)(
     augmentations=[
-        L(Degradation)(),
+        L(Degradation)(identity=False),
         L(T.ResizeShortestEdge)(short_edge_length=800, max_size=1333),
     ],
     is_train=False,
