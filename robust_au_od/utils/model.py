@@ -2,16 +2,18 @@ from typing import List, Union
 
 import torch.nn as nn
 
-from ..models import FrozenBatchNorm2d, FrozenSyncBatchNorm
-
 
 def convert_to_frozen_batchnorm_2d(module: nn.Module):
+    from ..models import FrozenBatchNorm2d, FrozenSyncBatchNorm
+
     module = FrozenBatchNorm2d.convert_to_frozen_batchnorm(module)
     module = FrozenSyncBatchNorm.convert_to_frozen_batchnorm(module)
     return module
 
 
 def convert_to_batchnorm_2d(module: nn.Module):
+    from ..models import FrozenBatchNorm2d, FrozenSyncBatchNorm
+
     module = FrozenBatchNorm2d.convert_to_batchnorm(module)
     module = FrozenSyncBatchNorm.convert_to_batchnorm(module)
     return module
