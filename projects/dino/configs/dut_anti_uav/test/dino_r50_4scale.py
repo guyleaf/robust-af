@@ -1,5 +1,4 @@
 from detectron2.data.catalog import MetadataCatalog
-from detectron2.layers import ShapeSpec
 
 from robust_au_od.detrex.configs import get_config
 from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
@@ -23,21 +22,19 @@ metadata = MetadataCatalog.get(test_dataset_name)
 
 use_paper_pos = True
 suffix = "_degraded" if degraded else ""
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/dino_r50_4scale_36ep_5e-5_lr{suffix}"
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/dino_r50_4scale_24ep_5e-5_lr_new_mapper_warmup{suffix}"
 
 # ==============================================================
 
-# dataloader.test.dataset.names = f"{test_dataset_name}_test"
-
-# for tsne vis
-model.backbone.out_features = ["stem", "res2", "res3", "res4", "res5"]
-model.neck.input_shapes = {
-    "stem": ShapeSpec(channels=64),
-    "res2": ShapeSpec(channels=256),
-    "res3": ShapeSpec(channels=512),
-    "res4": ShapeSpec(channels=1024),
-    "res5": ShapeSpec(channels=2048),
-}
+# NOTE: for tsne vis
+# model.backbone.out_features = ["stem", "res2", "res3", "res4", "res5"]
+# model.neck.input_shapes = {
+#     "stem": ShapeSpec(channels=64),
+#     "res2": ShapeSpec(channels=256),
+#     "res3": ShapeSpec(channels=512),
+#     "res4": ShapeSpec(channels=1024),
+#     "res5": ShapeSpec(channels=2048),
+# }
 
 if use_paper_pos:
     # use the original implementation of dab-detr position embedding if training epochs > 12.
@@ -56,9 +53,6 @@ model.device = train.device
 
 # modify dataloader config
 dataloader.test.num_workers = 4
-if degraded:
-    # (robust_dataloader only) disable skip connection in degradations
-    dataloader.test.mapper.identity = False
 
 # dump the testing results into output_dir for visualization
 dataloader.evaluator.output_dir = train.output_dir

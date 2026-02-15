@@ -105,4 +105,8 @@ train.wandb = dict(
 )
 
 # set the random seed
+# [42, 123, 456, 789, 2025]
 train.seed = 2025
+
+# evaluate train subset during validation (require `dataloader.train_test``) (heavy computation)
+train.eval_train = True

@@ -1,13 +1,16 @@
 import os
 
+from detectron2.config import LazyCall as L
 from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
 
 from robust_au_od.detrex.configs import get_config
 from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_au_od.detrex.modeling import MultiScaleProcessor
 from robust_au_od.detrex.utils import count_coco_images
+from robust_au_od.models.robust_layers.afr import SpatialAFR
 
-from ..models.robust_dino_r50 import model
+from ...models.robust_dino_r50_v2 import model
 
 # get default config
 dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").robust_dataloader
@@ -31,11 +34,11 @@ train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
 # each gpu is 8/4 = 2
 batch_size = 8
 # lr = base_lr * (batch_size / base_batch_size)
-lr = 1e-4
+lr = 1e-5
 
 num_epochs = 12
 eval_per_epochs = 1
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_4scale_12ep_1e-4_lr_sync_bn_from_36ep"
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_12ep_1e-5_lr_spatial_afr_selector_no_train_heads_from_36ep"
 
 # wandb settings
 tags = [*metadata.tags]
@@ -45,6 +48,13 @@ notes = ""
 
 # model.transformer.encoder.robust_layer.spatial_attention = 4
 # model.vis_period = 2000
+# model.criterion.weight_dict = {k: 10.0 for k in model.criterion.weight_dict}
+model.train_heads = False
+model.robust_module = L(MultiScaleProcessor)(
+    res3=L(SpatialAFR)(embed_dims=512, selector=True),
+    res4=L(SpatialAFR)(embed_dims=1024, selector=True),
+    res5=L(SpatialAFR)(embed_dims=2048, selector=True),
+)
 
 # modify model config
 # use the original implementation of dab-detr position embedding.
@@ -55,7 +65,7 @@ model.position_embedding.offset = 0.0
 train.init_checkpoint = "/home/leafying/work/work_dirs/detrex/dino_r50_4scale/dut_anti_uav/dino_r50_4scale_36ep_5e-5_lr/model_best_0021449.pth"
 train.output_dir = output_dir
 
-train.sync_bn = True
+# train.sync_bn = True
 
 # max training iterations
 num_images = count_coco_images(train_metadata.json_file)
@@ -85,9 +95,14 @@ model.device = train.device
 optimizer.lr = lr
 optimizer.betas = (0.9, 0.999)
 optimizer.weight_decay = 1e-4
-optimizer.params.lr_factor_func = (
-    lambda module_name: 0.1 if "backbone" in module_name else 1
-)
+# optimizer.params.lr_factor_func = (
+#     lambda module_name: 0.1 if "backbone" in module_name else 1
+# )
+# optimizer.params.lr_factor_func = (
+#     lambda module_name: 0.1
+#     if any(k in module_name for k in ("backbone", "class_embed", "bbox_embed"))
+#     else 1
+# )
 
 # modify dataloader config
 dataloader.train.num_workers = 4
@@ -107,7 +122,7 @@ train.wandb = dict(
         dir=output_dir,
         name=os.path.basename(output_dir),
         project="detrex",
-        group="robust_dino_r50_4scale_12ep",
+        group="robust_dino_r50_v2_4scale_12ep",
         job_type="from scratch",
         tags=tags,
         notes=notes,
@@ -116,3 +131,6 @@ train.wandb = dict(
 
 # set the random seed
 train.seed = 2025
+
+# evaluate train subset during validation (require `dataloader.train_test``) (heavy computation)
+train.eval_train = True

@@ -4,10 +4,8 @@ from detectron2.data import MetadataCatalog
 from robust_au_od.detrex.configs import get_config
 from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 from robust_au_od.detrex.modeling.processors import MultiScaleProcessor
-from robust_au_od.models.robust_layers.afr import SpatialAFRDebug
-from robust_au_od.models.robust_layers import SimpleNN
+from robust_au_od.models.robust_layers import SpatialAFR
 
-# from robust_au_od.models.robust_layers.afr import SpatialAFRNonParameteric
 from ...models.robust_dino_r50_v2 import model
 
 degraded = True
@@ -24,19 +22,49 @@ train = get_config("train.py").train
 metadata = MetadataCatalog.get(test_dataset_name)
 
 suffix = "_degraded" if degraded else ""
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_12ep_1e-5_lr_simple_nn_no_train_heads_from_36ep_debug{suffix}_2"
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_36ep_1e-5_lr_spatial_afr_in_only_relu_no_train_heads_from_24ep{suffix}"
 
 # ==============================================================
 
 # model.robust_module = L(MultiScaleProcessor)(
-#     res3=L(AMFGv2)(embed_dims=512, spatial_attention=1),
-#     res4=L(AMFGv2)(embed_dims=1024, spatial_attention=1),
-#     res5=L(AMFGv2)(embed_dims=2048, spatial_attention=1),
+#     res3=L(SimpleNN)(embed_dims=512),
+#     res4=L(SimpleNN)(embed_dims=1024),
+#     res5=L(SimpleNN)(embed_dims=2048),
+# )
+# model.robust_module = L(MultiScaleProcessor)(
+#     res3=L(AMFGv2)(embed_dims=512),
+#     res4=L(AMFGv2)(embed_dims=1024),
+#     res5=L(AMFGv2)(embed_dims=2048),
+# )
+# model.robust_module = L(MultiScaleProcessor)(
+#     res3=L(SpatialAMFGv2)(embed_dims=512),
+#     res4=L(SpatialAMFGv2)(embed_dims=1024),
+#     res5=L(SpatialAMFGv2)(embed_dims=2048),
+# )
+# model.robust_module = L(MultiScaleProcessor)(
+#     res3=L(SpatialAFR)(embed_dims=512),
+#     res4=L(SpatialAFR)(embed_dims=1024),
+#     res5=L(SpatialAFR)(embed_dims=2048),
+# )
+# model.robust_module = L(MultiScaleProcessor)(
+#     res3=L(SpatialAFR)(embed_dims=512, activation="ReLU"),
+#     res4=L(SpatialAFR)(embed_dims=1024, activation="ReLU"),
+#     res5=L(SpatialAFR)(embed_dims=2048, activation="ReLU"),
 # )
 model.robust_module = L(MultiScaleProcessor)(
-    res3=L(SimpleNN)(embed_dims=512),
-    res4=L(SimpleNN)(embed_dims=1024),
-    res5=L(SimpleNN)(embed_dims=2048),
+    res3=L(SpatialAFR)(
+        embed_dims=512, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"
+    ),
+    res4=L(SpatialAFR)(
+        embed_dims=1024,
+        spatial_cfg=dict(conv=False, activation=None),
+        activation="ReLU",
+    ),
+    res5=L(SpatialAFR)(
+        embed_dims=2048,
+        spatial_cfg=dict(conv=False, activation=None),
+        activation="ReLU",
+    ),
 )
 
 # modify model config
@@ -56,9 +84,6 @@ model.device = train.device
 
 # modify dataloader config
 dataloader.test.num_workers = 4
-if degraded:
-    # (robust_dataloader only) disable skip connection in degradations
-    dataloader.test.mapper.identity = False
 
 # dump the testing results into output_dir for visualization
 dataloader.evaluator.output_dir = train.output_dir

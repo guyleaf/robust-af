@@ -14,8 +14,9 @@ from .dino_r50_4scale_12ep import (  # noqa: F401
 # get default config
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
-).detr_schedulers.lr_multiplier_24ep_8bs
+).detr_schedulers["lr_multiplier_36ep_1e-2warmup_8bs"]
 
+lr = 5e-5
 num_epochs = 24
 
 # ==============================================================
@@ -26,12 +27,14 @@ model.position_embedding.temperature = 20
 model.position_embedding.offset = 0.0
 
 # modify training config
-train.output_dir = (
-    f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_24ep_1e-4_lr_4"
-)
+train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_24ep_5e-5_lr_new_mapper_1e-2_warmup_2"
 
 # max training iterations
 train.max_iter = num_epochs * num_batches
+
+# modify optimizer config
+optimizer.lr = lr
+optimizer.weight_decay = 1e-4
 
 # dump the testing results into output_dir for visualization
 dataloader.evaluator.output_dir = train.output_dir
@@ -43,3 +46,7 @@ params = dict(
     group="dino_r50_4scale_24ep",
 )
 train.wandb["params"].update(params)
+
+# set the random seed
+# [42, 123, 456, 789, 2025]
+train.seed = 789

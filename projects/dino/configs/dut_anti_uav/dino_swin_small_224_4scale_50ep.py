@@ -14,13 +14,13 @@ from .dino_swin_small_224_4scale_12ep import (  # noqa: F401
 # get default config
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
-).detr_schedulers["lr_multiplier_36ep_1e-2warmup_8bs"]
+).detr_schedulers.lr_multiplier_50ep_warmup_8bs
 
 # ==============================================================
 
 lr = 5e-5
-num_epochs = 24
-output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/dino_swin_small_224_4scale_24ep_5e-5_lr_new_mapper_1e-2_warmup_2"
+num_epochs = 50
+output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/dino_swin_small_224_4scale_50ep_5e-5_lr_new_mapper_warmup_2"
 
 # ==============================================================
 
@@ -45,7 +45,7 @@ dataloader.evaluator.output_dir = output_dir
 params = dict(
     dir=output_dir,
     name=os.path.basename(output_dir),
-    group="dino_swin_small_224_4scale_24ep",
+    group="dino_swin_small_224_4scale_50ep",
 )
 train.wandb["params"].update(params)
 

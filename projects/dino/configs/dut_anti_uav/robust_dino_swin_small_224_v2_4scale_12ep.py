@@ -1,16 +1,19 @@
 import os
 
+from detectron2.config import LazyCall as L
 from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
 
 from robust_au_od.detrex.configs import get_config
 from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_au_od.detrex.modeling import MultiScaleProcessor
 from robust_au_od.detrex.utils import count_coco_images
+from robust_au_od.models.robust_layers import SpatialAFR
 
-from ..models.dino_r50 import model
+from ..models.robust_dino_swin_small_224_v2 import model
 
 # get default config
-dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").dataloader
+dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").robust_dataloader
 optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
@@ -24,18 +27,18 @@ train_metadata = MetadataCatalog.get(f"{DATASET_NAME}_train")
 
 # TODO: auto-scale lr by batch size
 # each gpu is 16/8 = 2
-# base_batch_size = 16
-# base_lr = 1e-4
+# base_batch_size = dataloader.train.total_batch_size
+# base_lr = optimizer.lr
 
 # by default, use 4 gpus.
 # each gpu is 8/4 = 2
 batch_size = 8
 # lr = base_lr * (batch_size / base_batch_size)
-lr = 5e-5
+lr = 1e-5
 
 num_epochs = 12
 eval_per_epochs = 1
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_12ep_5e-5_lr_new_mapper_warmup"
+output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/robust_dino_swin_small_224_v2_4scale_12ep_1e-5_lr_spatial_afr_no_train_heads_from_24ep"
 
 # wandb settings
 tags = [*metadata.tags]
@@ -43,9 +46,26 @@ notes = ""
 
 # ==============================================================
 
+# model.transformer.encoder.robust_layer.spatial_attention = 4
+# model.vis_period = 2000
+# model.criterion.weight_dict = {k: 10.0 for k in model.criterion.weight_dict}
+model.train_heads = False
+model.robust_module = L(MultiScaleProcessor)(
+    p1=L(SpatialAFR)(embed_dims=192),
+    p2=L(SpatialAFR)(embed_dims=384),
+    p3=L(SpatialAFR)(embed_dims=768),
+)
+
+# modify model config
+# use the original implementation of dab-detr position embedding.
+# model.position_embedding.temperature = 20
+# model.position_embedding.offset = 0.0
+
 # modify training config
-train.init_checkpoint = "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
+train.init_checkpoint = "/home/leafying/work/experiments/work_dirs/detrex/dino_swin_small_224_4scale/dut_anti_uav/dino_swin_small_224_4scale_24ep_5e-5_lr_new_mapper_warmup_again/model_best_0014949.pth"
 train.output_dir = output_dir
+
+# train.sync_bn = True
 
 # max training iterations
 num_images = count_coco_images(train_metadata.json_file)
@@ -75,15 +95,20 @@ model.device = train.device
 optimizer.lr = lr
 optimizer.betas = (0.9, 0.999)
 optimizer.weight_decay = 1e-4
-optimizer.params.lr_factor_func = (
-    lambda module_name: 0.1 if "backbone" in module_name else 1
-)
+# optimizer.params.lr_factor_func = (
+#     lambda module_name: 0.1 if "backbone" in module_name else 1
+# )
+# optimizer.params.lr_factor_func = (
+#     lambda module_name: 0.1
+#     if any(k in module_name for k in ("backbone", "class_embed", "bbox_embed"))
+#     else 1
+# )
 
 # modify dataloader config
 dataloader.train.num_workers = 4
 
 # please notice that this is total batch size.
-# surpose you're using 4 gpus for training and the batch size for
+# suppose you're using 4 gpus for training and the batch size for
 # each gpu is 16/4 = 4
 dataloader.train.total_batch_size = batch_size
 
@@ -97,7 +122,7 @@ train.wandb = dict(
         dir=output_dir,
         name=os.path.basename(output_dir),
         project="detrex",
-        group="dino_r50_4scale_12ep",
+        group="robust_dino_swin_small_224_v2_4scale_12ep",
         job_type="from scratch",
         tags=tags,
         notes=notes,
@@ -105,6 +130,7 @@ train.wandb = dict(
 )
 
 # set the random seed
+# [42, 123, 456, 789, 2025]
 train.seed = 2025
 
 # evaluate train subset during validation (require `dataloader.train_test``) (heavy computation)

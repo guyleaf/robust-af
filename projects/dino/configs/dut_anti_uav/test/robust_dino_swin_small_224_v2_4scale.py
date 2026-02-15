@@ -1,0 +1,77 @@
+from detectron2.config import LazyCall as L
+from detectron2.data import MetadataCatalog
+
+from robust_au_od.detrex.configs import get_config
+from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_au_od.detrex.modeling.processors import MultiScaleProcessor
+from robust_au_od.models.robust_layers import SpatialAFR
+
+from ...models.robust_dino_swin_small_224_v2 import model
+
+degraded = False
+test_dataset_name = DATASET_NAME
+
+dataset = get_config(f"datasets/{test_dataset_name}_detr.py")
+if degraded:
+    dataloader = dataset.robust_dataloader
+else:
+    dataloader = dataset.dataloader
+
+train = get_config("train.py").train
+
+metadata = MetadataCatalog.get(test_dataset_name)
+
+suffix = "_degraded" if degraded else ""
+output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_swin_small_224_v2_4scale_36ep_1e-5_lr_spatial_afr_in_only_relu_no_train_heads_from_24ep{suffix}"
+
+# ==============================================================
+
+# model.robust_module = L(MultiScaleProcessor)(
+#     p1=L(SimpleNN)(embed_dims=192),
+#     p2=L(SimpleNN)(embed_dims=384),
+#     p3=L(SimpleNN)(embed_dims=768),
+# )
+# model.robust_module = L(MultiScaleProcessor)(
+#     p1=L(AMFGv2)(embed_dims=192),
+#     p2=L(AMFGv2)(embed_dims=384),
+#     p3=L(AMFGv2)(embed_dims=768),
+# )
+# model.robust_module = L(MultiScaleProcessor)(
+#     p1=L(SpatialAMFGv2)(embed_dims=192),
+#     p2=L(SpatialAMFGv2)(embed_dims=384),
+#     p3=L(SpatialAMFGv2)(embed_dims=768),
+# )
+# model.robust_module = L(MultiScaleProcessor)(
+#     p1=L(SpatialAFR)(embed_dims=192),
+#     p2=L(SpatialAFR)(embed_dims=384),
+#     p3=L(SpatialAFR)(embed_dims=768),
+# )
+# model.robust_module = L(MultiScaleProcessor)(
+#     p1=L(SpatialAFR)(embed_dims=192, activation="ReLU"),
+#     p2=L(SpatialAFR)(embed_dims=384, activation="ReLU"),
+#     p3=L(SpatialAFR)(embed_dims=768, activation="ReLU"),
+# )
+model.robust_module = L(MultiScaleProcessor)(
+    p1=L(SpatialAFR)(embed_dims=192, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"),
+    p2=L(SpatialAFR)(embed_dims=384, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"),
+    p3=L(SpatialAFR)(embed_dims=768, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"),
+)
+
+# change the number of classes
+model.num_classes = metadata.num_classes
+
+# set output dir
+train.output_dir = output_dir
+
+# set training devices
+train.device = "cuda"
+model.device = train.device
+
+# modify dataloader config
+dataloader.test.num_workers = 4
+
+# dump the testing results into output_dir for visualization
+dataloader.evaluator.output_dir = train.output_dir
+
+# set the random seed
+train.seed = 2025

@@ -8,7 +8,7 @@ from robust_au_od.detrex.configs import get_config
 from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 from robust_au_od.detrex.modeling import MultiScaleProcessor
 from robust_au_od.detrex.utils import count_coco_images
-from robust_au_od.models.robust_layers import SpatialAMFGv2
+from robust_au_od.models.robust_layers import SpatialAFR
 
 from ..models.robust_dino_r50_v2 import model
 
@@ -17,7 +17,7 @@ dataloader = get_config(f"datasets/{DATASET_NAME}_detr.py").robust_dataloader
 optimizer = get_upstream_config("common/optim.py").AdamW
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
-).detr_schedulers.lr_multiplier_12ep_8bs
+).detr_schedulers.lr_multiplier_12ep_warmup_8bs
 train = get_config("train.py").train
 
 metadata = MetadataCatalog.get(DATASET_NAME)
@@ -38,7 +38,7 @@ lr = 1e-5
 
 num_epochs = 12
 eval_per_epochs = 1
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_12ep_1e-5_lr_in_only_no_train_heads_spatial_affine_from_36ep"
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_12ep_1e-5_lr_spatial_afr_no_train_heads_from_24ep"
 
 # wandb settings
 tags = [*metadata.tags]
@@ -51,9 +51,9 @@ notes = ""
 # model.criterion.weight_dict = {k: 10.0 for k in model.criterion.weight_dict}
 model.train_heads = False
 model.robust_module = L(MultiScaleProcessor)(
-    res3=L(SpatialAMFGv2)(embed_dims=512, spatial_attention=1, affine=True),
-    res4=L(SpatialAMFGv2)(embed_dims=1024, spatial_attention=1, affine=True),
-    res5=L(SpatialAMFGv2)(embed_dims=2048, spatial_attention=1, affine=True),
+    res3=L(SpatialAFR)(embed_dims=512),
+    res4=L(SpatialAFR)(embed_dims=1024),
+    res5=L(SpatialAFR)(embed_dims=2048),
 )
 
 # modify model config
@@ -62,7 +62,7 @@ model.position_embedding.temperature = 20
 model.position_embedding.offset = 0.0
 
 # modify training config
-train.init_checkpoint = "/home/leafying/work/work_dirs/detrex/dino_r50_4scale/dut_anti_uav/dino_r50_4scale_36ep_5e-5_lr/model_best_0021449.pth"
+train.init_checkpoint = "/home/leafying/work/experiments/work_dirs/detrex/dino_r50_4scale/dut_anti_uav/dino_r50_4scale_24ep_5e-5_lr_new_mapper_warmup/model_best_0014949.pth"
 train.output_dir = output_dir
 
 # train.sync_bn = True
@@ -108,7 +108,7 @@ optimizer.weight_decay = 1e-4
 dataloader.train.num_workers = 4
 
 # please notice that this is total batch size.
-# surpose you're using 4 gpus for training and the batch size for
+# suppose you're using 4 gpus for training and the batch size for
 # each gpu is 16/4 = 4
 dataloader.train.total_batch_size = batch_size
 
@@ -130,4 +130,8 @@ train.wandb = dict(
 )
 
 # set the random seed
+# [42, 123, 456, 789, 2025]
 train.seed = 2025
+
+# evaluate train subset during validation (require `dataloader.train_test``) (heavy computation)
+train.eval_train = True

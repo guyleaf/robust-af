@@ -1,5 +1,4 @@
 from detectron2.data.catalog import MetadataCatalog
-from detectron2.layers import ShapeSpec
 
 from robust_au_od.detrex.configs import get_config
 from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
@@ -9,7 +8,7 @@ from robust_au_od.detrex.data.datasets.register_dut_anti_uav import (
 
 from ...models.dino_swin_small_224 import model
 
-degraded = False
+degraded = True
 test_dataset_name = TEST_DATASET_NAME
 
 dataset = get_config(f"datasets/{test_dataset_name}_detr.py")
@@ -21,27 +20,19 @@ else:
 train = get_config("train.py").train
 metadata = MetadataCatalog.get(test_dataset_name)
 
-use_paper_pos = False
 suffix = "_degraded" if degraded else ""
-output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/{test_dataset_name}/dino_swin_small_224_4scale_24ep_1e-4_lr_warmup{suffix}"
+output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/{test_dataset_name}/dino_swin_small_224_4scale_24ep_5e-5_lr_new_mapper_warmup_again{suffix}"
 
 # ==============================================================
 
-# dataloader.test.dataset.names = f"{test_dataset_name}_test"
-
-# for tsne vis
-model.backbone.out_indices = [0, 1, 2, 3]
-model.neck.input_shapes = {
-    "p0": ShapeSpec(channels=96),
-    "p1": ShapeSpec(channels=192),
-    "p2": ShapeSpec(channels=384),
-    "p3": ShapeSpec(channels=768),
-}
-
-if use_paper_pos:
-    # use the original implementation of dab-detr position embedding if training epochs > 12.
-    model.position_embedding.temperature = 20
-    model.position_embedding.offset = 0.0
+# NOTE: for tsne vis
+# model.backbone.out_indices = [0, 1, 2, 3]
+# model.neck.input_shapes = {
+#     "p0": ShapeSpec(channels=96),
+#     "p1": ShapeSpec(channels=192),
+#     "p2": ShapeSpec(channels=384),
+#     "p3": ShapeSpec(channels=768),
+# }
 
 # set output dir
 train.output_dir = output_dir
@@ -55,9 +46,6 @@ model.device = train.device
 
 # modify dataloader config
 dataloader.test.num_workers = 4
-if degraded:
-    # (robust_dataloader only) disable skip connection in degradations
-    dataloader.test.mapper.augmentations[0].identity = False
 
 # dump the testing results into output_dir for visualization
 dataloader.evaluator.output_dir = train.output_dir
