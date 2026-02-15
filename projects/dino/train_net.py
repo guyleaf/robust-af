@@ -196,7 +196,7 @@ class Trainer(SimpleTrainer):
             self.grad_scaler.load_state_dict(state_dict["grad_scaler"])
 
 
-def do_test(cfg, model, training=False):
+def do_test(cfg, model, eval_train=False):
     if "evaluator" not in cfg.dataloader:
         return
 
@@ -208,18 +208,17 @@ def do_test(cfg, model, training=False):
     LOGGER.info("Subset: test")
     print_csv_format(ret)
 
-    if training:
-        test_dataloader = copy.deepcopy(cfg.dataloader.test)
-        cfg.dataloader.test.dataset.names = "${...train.dataset.names}"
-        # cfg.dataloader.evaluator.dataset_name = "${..test.dataset.names}"
+    if eval_train:
+        test_evaluator = copy.deepcopy(cfg.dataloader.evaluator)
+        cfg.dataloader.evaluator.dataset_name = "${..train_test.dataset.names}"
         train_ret = inference_on_dataset(
             model,
-            instantiate(cfg.dataloader.test),
+            instantiate(cfg.dataloader.train_test),
             instantiate(cfg.dataloader.evaluator),
         )
         LOGGER.info("Subset: train")
         print_csv_format(train_ret)
-        cfg.dataloader.test = test_dataloader
+        cfg.dataloader.evaluator = test_evaluator
 
         # keep compatibility with BestCheckpointer
         for k, v in ret.items():
@@ -343,7 +342,8 @@ def do_train(args, cfg):
             if comm.is_main_process()
             else None,
             hooks.EvalHook(
-                cfg.train.eval_period, lambda: do_test(cfg, model, training=True)
+                cfg.train.eval_period,
+                lambda: do_test(cfg, model, eval_train=cfg.train.eval_train),
             ),
             hooks.PeriodicWriter(writers, period=cfg.train.log_period)
             if comm.is_main_process()
