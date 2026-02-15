@@ -9,3 +9,6 @@ train.sync_bn = False
 
 # support saving the best checkpoint based on metric
 train.best_checkpointer = dict(val_metric="bbox/AP", mode="max")
+
+# evaluate train subset during validation (require `dataloader.train_test``) (heavy computation)
+train.eval_train = False

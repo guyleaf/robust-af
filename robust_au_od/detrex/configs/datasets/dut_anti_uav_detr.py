@@ -16,6 +16,9 @@ dataloader.train.dataset = L(get_detection_dataset_dicts)(
 dataloader.test.dataset = L(get_detection_dataset_dicts)(
     names=f"{DATASET_NAME}_val", filter_empty=False
 )
+dataloader.train_test.dataset = L(get_detection_dataset_dicts)(
+    names=f"{DATASET_NAME}_train", filter_empty=False
+)
 
 # robust version of dataset
 
@@ -23,6 +26,11 @@ robust_dataloader = _base.robust_dataloader
 robust_dataloader.train.dataset = L(get_detection_dataset_dicts)(
     names=f"{DATASET_NAME}_train", filter_empty=False
 )
+# offline augmentation
 robust_dataloader.test.dataset = L(get_detection_dataset_dicts)(
-    names=f"{DATASET_NAME}_val", filter_empty=False
+    names=f"{DATASET_NAME}_val_degraded", filter_empty=False
+)
+# online augmentation
+robust_dataloader.train_test.dataset = L(get_detection_dataset_dicts)(
+    names=f"{DATASET_NAME}_train", filter_empty=False
 )
