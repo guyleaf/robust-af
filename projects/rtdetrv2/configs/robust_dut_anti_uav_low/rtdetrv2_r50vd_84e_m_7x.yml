@@ -7,7 +7,7 @@ __include__:
     "../common/models/rtdetrv2_r50vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r50vd/robust_dut_anti_uav_low/rtdetrv2_r50vd_84e_m_7x_no_amp
+output_dir: ./output/rtdetrv2_r50vd/robust_dut_anti_uav_low/rtdetrv2_r50vd_84e_m_7x
 
 HybridEncoder:
   expansion: 0.5

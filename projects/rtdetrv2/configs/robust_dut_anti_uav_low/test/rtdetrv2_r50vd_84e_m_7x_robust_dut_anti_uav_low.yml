@@ -6,6 +6,6 @@ val_dataloader:
   dataset:
     transforms:
       ops:
-        - { type: Degradation, identity: False, seed: 2025 }
+        - { type: Degradation, identity: False }
         - { type: Resize, size: [640, 640] }
         - { type: ConvertPILImage, dtype: "float32", scale: True }

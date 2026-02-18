@@ -1,13 +1,13 @@
 __include__:
   [
-    "../common/dataset/robust_dut_anti_uav_low_detection.yml",
+    "../common/dataset/dut_anti_uav_detection.yml",
     "../common/runtime.yml",
     "../common/dataloader.yml",
     "../common/optimizer.yml",
     "../common/models/rtdetrv2_r34vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r34vd/robust_dut_anti_uav_low/rtdetrv2_r34vd_120e
+output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/rtdetrv2_r34vd_120e
 
 epoches: 120
 

@@ -3,20 +3,20 @@ __include__: ["./dataloader.yml"]
 train_dataloader:
   dataset:
     type: RobustCocoDetection
-    # transforms:
-    #   ops:
-    #     # remove color-related augmentations
-    #     # - {type: RandomPhotometricDistort, p: 0.5}
-    #     - {type: RandomZoomOut, fill: 0}
-    #     - {type: RandomIoUCrop, p: 0.8}
-    #     - {type: SanitizeBoundingBoxes, min_size: 1}
-    #     - {type: RandomHorizontalFlip}
-    #     - {type: Resize, size: [640, 640], }
-    #     - {type: SanitizeBoundingBoxes, min_size: 1}
-    #     - {type: ConvertPILImage, dtype: 'float32', scale: True}
-    #     - {type: ConvertBoxes, fmt: 'cxcywh', normalize: True}
-    #   policy:
-    #     ops: ['RandomZoomOut', 'RandomIoUCrop']
+    transforms:
+      ops:
+        # remove color-related augmentations
+        # - {type: RandomPhotometricDistort, p: 0.5}
+        - { type: RandomZoomOut, fill: 0 }
+        - { type: RandomIoUCrop, p: 0.8 }
+        - { type: SanitizeBoundingBoxes, min_size: 1 }
+        - { type: RandomHorizontalFlip }
+        - { type: Resize, size: [640, 640] }
+        - { type: SanitizeBoundingBoxes, min_size: 1 }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }
+        - { type: ConvertBoxes, fmt: "cxcywh", normalize: True }
+      policy:
+        ops: ["RandomZoomOut", "RandomIoUCrop"]
     robust_transforms:
       type: Compose
       ops:
@@ -25,18 +25,10 @@ train_dataloader:
   collate_fn:
     type: RobustBatchImageCollateFuncion
 
-val_dataloader:
-  dataset:
-    transforms:
-      ops:
-        - { type: Degradation, identity: True }
-        - { type: Resize, size: [640, 640] }
-        - { type: ConvertPILImage, dtype: "float32", scale: True }
-
 val_train_dataloader:
   dataset:
     transforms:
       ops:
-        - { type: Degradation, identity: True }
+        - { type: Degradation, identity: False }
         - { type: Resize, size: [640, 640] }
         - { type: ConvertPILImage, dtype: "float32", scale: True }

@@ -7,7 +7,7 @@ __include__:
     "../common/models/rtdetrv2_r50vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r50vd/dut_anti_uav/rtdetrv2_r50vd_84e_m_7x
+output_dir: ./output/rtdetrv2_r50vd/dut_anti_uav/rtdetrv2_r50vd_84e_m_7x_1e-4_lr_full_tuning_no_multi_scale
 
 HybridEncoder:
   expansion: 0.5
@@ -15,14 +15,21 @@ HybridEncoder:
 RTDETRTransformerv2:
   eval_idx: 2 # use 3th decoder layer to eval
 
+PResNet:
+  freeze_at: -1
+  freeze_norm: False
+  # pretrained: True
+
 epoches: 84
 
 optimizer:
   type: AdamW
   params:
-    - params: "^(?=.*backbone)(?!.*norm).*$"
-      lr: 0.00001
-    - params: "^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn)).*$"
+    # - params: "^(?=.*backbone)(?!.*norm).*$"
+    #   lr: 0.00001
+    # - params: "^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn)).*$"
+    #   weight_decay: 0.
+    - params: "^(?=.*(?:norm|bn)).*$"
       weight_decay: 0.
 
   lr: 0.0001
@@ -35,4 +42,4 @@ train_dataloader:
       policy:
         epoch: 81
   collate_fn:
-    stop_epoch: 81
+    scales: ~

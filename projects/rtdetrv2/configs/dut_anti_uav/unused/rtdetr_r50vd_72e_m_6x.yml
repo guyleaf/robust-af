@@ -1,0 +1,39 @@
+__include__:
+  [
+    "../common/dataset/dut_anti_uav_detection.yml",
+    "../common/runtime.yml",
+    "../base/rtdetr/include/dataloader.yml",
+    "../base/rtdetr/include/optimizer.yml",
+    "../base/rtdetr/include/rtdetr_r50vd.yml",
+  ]
+
+output_dir: ./output/rtdetr_r50vd/dut_anti_uav/rtdetr_r50vd_72e_m_6x
+
+HybridEncoder:
+  expansion: 0.5
+
+RTDETRTransformer:
+  eval_idx: 2 # use 3th decoder layer to eval
+
+optimizer:
+  type: AdamW
+  params:
+    - params: "^(?=.*backbone)(?!.*norm|bn).*$"
+      lr: 0.00001
+    - params: "^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$"
+      weight_decay: 0.
+
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+# same as val_dataloader
+val_train_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - { type: Resize, size: [640, 640] }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }
+  shuffle: False
+  total_batch_size: 32
+  num_workers: 4

@@ -1,0 +1,7 @@
+__include__: ["./rtdetrv2_r18vd.yml", "./robust_rtdetrv2.yml"]
+
+MultiScaleProcessor:
+  modules:
+    - { type: AMFG, embed_dims: 128, spatial_attention: 1 }
+    - { type: AMFG, embed_dims: 256, spatial_attention: 1 }
+    - { type: AMFG, embed_dims: 512, spatial_attention: 1 }

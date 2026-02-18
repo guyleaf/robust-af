@@ -1,0 +1,23 @@
+model: RobustRTDETR
+criterion: RobustCriterion
+
+RobustRTDETR:
+  backbone: PResNet
+  robust_module: MultiScaleProcessor
+  encoder: HybridEncoder
+  decoder: RTDETRTransformerv2
+
+PResNet:
+  freeze_at: 4
+  freeze_norm: True
+
+MultiScaleProcessor:
+  modules: ~
+
+RobustCriterion:
+  model_loss: RTDETRCriterionv2
+  cst_loss:
+    type: MSELoss
+    reduction: none
+  weight_dict:
+    loss_cst: 20

@@ -1,15 +1,15 @@
 __include__:
   [
-    "../common/dataset/robust_dut_anti_uav_low_detection.yml",
+    "../common/dataset/dut_anti_uav_detection.yml",
     "../common/runtime.yml",
     "../common/dataloader.yml",
     "../common/optimizer.yml",
     "../common/models/rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/robust_dut_anti_uav_low/rtdetrv2_r18vd_120e
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/rtdetrv2_r18vd_144e_2e-1_dropout
 
-epoches: 120
+epoches: 144
 
 optimizer:
   type: AdamW
@@ -21,6 +21,11 @@ train_dataloader:
   dataset:
     transforms:
       policy:
-        epoch: 117
+        epoch: 141
   collate_fn:
     scales: ~
+
+HybridEncoder:
+  dropout: 0.2
+RTDETRTransformerv2:
+  dropout: 0.2

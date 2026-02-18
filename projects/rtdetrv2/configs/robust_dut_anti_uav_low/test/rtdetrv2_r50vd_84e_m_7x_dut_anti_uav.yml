@@ -1,0 +1,16 @@
+__include__:
+  [
+    "../rtdetrv2_r50vd_84e_m_7x.yml",
+    "../../common/dataset/dut_anti_uav_detection.yml",
+    "../../common/dataloader.yml",
+  ]
+
+output_dir: ./output/rtdetrv2_r50vd/robust_dut_anti_uav_low/dut_anti_uav/rtdetrv2_r50vd_84e_m_7x
+
+val_dataloader:
+  dataset:
+    transforms:
+      ops:
+        # - { type: Degradation, identity: False }
+        - { type: Resize, size: [640, 640] }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }

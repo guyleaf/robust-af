@@ -1,13 +1,13 @@
 __include__:
   [
-    "../common/dataset/robust_dut_anti_uav_low_detection.yml",
+    "../common/dataset/dut_anti_uav_detection.yml",
     "../common/runtime.yml",
     "../common/dataloader.yml",
     "../common/optimizer.yml",
-    "../common/models/rtdetrv2_r34vd.yml",
+    "../common/models/rtdetrv2_r101vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r34vd/robust_dut_anti_uav_low/rtdetrv2_r34vd_120e
+output_dir: ./output/rtdetrv2_r101vd/dut_anti_uav/rtdetrv2_r101vd_120e_6x
 
 epoches: 120
 
@@ -15,11 +15,8 @@ optimizer:
   type: AdamW
   params:
     - params: "^(?=.*backbone)(?!.*norm|bn).*$"
-      lr: 0.00005
-    - params: "^(?=.*backbone)(?=.*norm|bn).*$"
-      lr: 0.00005
-      weight_decay: 0.
-    - params: "^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$"
+      lr: 0.000001
+    - params: "^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn)).*$"
       weight_decay: 0.
 
   lr: 0.0001
