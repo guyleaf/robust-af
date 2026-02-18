@@ -75,7 +75,7 @@ class RobustCriterion(nn.Module):
 
 
 @register()
-class RobustCriterionDebug(nn.Module):
+class RobustCriterionv2(nn.Module):
     __inject__ = ["model_loss", "content_loss", "style_loss"]
 
     def __init__(
