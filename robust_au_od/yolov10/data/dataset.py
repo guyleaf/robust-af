@@ -1,11 +1,12 @@
-from copy import deepcopy
 from types import SimpleNamespace
 from typing import Optional
 
+from torch.utils.data import Dataset
 from ultralytics.data import YOLODataset as ORIGINAL_YOLODataset
 from ultralytics.data.augment import Compose, Format, LetterBox
 from ultralytics.utils import LOGGER
 
+from ...utils import RandomContext
 from .augment import Degradation, Identity, MultiBranch, robust_v8_transforms
 
 
@@ -27,23 +28,13 @@ class YOLODataset(ORIGINAL_YOLODataset):
         transforms = super().build_transforms(hyp)
         if self.augment:
             return transforms
-        # testing only
-        transforms = Compose(
-            [
-                self._build_degradation_transform(hyp),
-                transforms,
-            ]
-        )
+        if hyp.degradation["always"]:
+            transforms = Compose([self._build_degradation_transform(hyp), transforms])
         return transforms
 
 
 class RobustYOLODataset(YOLODataset):
-    def _build_degradation_transform(self, hyp: SimpleNamespace):
-        # use diff seed in training stage to avoid using the same random sequence in val/test stage
-        if hyp.degradation["seed"] is not None and self.augment:
-            hyp = deepcopy(hyp)
-            hyp.degradation["seed"] += 666
-        return super()._build_degradation_transform(hyp)
+    """Generate a degraded-clear pair from a single image."""
 
     def build_transforms(self, hyp: Optional[SimpleNamespace] = None):
         """Builds and appends transforms to the list."""
@@ -100,3 +91,38 @@ class RobustYOLODataset(YOLODataset):
             clear_batch = YOLODataset.collate_fn(clear_batch)
             new_batch["clear"] = clear_batch
         return new_batch
+
+
+class RobustPairedYOLODataset(Dataset):
+    """Make a degraded-clear pair from two YOLODatasets."""
+
+    def __init__(
+        self, dataset: ORIGINAL_YOLODataset, robust_dataset: ORIGINAL_YOLODataset
+    ) -> None:
+        super().__init__()
+        self.dataset = dataset
+        self.robust_dataset = robust_dataset
+        assert isinstance(dataset, ORIGINAL_YOLODataset) and isinstance(
+            robust_dataset, ORIGINAL_YOLODataset
+        )
+        assert len(dataset) == len(robust_dataset), "Two datasets should be paired."
+
+    def __getitem__(self, index: int):
+        with RandomContext():
+            label = self.robust_dataset[index]
+        label["clear"] = self.dataset[index]
+        return label
+
+    def __len__(self):
+        return len(self.robust_dataset)
+
+    # NO TEST: because we only use it in val/test evaluation
+    def close_mosaic(self, hyp: SimpleNamespace):
+        """Sets mosaic, copy_paste and mixup options to 0.0 and builds transformations."""
+        self.robust_dataset.close_mosaic(hyp)
+        self.dataset.close_mosaic(hyp)
+
+    @staticmethod
+    def collate_fn(batch: list[dict]):
+        """Collates data samples into batches."""
+        return RobustYOLODataset.collate_fn(batch)

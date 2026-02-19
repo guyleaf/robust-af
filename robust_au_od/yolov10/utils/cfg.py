@@ -10,12 +10,19 @@ from ultralytics.utils import (
 DEFAULT_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,
     robust=False,
-    degradation=dict(enabled=False, seed=2025, identity=True, ignored_degradations=[]),
+    degradation=dict(
+        enabled=False,
+        # whether always apply on test (YOLODataset only)
+        always=False,
+        seed=2025,
+        identity=True,
+        ignored_degradations=[],
+    ),
     sync_bn=False,
 )
 DEFAULT_ROBUST_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,
-    cst_loss=dict(module="nn.MSELoss", weight=10),
+    cst_loss=dict(module="nn.MSELoss", weight=20),
     freeze_bn=True,
 )
 DEFAULT_CFG = IterableSimpleNamespace(**DEFAULT_CFG_DICT)

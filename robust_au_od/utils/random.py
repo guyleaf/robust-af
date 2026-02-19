@@ -132,8 +132,3 @@ class RandomContext(ContextDecorator):
 
         if self.original_torch_rng_state is not None:
             torch.random.set_rng_state(self.original_torch_rng_state)
-
-
-# (deprecated, backward compatibility) legacy class
-# TODO: remove it
-ReproducibleRandomContext = RandomContext

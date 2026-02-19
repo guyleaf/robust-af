@@ -18,8 +18,8 @@ from ultralytics.utils import LOGGER, RANK, TQDM, colorstr
 from ultralytics.utils.plotting import plot_images
 from ultralytics.utils.torch_utils import de_parallel
 
-from ...utils import ReproducibleRandomContext, convert_to_frozen_batchnorm_2d
-from ..data import build_yolo_dataset
+from ...utils import RandomContext, convert_to_frozen_batchnorm_2d
+from ..data import RobustPairedYOLODataset, build_yolo_dataset
 from ..nn.tasks import RobustYOLOv10DetectionModel
 from ..utils import (
     DEFAULT_CFG,
@@ -398,7 +398,7 @@ class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
 
     def preprocess_batch(self, batch: dict):
         """Preprocesses a batch of images by scaling and converting to float."""
-        with ReproducibleRandomContext():
+        with RandomContext():
             batch = super().preprocess_batch(batch)
         batch["clear"] = super().preprocess_batch(batch["clear"])
         return batch
@@ -406,23 +406,45 @@ class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
     def build_dataset(self, img_path, mode="train", batch=None):
         """
         Build YOLO Dataset.
+        Always return a dataset which generates pairs of images.
 
         Args:
             img_path (str): Path to the folder containing images.
             mode (str): `train` mode or `val` mode, users are able to customize different augmentations for each mode.
             batch (int, optional): Size of batches, this is for `rect`. Defaults to None.
         """
+        # NOTE: if you want to use offline augmentation to augment validation subset
+        # robust = True
+        robust = mode == "train"
+        rect = mode == "val"
         gs = max(int(de_parallel(self.model).stride.max() if self.model else 0), 32)
-        return build_yolo_dataset(
+        robust_dataset = build_yolo_dataset(
             self.args,
             img_path,
             batch,
             self.data,
             mode=mode,
-            rect=mode == "val",
+            rect=rect,
             stride=gs,
-            robust=True,
+            robust=robust,
         )
+
+        if robust:
+            return robust_dataset
+
+        if img_path == self.data.get("val"):
+            img_path = self.data.get("degraded_val")
+        elif img_path == self.data.get("test"):
+            img_path = self.data.get("degraded_test")
+        else:
+            raise NotImplementedError("Unknown image path for degraded-clear pairs.")
+
+        dataset = robust_dataset
+        robust_dataset = build_yolo_dataset(
+            self.args, img_path, batch, self.data, mode=mode, rect=rect, stride=gs
+        )
+        robust_dataset = RobustPairedYOLODataset(dataset, robust_dataset)
+        return robust_dataset
 
     def get_validator(self):
         """Returns a DetectionValidator for YOLO model validation."""
