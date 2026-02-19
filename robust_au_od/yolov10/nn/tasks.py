@@ -235,10 +235,10 @@ def parse_robust_model(
         )
     ch = [ch]
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
-    for i, (f, n, m, args) in enumerate(
+    for i, (f, n, m_name, args) in enumerate(
         d["backbone"] + d["robust"] + d["head"]
     ):  # from, number, module, args
-        m = get_module(m)
+        m = get_module(m_name)
 
         for j, a in enumerate(args):
             if isinstance(a, str):
@@ -343,11 +343,7 @@ def parse_robust_model(
             args = [c1, c2, *args[1:]]
         elif m is modules.CBFuse:
             c2 = ch[f[-1]]
-        elif m in {
-            robust_modules.AMFG,
-            robust_modules.SpatialAMFG,
-            robust_modules.FrequencyAMFG,
-        }:
+        elif m_name.startswith("robust_modules."):
             c2 = ch[f]
             args = [c2, *args]
         else:
