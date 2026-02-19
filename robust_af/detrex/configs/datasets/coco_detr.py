@@ -6,11 +6,11 @@ from detectron2.data import get_detection_dataset_dicts
 from detrex.config import get_config
 from omegaconf import DictConfig
 
-from robust_au_od.detrex.data.dataset_mappers import (
+from robust_af.detrex.data.dataset_mappers import (
     DetrDatasetMapper,
     RobustDetrDatasetMapper,
 )
-from robust_au_od.detrex.data.transforms import Degradation
+from robust_af.detrex.data.transforms import Degradation
 
 # normal version of dataset
 

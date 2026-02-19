@@ -4,10 +4,10 @@ from detectron2.config import LazyCall as L
 from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
 
-from robust_au_od.detrex.configs import get_config
-from robust_au_od.detrex.modeling import MultiScaleProcessor
-from robust_au_od.detrex.utils import count_coco_images
-from robust_au_od.models.robust_layers import AMFGv2
+from robust_af.detrex.configs import get_config
+from robust_af.detrex.modeling import MultiScaleProcessor
+from robust_af.detrex.utils import count_coco_images
+from robust_af.models.robust_layers import AMFGv2
 
 from ..models.robust_dino_r50_v2 import model
 

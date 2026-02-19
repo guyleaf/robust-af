@@ -1,12 +1,12 @@
-# robust-au-od
-Robust Anti-UAV Object Detection (R-AU-OD)
+# robust-af
+RobustAF: A Plug-and-Play Adapter-Based Framework for Robust Anti-UAV Detection via Feature Restoration in Degraded Conditions
 
 ## Installation
 ```bash
-git clone --recursive https://github.com/guyleaf/robust-au-od.git
+git clone --recursive https://github.com/guyleaf/robust-af.git
 
 # or via GitHub CLI
-gh repo clone guyleaf/robust-au-od -- --recursive
+gh repo clone guyleaf/robust-af -- --recursive
 
 ```
 

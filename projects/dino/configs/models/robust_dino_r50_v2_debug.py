@@ -7,11 +7,11 @@ from omegaconf import OmegaConf
 from projects.dino.modeling import (
     RobustDINOv2,
 )
-from robust_au_od.detrex.modeling import MultiScaleProcessor
-from robust_au_od.detrex.modeling.criterion.robust_criterion_v2 import (
+from robust_af.detrex.modeling import MultiScaleProcessor
+from robust_af.detrex.modeling.criterion.robust_criterion_v2 import (
     RobustCriterionv2Debug,
 )
-from robust_au_od.models.robust_layers import AMFG
+from robust_af.models.robust_layers import AMFG
 
 from .dino_r50 import model as dino_model
 

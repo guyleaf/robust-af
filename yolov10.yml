@@ -16,7 +16,7 @@ dependencies:
 variables:
   # GPUS: 4
   # setup the environment before yolov10
-  ULTRALYTICS_ENV_MODULE: robust_au_od.yolov10
+  ULTRALYTICS_ENV_MODULE: robust_af.yolov10
   # surpress the warning
   NO_ALBUMENTATIONS_UPDATE: 1
   # disable TF32 to get consistent results between old and Ampere (and later) GPU devices

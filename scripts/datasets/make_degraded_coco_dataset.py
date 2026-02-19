@@ -15,8 +15,8 @@ from rich.console import Console
 from rich.progress import track
 from torch.utils.data import DataLoader, Dataset
 
-from robust_au_od.transforms import apply_random_degradation
-from robust_au_od.utils import seed_everything
+from robust_af.transforms import apply_random_degradation
+from robust_af.utils import seed_everything
 
 CONSOLE = Console()
 

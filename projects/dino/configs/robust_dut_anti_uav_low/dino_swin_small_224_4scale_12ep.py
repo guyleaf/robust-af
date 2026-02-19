@@ -1,11 +1,11 @@
 from detectron2.data import MetadataCatalog
 from detrex.config import get_config as get_upstream_config
 
-from robust_au_od.detrex.configs import get_config
-from robust_au_od.detrex.data.datasets.register_robust_dut_anti_uav_low import (
+from robust_af.detrex.configs import get_config
+from robust_af.detrex.data.datasets.register_robust_dut_anti_uav_low import (
     DATASET_NAME,
 )
-from robust_au_od.detrex.utils import count_coco_images
+from robust_af.detrex.utils import count_coco_images
 
 from ..models.dino_swin_small_224 import model
 

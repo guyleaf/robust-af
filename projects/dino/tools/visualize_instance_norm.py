@@ -34,9 +34,9 @@ from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader, Dataset, Subset
 from torch.utils.hooks import RemovableHandle
 
-from robust_au_od.detrex.data.dataset_mappers import DetrDatasetMapper
-from robust_au_od.detrex.data.transforms import Degradation
-from robust_au_od.transforms import DEGRADATION_TRANSFORMS
+from robust_af.detrex.data.dataset_mappers import DetrDatasetMapper
+from robust_af.detrex.data.transforms import Degradation
+from robust_af.transforms import DEGRADATION_TRANSFORMS
 
 LOGGER = logging.getLogger("detectron2")
 

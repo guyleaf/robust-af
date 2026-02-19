@@ -1,7 +1,7 @@
 # ruff: noqa: F401
 from detectron2.layers import ShapeSpec
 
-from robust_au_od.detrex.configs import get_config
+from robust_af.detrex.configs import get_config
 
 from .dino_r50_4scale_12ep import (
     DATASET_NAME,

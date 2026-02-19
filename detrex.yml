@@ -25,7 +25,7 @@ variables:
   # set the default explicitly to let user modify it easily by shell completions.
   DETECTRON2_DATASETS: datasets
   # register our classes before detectron2
-  DETECTRON2_ENV_MODULE: robust_au_od.detrex
+  DETECTRON2_ENV_MODULE: robust_af.detrex
   # surpress the warning
   NO_ALBUMENTATIONS_UPDATE: 1
   # disable TF32 to get consistent results between old and Ampere (and later) GPU devices

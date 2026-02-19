@@ -7,7 +7,7 @@ robust: True # (bool) use the robust version of YOLO
 
 # Train settings -------------------------------------------------------------------------------------------------------
 # model: yolov10n.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
-model: /home/leafying/git/robust-au-od/projects/yolov10/yolov10/yolov10n/dut_anti_uav/robust_yolov10n_100e_1e-2_lr_simple_nn_20_cst_loss_no_train_head/weights/best.pt
+model: /home/leafying/git/robust-af/projects/yolov10/yolov10/yolov10n/dut_anti_uav/robust_yolov10n_100e_1e-2_lr_simple_nn_20_cst_loss_no_train_head/weights/best.pt
 data: configs/datasets/dut_anti_uav.yaml # (str, optional) path to data file, i.e. coco128.yaml
 # epochs: 500 # (int) number of epochs to train for
 # time: # (float, optional) number of hours to train for, overrides epochs if supplied

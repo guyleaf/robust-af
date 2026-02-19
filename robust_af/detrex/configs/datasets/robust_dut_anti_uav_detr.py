@@ -6,8 +6,8 @@ from detectron2.data import get_detection_dataset_dicts
 from detrex.config import get_config
 from omegaconf import DictConfig
 
-from robust_au_od.detrex.data.dataset_mappers import RobustDetrDatasetMapper
-from robust_au_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
+from robust_af.detrex.data.dataset_mappers import RobustDetrDatasetMapper
+from robust_af.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
 
 # normal version of dataset
 

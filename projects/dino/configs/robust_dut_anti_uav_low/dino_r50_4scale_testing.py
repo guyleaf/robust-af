@@ -1,8 +1,8 @@
-from robust_au_od.detrex.configs import get_config
-from robust_au_od.detrex.data.datasets.register_dut_anti_uav import (
+from robust_af.detrex.configs import get_config
+from robust_af.detrex.data.datasets.register_dut_anti_uav import (
     DATASET_NAME as TEST_DATASET_NAME,
 )
-from robust_au_od.detrex.data.datasets.register_robust_dut_anti_uav_low import (
+from robust_af.detrex.data.datasets.register_robust_dut_anti_uav_low import (
     DATASET_NAME,
 )
 
