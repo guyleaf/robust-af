@@ -19,9 +19,17 @@ backbone:
   - [-1, 1, PSA, [1024]] # 10
 
 robust:
-  - [4, 1, robust_modules.AMFG, [1]] # 11
-  - [6, 1, robust_modules.AMFG, [1]] # 12
-  - [10, 1, robust_modules.AMFG, [1]] # 13
+  - [4, 1, robust_modules.SimpleNN, []] # 11
+  - [6, 1, robust_modules.SimpleNN, []] # 12
+  - [10, 1, robust_modules.SimpleNN, []] # 13
+# robust:
+#   - [4, 1, robust_modules.AMFGv2, []] # 11
+#   - [6, 1, robust_modules.AMFGv2, []] # 12
+#   - [10, 1, robust_modules.AMFGv2, []] # 13
+# robust:
+#   - [4, 1, robust_modules.SpatialAFR, []] # 11
+#   - [6, 1, robust_modules.SpatialAFR, []] # 12
+#   - [10, 1, robust_modules.SpatialAFR, []] # 13
 
 # YOLOv8.0n head
 head:

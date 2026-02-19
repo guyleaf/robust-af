@@ -2,7 +2,7 @@
 nc: 1 # number of classes
 scales: # model compound scaling constants, i.e. 'model=yolov8n.yaml' will call yolov8.yaml with scale 'n'
   # [depth, width, max_channels]
-  n: [0.33, 0.25, 1024] 
+  n: [0.33, 0.25, 1024]
 
 # YOLOv8.0n backbone
 backbone:
@@ -19,10 +19,18 @@ backbone:
   - [-1, 1, SPPF, [1024, 5]] # 9
   - [-1, 1, PSA, [1024]] # 10
 
+# robust:
+#   - [4, 1, robust_modules.SimpleNN, []] # 11
+#   - [6, 1, robust_modules.SimpleNN, []] # 12
+#   - [10, 1, robust_modules.SimpleNN, []] # 13
 robust:
-  - [4, 1, robust_modules.AMFG, [1]] # 11
-  - [6, 1, robust_modules.AMFG, [1]] # 12
-  - [10, 1, robust_modules.AMFG, [1]] # 13
+  - [4, 1, robust_modules.AMFGv2, []] # 11
+  - [6, 1, robust_modules.AMFGv2, []] # 12
+  - [10, 1, robust_modules.AMFGv2, []] # 13
+# robust:
+#   - [4, 1, robust_modules.SpatialAFR, []] # 11
+#   - [6, 1, robust_modules.SpatialAFR, []] # 12
+#   - [10, 1, robust_modules.SpatialAFR, []] # 13
 
 # YOLOv8.0n head
 head:

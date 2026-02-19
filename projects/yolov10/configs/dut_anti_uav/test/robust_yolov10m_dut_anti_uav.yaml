@@ -3,12 +3,11 @@
 
 task: detect # (str) YOLO task, i.e. detect, segment, classify, pose
 mode: val # (str) YOLO mode, i.e. train, val, predict, export, track, benchmark
-# robust: True # (bool) use the robust version of YOLO
+robust: True # (bool) use the robust version of YOLO
 
 # Train settings -------------------------------------------------------------------------------------------------------
 # model: yolov10n.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
-# model: /home/leafying/git/robust-u2u-od/projects/yolov10/yolov10/yolov10m/dut_anti_uav/yolov10m_500e_1e-2_lr/weights/last.pt
-model: /home/leafying/git/robust-u2u-od/projects/yolov10/yolov10/yolov10m/dut_anti_uav/robust_yolov10m_100e_1e-2_lr_new_seed_10_cst_loss/weights/best.pt
+model: /home/leafying/work/work_dirs/yolov10/yolov10m/dut_anti_uav/robust_yolov10m_100e_1e-2_lr_simple_nn_no_train_head/weights/best.pt
 data: configs/datasets/dut_anti_uav.yaml # (str, optional) path to data file, i.e. coco128.yaml
 # epochs: 500 # (int) number of epochs to train for
 # time: # (float, optional) number of hours to train for, overrides epochs if supplied
@@ -19,11 +18,10 @@ imgsz: 640 # (int | list) input images size as int for train and val modes, or l
 # save_period: 100 # (int) Save checkpoint every x epochs (disabled if < 1)
 # val_period: 1 # (int) Validation every x epochs
 cache: False # (bool) True/ram, disk or False. Use cache for data loading
-device: 4 # (int | str | list, optional) device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
+device: 0 # (int | str | list, optional) device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
 workers: 4 # (int) number of worker threads for data loading (per RANK if DDP)
 project: yolov10 # (str, optional) project name
-name: yolov10m/dut_anti_uav/dut_anti_uav/robust_yolov10m_100e_1e-2_lr_new_seed_10_cst_loss_degraded # (str, optional) experiment name, results saved to 'project/name' directory
-# name: yolov10m/dut_anti_uav/dut_anti_uav/yolov10m_500e_1e-2_lr_degraded
+name: yolov10m/dut_anti_uav/dut_anti_uav/robust_yolov10m_100e_1e-2_lr_simple_nn_no_train_head # (str, optional) experiment name, results saved to 'project/name' directory
 exist_ok: False # (bool) whether to overwrite existing experiment
 pretrained: False # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
 # optimizer: SGD # (str) optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]
@@ -49,6 +47,7 @@ deterministic: False # (bool) whether to enable deterministic mode
 # Val/Test settings ----------------------------------------------------------------------------------------------------
 # val: True # (bool) validate/test during training
 split: val # (str) dataset split to use for validation, i.e. 'val', 'test' or 'train'
+# split: degraded_val
 save_json: False # (bool) save results to JSON file
 save_hybrid: False # (bool) save hybrid version of labels (labels + additional predictions)
 # conf: # (float, optional) object confidence threshold for detection (default 0.25 predict, 0.001 val)
@@ -57,6 +56,7 @@ save_hybrid: False # (bool) save hybrid version of labels (labels + additional p
 # half: False # (bool) use half precision (FP16)
 # dnn: False # (bool) use OpenCV DNN for ONNX inference
 plots: True # (bool) save plots and images during train/val
+
 
 # Visualize settings ---------------------------------------------------------------------------------------------------
 # show: False # (bool) show predicted images and videos if environment allows
@@ -68,10 +68,3 @@ plots: True # (bool) save plots and images during train/val
 # show_conf: True # (bool) show prediction confidence, i.e. '0.99'
 # show_boxes: True # (bool) show prediction boxes
 # line_width: # (int, optional) line width of the bounding boxes. Scaled to image size if None.
-
-# Hyperparameters ------------------------------------------------------------------------------------------------------
-degradation:
-  enabled: True # (bool) apply degradation augmentation
-  seed: 2028 # (int, optional) if None, sample a seed from global random generator. Tip: use diff seed to evaluate diff degradations in val/test stage
-  identity: False # (bool) add identity (skip connection) to the degradation list
-  ignored_degradations: [] # (list[str]) don't apply these types of degradations.

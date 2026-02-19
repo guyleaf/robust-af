@@ -18,7 +18,7 @@ save: True # (bool) save train checkpoints and predict results
 save_period: 100 # (int) Save checkpoint every x epochs (disabled if < 1)
 val_period: 1 # (int) Validation every x epochs
 cache: ram # (bool) True/ram, disk or False. Use cache for data loading
-device: 4,5,6,7 # (int | str | list, optional) device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
+device: 0,1,2,3 # (int | str | list, optional) device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
 workers: 4 # (int) number of worker threads for data loading (per RANK if DDP)
 project: yolov10 # (str, optional) project name
 name: yolov10m/dut_anti_uav/yolov10m_500e_1e-2_lr # (str, optional) experiment name, results saved to 'project/name' directory

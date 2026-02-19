@@ -13,6 +13,12 @@ train: train.txt # train images (relative to 'path')
 val: val.txt # val images (relative to 'path')
 test: test.txt # test images (relative to 'path')
 
+# NOTE: The train subset contains clear and degraded images (online augmentation).
+# We only evaluate degraded images in val. So, the loss gaps between train and val are for reference only.
+# if you want to include clear images, you could make it with our dataset script.
+degraded_val: degraded_val.txt # val images (relative to 'path')
+degraded_test: degraded_test.txt # test images (relative to 'path')
+
 # Classes
 names:
   0: drone
