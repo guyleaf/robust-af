@@ -14,5 +14,6 @@ from .random import (
     save_random_states,
     seed_everything,
 )
+from .setup import setup_environment
 
 __all__ = list(globals().keys())

@@ -5,6 +5,10 @@ def setup_environment():
 
     import ultralytics.data.utils as data_utils
 
+    from ..utils import setup_environment
+
+    setup_environment()
+
     # NOTE: hacky way, configure keys which will be resolved by path
     data_utils.check_det_dataset = partial(
         data_utils.check_det_dataset,
