@@ -3,8 +3,8 @@ import argparse
 from rich import print
 from rtdetrv2.core import YAMLConfig
 
-import robust_au_od.rtdetrv2  # noqa: F401
-from robust_au_od.utils.misc import format_size
+import robust_af.rtdetrv2  # noqa: F401
+from robust_af.utils.misc import format_size
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

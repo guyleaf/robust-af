@@ -1,7 +1,7 @@
 from detectron2.data import MetadataCatalog
 
-from robust_au_od.detrex.configs import get_config
-from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_af.detrex.configs import get_config
+from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 
 from ....models.robust_dino_r50 import model
 

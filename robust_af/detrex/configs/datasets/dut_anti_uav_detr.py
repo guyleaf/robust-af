@@ -2,8 +2,8 @@ from detectron2.config import LazyCall as L
 from detectron2.data import get_detection_dataset_dicts
 from omegaconf import DictConfig
 
-from robust_au_od.detrex.configs import get_config
-from robust_au_od.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_af.detrex.configs import get_config
+from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 
 _base = get_config("datasets/coco_detr.py")
 

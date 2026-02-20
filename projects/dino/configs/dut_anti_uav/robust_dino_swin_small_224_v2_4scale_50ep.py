@@ -1,6 +1,6 @@
 import os
 
-from robust_au_od.detrex.configs import get_config
+from robust_af.detrex.configs import get_config
 
 from .robust_dino_swin_small_224_v2_4scale_12ep import (  # noqa: F401
     DATASET_NAME,

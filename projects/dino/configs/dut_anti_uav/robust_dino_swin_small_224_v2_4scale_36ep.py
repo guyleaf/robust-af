@@ -2,9 +2,9 @@ import os
 
 from detectron2.config import LazyCall as L
 
-from robust_au_od.detrex.configs import get_config
-from robust_au_od.detrex.modeling import MultiScaleProcessor
-from robust_au_od.models.robust_layers import SpatialAFR
+from robust_af.detrex.configs import get_config
+from robust_af.detrex.modeling import MultiScaleProcessor
+from robust_af.models.robust_layers import SpatialAFR
 
 from .robust_dino_swin_small_224_v2_4scale_12ep import (  # noqa: F401
     DATASET_NAME,

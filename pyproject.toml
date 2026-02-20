@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "robust_au_od"
+name = "robust_af"
 authors = [{ name = "Leaf Ying", email = "leaf.ying.work@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.9"

@@ -23,7 +23,7 @@ from detectron2.data.detection_utils import convert_image_to_rgb
 from detectron2.structures.instances import Instances
 from detectron2.utils.events import get_event_storage
 
-from robust_au_od.utils import freeze_all, unfreeze_modules_and_parameters
+from robust_af.utils import freeze_all, unfreeze_modules_and_parameters
 
 from .dino import DINO
 

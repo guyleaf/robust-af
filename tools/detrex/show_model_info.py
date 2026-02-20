@@ -3,7 +3,7 @@ import argparse
 from detectron2.config import LazyConfig, instantiate
 from rich import print
 
-from robust_au_od.utils.misc import format_size
+from robust_af.utils.misc import format_size
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

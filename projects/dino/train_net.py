@@ -40,9 +40,9 @@ from detectron2.utils.file_io import PathManager
 from detrex.utils import WandbWriter
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 
-from robust_au_od.detrex.engine import BestCheckpointer
-from robust_au_od.detrex.utils import CommonMetricPrinter
-from robust_au_od.utils import is_debug_mode
+from robust_af.detrex.engine import BestCheckpointer
+from robust_af.detrex.utils import CommonMetricPrinter
+from robust_af.utils import is_debug_mode
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))

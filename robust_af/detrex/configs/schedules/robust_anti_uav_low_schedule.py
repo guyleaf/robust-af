@@ -1,4 +1,4 @@
-from robust_au_od.detrex.data.datasets.register_robust_dut_anti_uav import DATASET_NAME
+from robust_af.detrex.data.datasets.register_robust_anti_uav_low import DATASET_NAME
 
 from .common_schedule import default_detr_schedulers
 
