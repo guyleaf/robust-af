@@ -3,11 +3,11 @@ import random
 import torch
 import torch.nn.functional as F
 from rtdetrv2.core import register
-from rtdetrv2.data import BatchImageCollateFuncion
+from rtdetrv2.data import BatchImageCollateFunction
 
 
 @register()
-class RobustBatchImageCollateFuncion(BatchImageCollateFuncion):
+class RobustBatchImageCollateFunction(BatchImageCollateFunction):
     def _apply_batch_random_scale(self, images: torch.Tensor, targets: list[dict]):
         sz = random.choice(self.scales)
 

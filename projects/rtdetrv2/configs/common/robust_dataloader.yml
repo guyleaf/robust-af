@@ -23,7 +23,7 @@ train_dataloader:
         - { type: Degradation, identity: True }
 
   collate_fn:
-    type: RobustBatchImageCollateFuncion
+    type: RobustBatchImageCollateFunction
 
 val_train_dataloader:
   dataset:

@@ -1,6 +1,6 @@
 # ruff: noqa: F401
 from . import dataset, transforms
-from .dataloader import RobustBatchImageCollateFuncion
+from .dataloader import RobustBatchImageCollateFunction
 
 __all__ = list(globals().keys())
 

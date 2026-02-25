@@ -9,4 +9,4 @@
 [submodule "3rdparty/RT-DETR"]
 	path = 3rdparty/RT-DETR
 	url = https://github.com/guyleaf/RT-DETR.git
-	branch = main
+	branch = robust-af
