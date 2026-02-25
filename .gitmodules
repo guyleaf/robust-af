@@ -5,7 +5,7 @@
 [submodule "3rdparty/yolov10"]
 	path = 3rdparty/yolov10
 	url = https://github.com/guyleaf/yolov10.git
-	branch = main
+	branch = robust-af
 [submodule "3rdparty/RT-DETR"]
 	path = 3rdparty/RT-DETR
 	url = https://github.com/guyleaf/RT-DETR.git
