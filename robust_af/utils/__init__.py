@@ -6,6 +6,8 @@ from .model import (
     convert_to_batchnorm_2d,
     convert_to_frozen_batchnorm_2d,
     freeze_all,
+    parameter_count,
+    parameter_count_table,
     unfreeze_modules_and_parameters,
 )
 from .random import (
