@@ -7,6 +7,8 @@ dependencies:
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/cu118
+      # avoid ModuleNotFoundError: No module named 'pkg_resources' until tensorboard fix it
+      - setuptools<82.0.0
       - torch==2.7.1
       - torchvision==0.22.1
       - tensorboard
