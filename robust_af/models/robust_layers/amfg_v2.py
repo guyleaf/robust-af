@@ -283,7 +283,9 @@ class FGMBlock(nn.Module):
 
     def forward(self, x):
         # _check_nan(x)
-        fft_map = torch.fft.fft2(x, dim=(-2, -1))
+        # disable amp to avoid RuntimeError: cuFFT only supports dimensions whose sizes are powers of two when computing in half precision
+        with torch.autocast("cuda", enabled=False):
+            fft_map = torch.fft.fft2(x.float(), dim=(-2, -1))
         # _check_nan(fft_map)
 
         magnitude_map = torch.abs(fft_map)
@@ -296,6 +298,8 @@ class FGMBlock(nn.Module):
         imag_part = modified_magnitude * torch.sin(phase_map)
         modified_fft_map = torch.complex(real_part, imag_part)
 
-        reconstructed_x = torch.real(torch.fft.ifft2(modified_fft_map, dim=(-2, -1)))
+        with torch.autocast("cuda", enabled=False):
+            reconstructed_x = torch.fft.ifft2(modified_fft_map.float(), dim=(-2, -1))
+        reconstructed_x = torch.real(reconstructed_x)
 
         return reconstructed_x
