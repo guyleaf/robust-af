@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -8,8 +10,8 @@ class RobustCriterionv2(nn.Module):
     def __init__(
         self,
         criterion: nn.Module,
-        loss_cst: nn.Module,
-        weight_dict: dict,
+        loss_cst: Optional[nn.Module] = None,
+        weight_dict: dict = {"loss_cst": 20.0},
     ):
         """Create the criterion.
 
@@ -44,6 +46,9 @@ class RobustCriterionv2(nn.Module):
         return losses
 
     def compute_cst_loss(self, outputs: dict):
+        if self.loss_cst is None:
+            return {}
+
         robust_hidden_states: dict[str, torch.Tensor] = outputs["robust_hidden_states"]
         clear_robust_hidden_states: dict[str, torch.Tensor] = outputs[
             "clear_robust_hidden_states"

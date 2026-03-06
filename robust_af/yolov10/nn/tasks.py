@@ -6,7 +6,7 @@ import torch.nn as nn
 import ultralytics.nn.modules as modules
 import ultralytics.nn.tasks as tasks
 from ultralytics.utils import LOGGER, colorstr
-from ultralytics.utils.loss import v8DetectionLoss, v10DetectLoss
+from ultralytics.utils.loss import v10DetectLoss
 from ultralytics.utils.plotting import feature_visualization
 from ultralytics.utils.torch_utils import (
     make_divisible,
@@ -179,17 +179,23 @@ class RobustDetectionModel(tasks.DetectionModel):
         )
         return self.criterion(preds, batch)
 
+    def _build_cst_loss(self, criterion):
+        if self.args.cst_loss is not None and self.args.cst_loss["module"] is not None:
+            cfg = self.args.cst_loss
+            cst_loss = get_module(cfg["module"])(reduction="none")
+            weight = cfg["weight"]
+        else:
+            cst_loss = None
+            weight = 20
+        return RobustDetectLoss(criterion, cst_loss, weight=weight)
+
     def init_criterion(self):
-        cst_loss = get_module(self.args.cst_loss["module"])(reduction="none")
-        weight = self.args.cst_loss["weight"]
-        return RobustDetectLoss(v8DetectionLoss(self), cst_loss, weight=weight)
+        return self._build_cst_loss(super().init_criterion())
 
 
 class RobustYOLOv10DetectionModel(RobustDetectionModel):
     def init_criterion(self):
-        cst_loss = get_module(self.args.cst_loss["module"])(reduction="none")
-        weight = self.args.cst_loss["weight"]
-        return RobustDetectLoss(v10DetectLoss(self), cst_loss, weight=weight)
+        return self._build_cst_loss(v10DetectLoss(self))
 
 
 def get_module(module: str) -> type[nn.Module]:

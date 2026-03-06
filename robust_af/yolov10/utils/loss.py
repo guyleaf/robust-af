@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import torch
 import torch.nn as nn
@@ -8,7 +8,7 @@ class RobustDetectLoss:
     def __init__(
         self,
         model_loss: Callable[[Any, dict], tuple[torch.Tensor, torch.Tensor]],
-        cst_loss: nn.Module,
+        cst_loss: Optional[nn.Module] = None,
         weight: float = 20,
     ):
         self.weight = weight
@@ -18,6 +18,8 @@ class RobustDetectLoss:
 
     def __call__(self, preds: dict, batch: dict):
         loss, loss_items = self.model_loss(preds["preds"], batch)
+        if self.cst_loss is None:
+            return loss, loss_items
 
         batch_size = batch["img"].shape[0]
         robust_hidden_states: list[torch.Tensor] = preds["robust_hidden_states"]
