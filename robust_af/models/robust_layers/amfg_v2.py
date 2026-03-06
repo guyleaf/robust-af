@@ -299,7 +299,8 @@ class FGMBlock(nn.Module):
         modified_fft_map = torch.complex(real_part, imag_part)
 
         with torch.autocast("cuda", enabled=False):
-            reconstructed_x = torch.fft.ifft2(modified_fft_map.float(), dim=(-2, -1))
+            modified_fft_map = modified_fft_map.to(torch.cfloat)
+            reconstructed_x = torch.fft.ifft2(modified_fft_map, dim=(-2, -1))
         reconstructed_x = torch.real(reconstructed_x)
 
         return reconstructed_x
