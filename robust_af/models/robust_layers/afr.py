@@ -20,12 +20,12 @@ def _check_nan(x):
 
 
 def _build_activation(name: str, **kwargs) -> nn.Module:
-    kwargs.setdefault("inplace", True)
+    kwargs_ = {"inplace": True, **kwargs}
     act = getattr(nn, name)
     try:
-        return act(**kwargs)
+        return act(**kwargs_)
     except Exception:
-        return act()
+        return act(**kwargs)
 
 
 class AFR(nn.Module):
