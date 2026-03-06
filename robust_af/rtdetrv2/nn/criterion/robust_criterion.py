@@ -1,4 +1,4 @@
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
@@ -12,7 +12,7 @@ class RobustCriterion(nn.Module):
     def __init__(
         self,
         model_loss: nn.Module,
-        cst_loss: nn.Module,
+        cst_loss: Optional[nn.Module] = None,
         weight_dict: dict = dict(loss_cst=20),
     ):
         super().__init__()
@@ -27,6 +27,9 @@ class RobustCriterion(nn.Module):
         targets: list[Union[dict, Sequence[dict]]],
         prefix: str = "loss_cst",
     ):
+        if self.cst_loss is None:
+            return {}
+
         robust_hidden_states: list[torch.Tensor] = outputs["robust_hidden_states"]
         clear_robust_hidden_states: list[torch.Tensor] = outputs[
             "clear_robust_hidden_states"
