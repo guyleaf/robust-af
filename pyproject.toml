@@ -19,7 +19,11 @@ dependencies = [
     "imaug ~= 0.4.1",
     "opencv-python < 5",
     "einops < 1",
-    "tabulate < 1"
+    "tabulate < 1",
+    "matplotlib < 4",
+    "ffmpegio",
+    "scikit-learn < 2",
+    "packaging",
 ]
 
 [project.optional-dependencies]
