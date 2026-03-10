@@ -1,0 +1,86 @@
+__include__: [
+    # clear ver.
+    # "../../common/dataset/uav_eagle_detection.yml",
+    # degraded ver.
+    "../../common/dataset/uav_eagle_degraded_detection.yml",
+    "../../common/runtime.yml",
+    "../../common/robust_dataloader.yml",
+    "../../common/models/robust_rtdetrv2_r18vd.yml",
+  ]
+
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/uav_eagle/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_cst_loss_no_train_heads_no_color_augs_in_clear_degraded
+
+use_ema: True
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SimpleNN, embed_dims: 128 }
+#     - { type: SimpleNN, embed_dims: 256 }
+#     - { type: SimpleNN, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: AMFGv2, embed_dims: 128 }
+#     - { type: AMFGv2, embed_dims: 256 }
+#     - { type: AMFGv2, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAMFGv2, embed_dims: 128 }
+#     - { type: SpatialAMFGv2, embed_dims: 256 }
+#     - { type: SpatialAMFGv2, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: AFR, embed_dims: 128 }
+#     - { type: AFR, embed_dims: 256 }
+#     - { type: AFR, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: AFR, embed_dims: 128, activation: ReLU }
+#     - { type: AFR, embed_dims: 256, activation: ReLU }
+#     - { type: AFR, embed_dims: 512, activation: ReLU }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128 }
+#     - { type: SpatialAFR, embed_dims: 256 }
+#     - { type: SpatialAFR, embed_dims: 512 }
+
+MultiScaleProcessor:
+  modules:
+    - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
+    - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
+    - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+
+# MultiScaleProcessor:
+#   modules:
+#     - type: SpatialAFR
+#       embed_dims: 128
+#       spatial_cfg: { conv: False, activation: ~ }
+
+#     - type: SpatialAFR
+#       embed_dims: 256
+#       spatial_cfg: { conv: False, activation: ~ }
+
+#     - type: SpatialAFR
+#       embed_dims: 512
+#       spatial_cfg: { conv: False, activation: ~ }
+
+# MultiScaleProcessor:
+#   modules:
+#     - type: SpatialAFR
+#       embed_dims: 128
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
+
+#     - type: SpatialAFR
+#       embed_dims: 256
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
+
+#     - type: SpatialAFR
+#       embed_dims: 512
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU

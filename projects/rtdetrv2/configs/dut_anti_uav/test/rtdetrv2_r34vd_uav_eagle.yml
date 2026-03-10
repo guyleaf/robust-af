@@ -1,0 +1,13 @@
+__include__: [
+    # clear ver.
+    "../../common/dataset/uav_eagle_detection.yml",
+    # degraded ver.
+    # "../../common/dataset/uav_eagle_degraded_detection.yml",
+    "../../common/runtime.yml",
+    "../../common/dataloader.yml",
+    "../../common/models/rtdetrv2_r34vd.yml",
+  ]
+
+output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/uav_eagle/rtdetrv2_r34vd_120e
+
+use_ema: True
