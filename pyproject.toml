@@ -24,6 +24,7 @@ dependencies = [
     "ffmpegio",
     "scikit-learn < 2",
     "packaging",
+    "pillow < 13",
 ]
 
 [project.optional-dependencies]
