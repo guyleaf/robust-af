@@ -1,7 +1,8 @@
 import argparse
+import datetime
 import json
-import os
 from copy import deepcopy
+from pathlib import Path
 
 import ffmpegio
 from rich.progress import track
@@ -9,8 +10,9 @@ from rich.progress import track
 from robust_af.utils import (
     VideoSamplingMethod,
     choose_ffmpeg_vf,
+    collect_images,
+    collect_videos,
     extract_video_frames,
-    filter_video_with_video_list,
     format_coco_annotation,
     format_coco_frame,
     format_coco_video,
@@ -19,14 +21,12 @@ from robust_af.utils import (
 _COCO_FILE = {
     "info": {
         "year": 2023,
-        "version": 1,
+        "version": 2,
         "description": "Drove-vs-bird 2023 Challenge dataset",
         "url": "https://wosdetc2023.wordpress.com/drone-vs-bird-detection-challenge/",
-        "date_created": "2023-03-27",
+        "date_created": datetime.date.today().isoformat(),
     },
-    "licenses": [
-        {"id": 1, "name": "MIT License", "url": "https://opensource.org/license/mit"}
-    ],
+    "licenses": [],
     "images": [],
     "videos": [],
     "annotations": [],
@@ -119,17 +119,20 @@ _VALIDATION_VIDEOS = [
     "two_uavs_plus_airplane",
 ]
 
+_TEST_VIDEOS = _TRAIN_VIDEOS + _VALIDATION_VIDEOS
 
-def get_split_video_list(videos_dir: str) -> dict[str, list[str]]:
-    video_files = [
-        os.path.join(videos_dir, video_file)
-        # 2024.09.14 better reproducibility
-        for video_file in sorted(os.listdir(videos_dir))
-    ]
 
+def filter_video_with_video_list(video_list: list[str]):
+    video_set = set(video_list)
+
+    def filter_(video_file: Path):
+        return video_file.stem in video_set
+
+    return filter_
+
+
+def split_videos_into_subsets(video_files: list[Path]):
     assert len(set(_TRAIN_VIDEOS) & set(_VALIDATION_VIDEOS)) == 0
-    print("Total number of training videos: ", len(_TRAIN_VIDEOS))
-    print("Total number of validation videos: ", len(_VALIDATION_VIDEOS))
 
     # split videos by pre-defined list
     split_video_files = {
@@ -137,103 +140,142 @@ def get_split_video_list(videos_dir: str) -> dict[str, list[str]]:
         "val": list(
             filter(filter_video_with_video_list(_VALIDATION_VIDEOS), video_files)
         ),
+        "test": list(filter(filter_video_with_video_list(_TEST_VIDEOS), video_files)),
     }
     assert len(split_video_files["train"]) == len(_TRAIN_VIDEOS) and len(
         split_video_files["val"]
     ) == len(_VALIDATION_VIDEOS)
+
+    for subset, video_files in split_video_files.items():
+        print(f"Total number of {subset} videos: ", len(video_files))
     return split_video_files
 
 
-def prepare_dds_dataset(root_dir: str, out_dir: str, args: argparse.Namespace) -> None:
-    os.makedirs(out_dir, exist_ok=True)
-    videos_dir = os.path.join(root_dir, "videos")
-    annotations_dir = os.path.join(root_dir, "annotations")
+def prepare_dds_subset(
+    subset: str,
+    video_files: list[Path],
+    videos_dir: Path,
+    annotations_dir: Path,
+    out_images_dir: Path,
+    out_annotations_dir: Path,
+    annotation: bool = False,
+):
+    metadata = deepcopy(_COCO_FILE)
+    images: list = metadata["images"]
+    videos: list = metadata["videos"]
+    annotations: list = metadata["annotations"]
 
-    # split videos by pre-defined list
-    split_video_files = get_split_video_list(videos_dir)
+    image_id = 1
+    annotation_id = 1
+
+    for video_id, video_file in enumerate(
+        track(video_files, description=f"{subset.capitalize()} videos"), start=1
+    ):
+        rel_video_file = video_file.relative_to(videos_dir)
+        rel_video_dir = rel_video_file.with_suffix("")
+
+        # make dir for {video_file}
+        out_video_dir = out_images_dir / rel_video_dir
+        out_video_dir.mkdir(parents=True, exist_ok=True)
+
+        if not annotation:
+            vf = choose_ffmpeg_vf(
+                sample_method=args.sample_method,
+                sample_interval=args.sample_interval,
+                subset=subset,
+            )
+            extract_video_frames(video_file.as_posix(), out_video_dir.as_posix(), vf=vf)
+
+        # get the size of the image
+        video_info = ffmpegio.probe.video_streams_basic(video_file)[0]
+        video_h, video_w = (video_info["height"], video_info["width"])
+
+        # read the annotation file of the video
+        annotation_file = annotations_dir / rel_video_file.with_suffix(".txt")
+        with open(annotation_file, "r") as f:
+            original_annotations = f.readlines()
+
+        # 2024.09.14 better reproducibility
+        frame_files = collect_images(out_video_dir)
+        if len(frame_files) == 0:
+            raise RuntimeError(f"No image files found for video {out_video_dir}.")
+
+        for frame_id, frame_file in enumerate(
+            track(frame_files, description="Frame", transient=True), start=1
+        ):
+            rel_frame_file = frame_file.relative_to(out_images_dir)
+            # based on output image, %5d.png
+            frame_no = int(frame_file.stem)
+
+            # frame_no number_of_objects x y w h cls x y w h cls...
+            original_annotation = original_annotations[frame_no].split(" ")
+            if frame_no != int(original_annotation[0]):
+                raise RuntimeError(
+                    f"The annotation of frame no {frame_no} is not found."
+                )
+
+            number_of_objects = int(original_annotation[1])
+            for i in range(number_of_objects):
+                # 2 head columns + 5 columns per object
+                start = 5 * i + 2
+                end = 5 * (i + 1) + 2
+                # ignore cls
+                x, y, w, h = map(int, original_annotation[start : end - 1])
+                annotation_info = format_coco_annotation(
+                    annotation_id, image_id, 1, x, y, w, h
+                )
+                annotations.append(annotation_info)
+                annotation_id += 1
+
+            frame_info = format_coco_frame(
+                image_id,
+                rel_frame_file.as_posix(),
+                video_h,
+                video_w,
+                video_id,
+                frame_id,
+            )
+            images.append(frame_info)
+            image_id += 1
+
+        videos.append(format_coco_video(video_id, rel_video_dir.as_posix()))
+
+    # {subset}.json
+    metadata_file = out_annotations_dir / f"{subset}.json"
+    with open(metadata_file, "w") as f:
+        json.dump(metadata, f)
+
+
+def prepare_dds_dataset(
+    root_dir: Path, out_dir: Path, args: argparse.Namespace
+) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     # make dir for annotations
-    target_annotations_dir = os.path.join(out_dir, "annotations")
-    os.makedirs(target_annotations_dir, exist_ok=True)
+    target_annotations_dir = out_dir / "annotations"
+    target_annotations_dir.mkdir(parents=True, exist_ok=True)
 
     # make dir for images
-    target_images_dir = os.path.join(out_dir, "images")
-    os.makedirs(target_images_dir, exist_ok=True)
+    target_images_dir = out_dir / "images"
+    target_images_dir.mkdir(parents=True, exist_ok=True)
+
+    videos_dir = root_dir / "videos"
+    annotations_dir = root_dir / "annotations"
+    video_files = collect_videos(videos_dir)
+
+    # split videos by pre-defined list
+    split_video_files = split_videos_into_subsets(video_files)
 
     for subset, video_files in split_video_files.items():
-        metadata = deepcopy(_COCO_FILE)
-        images: list = metadata["images"]
-        videos: list = metadata["videos"]
-        annotations: list = metadata["annotations"]
-
-        image_id = 1
-        annotation_id = 1
-
-        for video_id, video_file in enumerate(
-            track(video_files, description=f"{subset.capitalize()} video"), start=1
-        ):
-            video_name = os.path.splitext(os.path.basename(video_file))[0]
-
-            # read the annotation file of the video
-            with open(os.path.join(annotations_dir, f"{video_name}.txt"), "r") as f:
-                original_annotations = f.readlines()
-
-            videos.append(format_coco_video(video_id, video_name))
-
-            # make dir for {video_name}
-            video_dir = os.path.join(target_images_dir, video_name)
-            os.makedirs(video_dir, exist_ok=True)
-
-            if not args.annotation:
-                vf = choose_ffmpeg_vf(
-                    sample_method=args.sample_method,
-                    sample_interval=args.sample_interval,
-                    subset=subset,
-                )
-                extract_video_frames(video_file, video_dir, vf=vf)
-
-            video_info = ffmpegio.probe.video_streams_basic(video_file)[0]
-            video_h, video_w = (video_info["height"], video_info["width"])
-            # 2024.09.14 better reproducibility
-            frame_files = sorted(os.listdir(video_dir))
-            if len(frame_files) == 0:
-                raise RuntimeError(f"No image files found for video {video_name}.")
-
-            for frame_file in track(frame_files, description="Frame", transient=True):
-                # based on output image, %5d.png
-                frame_id = int(os.path.splitext(frame_file)[0])
-
-                # frame_id number_of_objects x y w h cls x y w h cls...
-                original_annotation = original_annotations[frame_id].split(" ")
-                if frame_id != int(original_annotation[0]):
-                    raise RuntimeError(
-                        f"The annotation of frame id {frame_id} is not found."
-                    )
-
-                number_of_objects = int(original_annotation[1])
-                for i in range(number_of_objects):
-                    # 2 head columns + 5 columns per object
-                    start = 5 * i + 2
-                    end = 5 * (i + 1) + 2
-                    # ignore cls
-                    x, y, w, h = map(int, original_annotation[start : end - 1])
-                    annotation_info = format_coco_annotation(
-                        annotation_id, image_id, 1, x, y, w, h
-                    )
-                    annotations.append(annotation_info)
-                    annotation_id += 1
-
-                frame_file = f"{video_name}/{frame_file}"
-                frame_info = format_coco_frame(
-                    image_id, frame_file, video_h, video_w, video_id, frame_id
-                )
-                images.append(frame_info)
-                image_id += 1
-
-        # {subset}.json
-        metadata_file = os.path.join(target_annotations_dir, f"{subset}.json")
-        with open(metadata_file, "w") as f:
-            json.dump(metadata, f)
+        prepare_dds_subset(
+            subset,
+            video_files,
+            videos_dir,
+            annotations_dir,
+            target_images_dir,
+            target_annotations_dir,
+            annotation=args.annotation or subset == "test",
+        )
 
 
 def parse_args():
@@ -272,4 +314,4 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    prepare_dds_dataset(args.root_dir, args.out_dir, args)
+    prepare_dds_dataset(Path(args.root_dir), Path(args.out_dir), args)

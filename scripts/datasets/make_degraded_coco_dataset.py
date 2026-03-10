@@ -221,7 +221,7 @@ def parse_args():
         "--num-workers",
         type=int,
         default=16,
-        help="Number of workers(processes) for loading and processing images.",
+        help="Number of workers(processes) for loading and processing images. Warning! Modifying this will change the random sequence!",
     )
     args = parser.parse_args()
     return args

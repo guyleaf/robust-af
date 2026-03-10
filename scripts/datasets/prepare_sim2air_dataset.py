@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 import shutil
 from copy import deepcopy
@@ -21,11 +22,9 @@ _COCO_FILE = {
         "description": "Sim2Air dataset (S-Eagle-B, S-Eagle-T, S-UAV-B, UAV-Eagle)",
         "contributor": "Antonella Barisic and Frano Petric and Stjepan Bogdan",
         "url": "https://github.com/larics/synthetic-UAV",
-        "date_created": "2026-03-08",
+        "date_created": datetime.date.today().isoformat(),
     },
-    "licenses": [
-        {"id": 1, "name": "MIT License", "url": "https://opensource.org/license/mit"}
-    ],
+    "licenses": [],
     "images": [],
     "annotations": [],
     "categories": [{"id": 1, "name": "drone", "supercategory": "UAV"}],
@@ -50,16 +49,19 @@ def prepare_sim2air_subset(
     for image_id, image_file in enumerate(
         track(image_files, description=f"{subset.capitalize()} images"), start=1
     ):
+        rel_image_file = image_file.relative_to(images_dir)
         # copy image to images directory
         if not annotation:
-            shutil.copy2(image_file, out_images_dir)
+            out_image_file = out_images_dir / rel_image_file
+            out_image_file.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(image_file, out_image_file)
 
         # get the size of the image
         image = cv2.imread(image_file.as_posix(), cv2.IMREAD_COLOR)
         image_h, image_w, _ = image.shape
 
         # read the annotation file of the frame
-        label_file = labels_dir / image_file.with_suffix(".txt").relative_to(images_dir)
+        label_file = labels_dir / rel_image_file.with_suffix(".txt")
         with open(label_file, "r") as f:
             original_annotations = f.readlines()
 
@@ -79,10 +81,13 @@ def prepare_sim2air_subset(
             annotations.append(annotation_info)
             annotation_id += 1
 
-        image_info = format_coco_image(image_id, image_file.name, image_h, image_w)
+        image_info = format_coco_image(
+            image_id, rel_image_file.as_posix(), image_h, image_w
+        )
         images.append(image_info)
 
-    metadata_file = out_annotations_dir / "test.json"
+    # {subset}.json
+    metadata_file = out_annotations_dir / f"{subset}.json"
     with open(metadata_file, "w") as f:
         json.dump(metadata, f)
 
@@ -104,13 +109,20 @@ def prepare_sim2air_dataset(
     labels_dir = root_dir / "labels"
     image_files = collect_images(images_dir)
 
-    if args.split:
+    if args.test:
+        split_image_files = {}
+    else:
         # split images into train, val subsets
         split_image_files = split_into_train_val(image_files, args.val_ratio, args.seed)
-    else:
-        split_image_files = {"test": image_files}
+
+    # test subset contains all images for generalization test
+    split_image_files["test"] = image_files
 
     for subset, image_files in split_image_files.items():
+        annotation = args.annotation or subset == "test"
+        if args.test:
+            annotation = False
+
         prepare_sim2air_subset(
             subset,
             image_files,
@@ -118,13 +130,13 @@ def prepare_sim2air_dataset(
             labels_dir,
             target_images_dir,
             target_annotations_dir,
-            annotation=args.annotation,
+            annotation=annotation,
         )
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Convert Sim2Air annotations from YOLO to COCO format.",
+        description="Split and Convert Sim2Air annotations from YOLO to COCO format.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -134,10 +146,10 @@ def parse_args():
         "out_dir", type=str, help="Output directory to write annotations and images"
     )
     parser.add_argument(
-        "--split",
+        "--test",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Split into train and val subsets. Otherwise, make it as a test dataset.",
+        help="Generate test subset only",
     )
     parser.add_argument(
         "--val-ratio", type=float, default=0.2, help="Ratio of the validation subset"

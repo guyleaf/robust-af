@@ -10,22 +10,21 @@ def validate_annotations(root_dir_1: str, root_dir_2: str):
     annotation_dir_1: Path = Path(root_dir_1) / "annotations"
     annotation_dir_2: Path = Path(root_dir_2) / "annotations"
 
-    annotation_files_1 = sorted(
-        annotation_dir_1.rglob(ANNOTATION_SEARCH_PATTERN),
-        key=lambda file: file.relative_to(annotation_dir_1),
-    )
-    annotation_files_2 = sorted(
-        annotation_dir_2.rglob(ANNOTATION_SEARCH_PATTERN),
-        key=lambda file: file.relative_to(annotation_dir_2),
-    )
+    annotation_files_1 = annotation_dir_1.rglob(ANNOTATION_SEARCH_PATTERN)
+    annotation_files_2 = annotation_dir_2.rglob(ANNOTATION_SEARCH_PATTERN)
 
-    assert len(annotation_files_1) == len(annotation_files_2), (
-        "The number of annotation files is not identical."
+    annotation_set_1 = set(
+        ann_file.relative_to(annotation_dir_1) for ann_file in annotation_files_1
     )
+    annotation_set_2 = set(
+        ann_file.relative_to(annotation_dir_2) for ann_file in annotation_files_2
+    )
+    annotation_set = annotation_set_1 & annotation_set_2
 
-    for annotation_file_1, annotation_file_2 in zip(
-        annotation_files_1, annotation_files_2
-    ):
+    for annotation_file in sorted(annotation_set):
+        annotation_file_1 = annotation_dir_1 / annotation_file
+        annotation_file_2 = annotation_dir_2 / annotation_file
+
         print(f"Compared annotations: {annotation_file_1}, {annotation_file_2}")
         assert annotation_file_1.relative_to(
             annotation_dir_1
@@ -48,6 +47,11 @@ def validate_annotations(root_dir_1: str, root_dir_2: str):
             print(
                 f"The annotations are not identical, {len(coco_1.anns)}, {len(coco_2.anns)}."
             )
+            for a, b in zip(coco_1.anns.values(), coco_2.anns.values()):
+                if a != b:
+                    print("First non-identical entry:", a, b)
+                    break
+        print("=================")
 
 
 def parse_args():

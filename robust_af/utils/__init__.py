@@ -1,6 +1,5 @@
 # ruff: noqa: F401
 from .dataset import (
-    filter_video_with_video_list,
     format_coco_annotation,
     format_coco_frame,
     format_coco_image,
@@ -12,7 +11,9 @@ from .dist import get_worker_id
 from .enum import VideoSamplingMethod
 from .io import (
     choose_ffmpeg_vf,
+    collect_files,
     collect_images,
+    collect_videos,
     count_video_frames,
     extract_video_frames,
     is_image,

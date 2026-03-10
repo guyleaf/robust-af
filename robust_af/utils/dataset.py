@@ -1,18 +1,8 @@
-import os
 from typing import Optional, TypeVar
 
 from sklearn.model_selection import train_test_split
 
 T = TypeVar("T")
-
-
-def filter_video_with_video_list(video_list: list[str]):
-    def filter_(video_name: str):
-        video_name = os.path.basename(video_name)
-        video_name = os.path.splitext(video_name)[0]
-        return video_name in video_list
-
-    return filter_
 
 
 def split_into_train_val_test(

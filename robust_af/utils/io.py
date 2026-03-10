@@ -18,20 +18,32 @@ def is_image(path: Path):
     return mime_type is not None and mime_type.startswith("image")
 
 
-def collect_images(
-    path: Union[str, Path], filter_fn: Callable[[Path], bool] = is_image
-) -> list[Path]:
-    """Collect images from path folder in ascending order"""
+def is_video(path: Path):
+    mime_type = _MIME_CHECKER.guess_type(path)[0]
+    return mime_type is not None and mime_type.startswith("video")
+
+
+def collect_files(path: Union[str, Path], filter_fn: Callable[[Path], bool]):
     path = Path(path)
     if path.is_dir():
         images = filter(filter_fn, path.rglob("*.*"))
     else:
         images = [path]
-
-    # if as_posix:
-    #     images = map(methodcaller("as_posix"), images)
-
     return sorted(images)
+
+
+def collect_images(
+    path: Union[str, Path], filter_fn: Callable[[Path], bool] = is_image
+) -> list[Path]:
+    """Collect images from path folder in ascending order"""
+    return collect_files(path, filter_fn)
+
+
+def collect_videos(
+    path: Union[str, Path], filter_fn: Callable[[Path], bool] = is_video
+) -> list[Path]:
+    """Collect videos from path folder in ascending order"""
+    return collect_files(path, filter_fn)
 
 
 def get_ffmpeg_version():
