@@ -4,12 +4,19 @@ channels:
   - defaults
 dependencies:
   - python=3.9
+  - ffmpeg==4.4.2
   - pip
   - pip:
-      - --extra-index-url https://download.pytorch.org/whl/cu117
+      # CPU only
       - torch==1.13.1
       - torchvision==0.14.1
-      - numpy<2
+      # pin related packages to avoid data preprocessing non-deterministic
+      - numpy~=1.26.4
+      - albumentations==1.4.24
+      - imaug==0.4.2
+      - opencv-python==4.11.0.86
+      - ffmpegio==0.11.1
+      - pillow==11.3.0
       - -e .[dev]
 variables:
   # surpress the warning
