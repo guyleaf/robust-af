@@ -17,8 +17,8 @@ val_dataloader:
   type: DataLoader
   dataset:
     type: CocoDetection
-    img_folder: ./dataset/Sim2Air/UAV-Eagle/images/
-    ann_file: ./dataset/Sim2Air/UAV-Eagle/annotations/test.json
+    img_folder: ./dataset/Sim2Air/UAV_Eagle/images/
+    ann_file: ./dataset/Sim2Air/UAV_Eagle/annotations/test.json
     return_masks: False
     transforms:
       type: Compose
