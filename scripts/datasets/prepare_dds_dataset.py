@@ -2,6 +2,7 @@ import argparse
 import datetime
 import json
 from copy import deepcopy
+from functools import partial
 from pathlib import Path
 
 import ffmpegio
@@ -219,13 +220,16 @@ def prepare_dds_subset(
                 # 2 head columns + 5 columns per object
                 start = 5 * i + 2
                 end = 5 * (i + 1) + 2
-                # ignore cls
-                x, y, w, h = map(int, original_annotation[start : end - 1])
-                annotation_info = format_coco_annotation(
-                    annotation_id, image_id, 1, x, y, w, h
+                # ignore cls & handle negative values
+                x, y, w, h = map(
+                    partial(max, 0), map(int, original_annotation[start : end - 1])
                 )
-                annotations.append(annotation_info)
-                annotation_id += 1
+                if w * h > 0:
+                    annotation_info = format_coco_annotation(
+                        annotation_id, image_id, 1, x, y, w, h
+                    )
+                    annotations.append(annotation_info)
+                    annotation_id += 1
 
             frame_info = format_coco_frame(
                 image_id,
