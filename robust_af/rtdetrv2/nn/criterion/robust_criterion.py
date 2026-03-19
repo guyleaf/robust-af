@@ -7,49 +7,39 @@ from rtdetrv2.core import register
 
 @register()
 class RobustCriterion(nn.Module):
-    __inject__ = ["model_loss", "cst_loss"]
+    __inject__ = ["model_loss", "image_cst_loss", "cst_loss"]
 
     def __init__(
         self,
         model_loss: nn.Module,
+        image_cst_loss: Optional[nn.Module] = None,
         cst_loss: Optional[nn.Module] = None,
-        weight_dict: dict = dict(loss_cst=20),
+        weight_dict: dict = dict(loss_image_cst=20, loss_cst=20),
     ):
         super().__init__()
         self.weight_dict = weight_dict
 
         self.model_loss = model_loss
+        self.image_cst_loss = image_cst_loss
         self.cst_loss = cst_loss
 
     def loss_cst(
         self,
-        outputs: dict,
+        loss_fn: nn.Module,
+        rhss: list[torch.Tensor],
+        clear_rhss: list[torch.Tensor],
         targets: list[Union[dict, Sequence[dict]]],
         prefix: str = "loss_cst",
     ):
-        if self.cst_loss is None:
-            return {}
-
-        robust_hidden_states: list[torch.Tensor] = outputs["robust_hidden_states"]
-        clear_robust_hidden_states: list[torch.Tensor] = outputs[
-            "clear_robust_hidden_states"
-        ]
-
         global_weight = self.weight_dict.get(prefix)
         if global_weight is not None:
-            weights = {
-                f"{prefix}_{i}": global_weight for i in range(len(robust_hidden_states))
-            }
+            weights = {f"{prefix}_{i}": global_weight for i in range(len(rhss))}
         else:
             weights = self.weight_dict
 
         cst_losses = {}
-        for i, (robust_hidden_state, clear_robust_hidden_state) in enumerate(
-            zip(robust_hidden_states, clear_robust_hidden_states)
-        ):
-            cst_loss: torch.Tensor = self.cst_loss(
-                robust_hidden_state, clear_robust_hidden_state
-            )
+        for i, (rhs, clear_rhs) in enumerate(zip(rhss, clear_rhss)):
+            cst_loss: torch.Tensor = loss_fn(rhs, clear_rhs)
             # mean over the feature dims & mean over batch_size
             indices = list(range(1, cst_loss.ndim))
             cst_loss = cst_loss.mean(indices).mean()
@@ -65,51 +55,61 @@ class RobustCriterion(nn.Module):
              targets: list of dicts, such that len(targets) == batch_size.
                       The expected keys in each dict depends on the losses applied, see each loss' doc
         """
-        # if isinstance(targets[0], Sequence):
-        #     # currently, we don't need clear targets
-        #     targets = [item[0] for item in targets]
-
         losses = self.model_loss(outputs, targets, **kwargs)
 
-        cst_losses = self.loss_cst(outputs, targets)
-        losses.update(cst_losses)
+        if self.image_cst_loss is not None:
+            rhss = outputs["image_rhss"]
+            clear_rhss = outputs["clear_image_rhss"]
+            prefix = "loss_image_cst"
+            cst_losses = self.loss_cst(
+                self.image_cst_loss, rhss, clear_rhss, targets, prefix=prefix
+            )
+            losses.update(cst_losses)
 
+        if self.cst_loss is not None:
+            rhss = outputs["rhss"]
+            clear_rhss = outputs["clear_rhss"]
+            cst_losses = self.loss_cst(self.cst_loss, rhss, clear_rhss, targets)
+            losses.update(cst_losses)
         return losses
 
 
 @register()
 class RobustCriterionv2(nn.Module):
-    __inject__ = ["model_loss", "content_loss", "style_loss"]
+    __inject__ = ["model_loss", "image_content_loss", "content_loss", "style_loss"]
 
     def __init__(
         self,
         model_loss: nn.Module,
-        content_loss: nn.Module,
         style_loss: nn.Module,
-        weight_dict: dict = dict(loss_content=20, loss_style=20),
+        image_content_loss: Optional[nn.Module] = None,
+        content_loss: Optional[nn.Module] = None,
+        weight_dict: dict = dict(loss_image_content=20, loss_content=20, loss_style=20),
     ):
         super().__init__()
         self.weight_dict = weight_dict
 
         self.model_loss = model_loss
+        self.image_content_loss = image_content_loss
         self.content_loss = content_loss
         self.style_loss = style_loss
 
     def loss_content(
         self,
-        rhs: list[torch.Tensor],
-        clear_rhs: list[torch.Tensor],
+        loss_fn: nn.Module,
+        rhss: list[torch.Tensor],
+        clear_rhss: list[torch.Tensor],
         prefix: str = "loss_content",
     ):
         global_weight = self.weight_dict.get(prefix)
         if global_weight is not None:
-            weights = {f"{prefix}_{i}": global_weight for i in range(len(rhs))}
+            weights = {f"{prefix}_{i}": global_weight for i in range(len(rhss))}
         else:
             weights = self.weight_dict
 
         losses = {}
-        for i, (feats, clear_feats) in enumerate(zip(rhs, clear_rhs)):
-            loss: torch.Tensor = self.content_loss(feats, clear_feats)
+        for i, (rhs, clear_rhs) in enumerate(zip(rhss, clear_rhss)):
+            loss: torch.Tensor = loss_fn(rhs, clear_rhs)
             # mean over the feature dims & mean over batch_size
             indices = list(range(1, loss.ndim))
             loss = loss.mean(indices).mean()
@@ -160,12 +160,21 @@ class RobustCriterionv2(nn.Module):
         """
         losses = self.model_loss(outputs, targets, **kwargs)
 
-        rhs = outputs["robust_hidden_states"]
-        clear_rhs = outputs["clear_robust_hidden_states"]
+        if self.image_content_loss is not None:
+            rhss = outputs["image_rhss"]
+            clear_rhss = outputs["clear_image_rhss"]
+            prefix = "loss_image_content"
+            content_losses = self.loss_content(
+                self.image_content_loss, rhss, clear_rhss, prefix=prefix
+            )
+            losses.update(content_losses)
 
-        content_losses = self.loss_content(rhs, clear_rhs)
-        losses.update(content_losses)
+        if self.content_loss is not None:
+            rhss = outputs["rhss"]
+            clear_rhss = outputs["clear_rhss"]
+            content_losses = self.loss_content(self.content_loss, rhss, clear_rhss)
+            losses.update(content_losses)
 
-        style_losses = self.loss_style(rhs, clear_rhs)
-        losses.update(style_losses)
+            style_losses = self.loss_style(rhss, clear_rhss)
+            losses.update(style_losses)
         return losses
