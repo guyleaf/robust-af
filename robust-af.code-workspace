@@ -1,20 +1,20 @@
 {
   "folders": [
     {
-      "path": "."
+      "path": ".",
     },
     {
-      "path": "/home/leafying/work/work_dirs"
+      "path": "/home/leafying/work/work_dirs",
     },
     {
-      "path": "/home/leafying/work/experiments"
+      "path": "/home/leafying/work/experiments",
     },
     {
-      "path": "/home/leafying/data/checkpoints"
+      "path": "/home/leafying/data/checkpoints",
     },
     {
-      "path": "/home/leafying/archive"
-    }
+      "path": "/home/leafying/archive",
+    },
   ],
   "settings": {
     "files.watcherExclude": {
@@ -24,7 +24,7 @@
       "${workspaceFolder:work_dirs}/**": true,
       "${workspaceFolder:archive}/**": true,
       "${workspaceFolder:experiments}/**": true,
-      "${workspaceFolder:checkpoints}/**": true
+      "${workspaceFolder:checkpoints}/**": true,
     },
     "search.exclude": {
       "**/node_modules": true,
@@ -33,7 +33,7 @@
       "${workspaceFolder:work_dirs}": true,
       "${workspaceFolder:archive}": true,
       "${workspaceFolder:experiments}": true,
-      "${workspaceFolder:checkpoints}": true
+      "${workspaceFolder:checkpoints}": true,
     },
     "python.analysis.exclude": [
       "**/node_modules",
@@ -42,15 +42,18 @@
       "${workspaceFolder:work_dirs}",
       "${workspaceFolder:archive}",
       "${workspaceFolder:experiments}",
-      "${workspaceFolder:checkpoints}"
+      "${workspaceFolder:checkpoints}",
     ],
     "python-envs.pythonProjects": [
       {
         "path": "",
         "envManager": "ms-python.python:conda",
-        "packageManager": "ms-python.python:conda"
-      }
+        "packageManager": "ms-python.python:conda",
+      },
     ],
-    "python.analysis.extraPaths": ["${workspaceFolder}/3rdparty/yolov10"]
-  }
+    "python.analysis.extraPaths": [
+      "${workspaceFolder}/3rdparty/yolov10",
+      "${workspaceFolder}/3rdparty/DENet",
+    ],
+  },
 }
