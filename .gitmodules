@@ -10,3 +10,7 @@
 	path = 3rdparty/RT-DETR
 	url = https://github.com/guyleaf/RT-DETR.git
 	branch = robust-af
+[submodule "3rdparty/DENet"]
+	path = 3rdparty/DENet
+	url = https://github.com/guyleaf/DENet.git
+	branch = robust-af
