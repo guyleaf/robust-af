@@ -22,7 +22,9 @@ DEFAULT_CFG_DICT = dict(
 )
 DEFAULT_ROBUST_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,
+    # weight must be dict or float
     cst_loss=dict(module="nn.MSELoss", weight=20),
+    # weight must be float
     image_cst_loss=None,
     freeze_bn=True,
 )
