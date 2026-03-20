@@ -8,9 +8,7 @@ from projects.dino.modeling import (
     RobustDINOv2,
 )
 from robust_af.detrex.modeling import MultiScaleProcessor
-from robust_af.detrex.modeling.criterion.robust_criterion_v2 import (
-    RobustCriterionv2Debug,
-)
+from robust_af.detrex.modeling.criterion import RobustCriterionv3
 from robust_af.models.robust_layers import AMFG
 
 from .dino_r50 import model as dino_model
@@ -43,7 +41,7 @@ model = OmegaConf.merge(dino_model, model)
 
 model.criterion.num_classes = "${...num_classes}"
 # wrap the criterion
-model.criterion = L(RobustCriterionv2Debug)(
+model.criterion = L(RobustCriterionv3)(
     criterion=model.criterion,
     loss_content=L(nn.MSELoss)(reduction="none"),
     loss_style=L(nn.MSELoss)(reduction="none"),
