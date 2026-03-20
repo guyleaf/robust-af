@@ -10,8 +10,9 @@ class RobustCriterionv2(nn.Module):
     def __init__(
         self,
         criterion: nn.Module,
+        weight_dict: dict,
+        loss_image_cst: Optional[nn.Module] = None,
         loss_cst: Optional[nn.Module] = None,
-        weight_dict: dict = {"loss_cst": 20.0},
     ):
         """Create the criterion.
 
@@ -26,8 +27,36 @@ class RobustCriterionv2(nn.Module):
             weight_dict.update(criterion.weight_dict)
 
         self.criterion = criterion
+        self.loss_image_cst = loss_image_cst
         self.loss_cst = loss_cst
         self.weight_dict = weight_dict
+
+    def compute_image_cst_loss(
+        self,
+        rhss: torch.Tensor,
+        clear_rhss: torch.Tensor,
+        prefix: str = "loss_image_cst",
+    ):
+        loss: torch.Tensor = self.loss_image_cst(rhss, clear_rhss)
+        # mean over the feature dims & mean over batch_size
+        indices = list(range(1, loss.ndim))
+        loss = loss.mean(indices).mean()
+        return {prefix: loss}
+
+    def compute_cst_loss(
+        self,
+        rhss: dict[str, torch.Tensor],
+        clear_rhss: dict[str, torch.Tensor],
+        prefix: str = "loss_cst",
+    ):
+        losses = {}
+        for k in rhss:
+            loss: torch.Tensor = self.loss_cst(rhss[k], clear_rhss[k])
+            # mean over the feature dims & mean over batch_size
+            indices = list(range(1, loss.ndim))
+            loss = loss.mean(indices).mean()
+            losses[f"{prefix}_{k}"] = loss
+        return losses
 
     def forward(self, outputs, targets, dn_metas=None):
         """This performs the loss computation.
@@ -38,29 +67,15 @@ class RobustCriterionv2(nn.Module):
         """
         losses = self.criterion(outputs, targets, dn_metas=dn_metas)
 
-        # Compute all the requested losses
+        if self.loss_image_cst is not None:
+            rhss: torch.Tensor = outputs["image_rhss"]
+            clear_rhss: torch.Tensor = outputs["clear_image_rhss"]
+            cst_losses = self.compute_image_cst_loss(rhss, clear_rhss)
+            losses.update(cst_losses)
 
-        cst_losses = self.compute_cst_loss(outputs)
-        losses.update(cst_losses)
-
-        return losses
-
-    def compute_cst_loss(self, outputs: dict):
-        if self.loss_cst is None:
-            return {}
-
-        robust_hidden_states: dict[str, torch.Tensor] = outputs["robust_hidden_states"]
-        clear_robust_hidden_states: dict[str, torch.Tensor] = outputs[
-            "clear_robust_hidden_states"
-        ]
-
-        losses = {}
-        for k in robust_hidden_states:
-            loss: torch.Tensor = self.loss_cst(
-                robust_hidden_states[k], clear_robust_hidden_states[k]
-            )
-            # mean over the feature dims & mean over batch_size
-            indices = list(range(1, loss.ndim))
-            loss = loss.mean(indices).mean()
-            losses[f"loss_cst_{k}"] = loss
+        if self.loss_cst is not None:
+            rhss: dict[str, torch.Tensor] = outputs["rhss"]
+            clear_rhss: dict[str, torch.Tensor] = outputs["clear_rhss"]
+            cst_losses = self.compute_cst_loss(rhss, clear_rhss)
+            losses.update(cst_losses)
         return losses

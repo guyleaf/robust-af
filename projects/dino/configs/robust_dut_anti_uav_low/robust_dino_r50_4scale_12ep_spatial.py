@@ -8,7 +8,7 @@ from robust_af.detrex.data.datasets.register_robust_dut_anti_uav_low import (
     DATASET_NAME,
 )
 from robust_af.detrex.utils import count_coco_images
-from robust_af.models.robust_layers import SpatialAMFG
+from robust_af.models.feature_adapters import SpatialAMFG
 
 from ..models.robust_dino_r50 import model
 

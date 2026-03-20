@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
@@ -57,7 +57,8 @@ class RobustDINOv2(DINO):
     def __init__(
         self,
         *args,
-        robust_module: nn.Module,
+        robust_image_module: Optional[nn.Module] = None,
+        robust_module: Optional[nn.Module] = None,
         train_encoder: bool = False,
         train_decoder: bool = False,
         train_query_selection: bool = False,
@@ -68,9 +69,15 @@ class RobustDINOv2(DINO):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.robust_image_module = robust_image_module
         self.robust_module = robust_module
 
         self.training_parts: List[Union[nn.Module, nn.Parameter]] = [self.robust_module]
+        if self.with_robust_image_module:
+            self.training_parts += [self.robust_image_module]
+        if self.with_robust_module:
+            self.training_parts += [self.robust_module]
+
         if train_encoder:
             self.training_parts += [self.transformer.encoder]
         if train_decoder:
@@ -94,6 +101,14 @@ class RobustDINOv2(DINO):
         self = freeze_all(self)
         unfreeze_modules_and_parameters(self.training_parts)
         return self
+
+    @property
+    def with_robust_image_module(self):
+        return self.robust_image_module is not None
+
+    @property
+    def with_robust_module(self):
+        return self.robust_module is not None
 
     def visualize_training(
         self,
@@ -126,36 +141,38 @@ class RobustDINOv2(DINO):
             break  # only visualize one image in a batch
 
     def _extract_feats(
-        self,
-        images: torch.Tensor,
-        robust: bool = True,
-        returns_robust_hidden_states: bool = False,
-    ) -> tuple[tuple[torch.Tensor, ...], dict[str, torch.Tensor]]:
+        self, images: torch.Tensor, robust: bool = True, returns_rhs: bool = False
+    ):
+        # image-level restoration
+        if robust and self.with_robust_image_module:
+            images = self.robust_image_module(images)
+        image_rhss = images
+
         # original features
         features = self.backbone(images)  # output feature dict
 
-        # restore features
-        if robust:
+        # feature-level restoration
+        if robust and self.with_robust_module:
             features = self.robust_module(features)
-        robust_hidden_states = features
+        rhss = features
 
         # project backbone features to the required dimension of transformer
         # we use multi-scale features in DINO
         features = self.neck(features)
-        if returns_robust_hidden_states:
-            return features, robust_hidden_states
+        if returns_rhs:
+            return features, {"image_rhss": image_rhss, "rhss": rhss}
         else:
             return features
 
     def _loss(self, batched_inputs: list[dict]):
         images = self.preprocess_image(batched_inputs)
-        multi_level_feats, robust_hidden_states = self._extract_feats(
-            images.tensor, returns_robust_hidden_states=True
+        multi_level_feats, rhs_dict = self._extract_feats(
+            images.tensor, returns_rhs=True
         )
         output = self._forward_transformer(
             multi_level_feats, images.tensor.shape[2:], batched_inputs
         )
-        output["robust_hidden_states"] = robust_hidden_states
+        output.update(rhs_dict)
 
         # visualize training samples
         if self.vis_period > 0:
@@ -170,10 +187,11 @@ class RobustDINOv2(DINO):
         clear_batched_inputs = [inputs["clear"] for inputs in batched_inputs]
         images = self.preprocess_image(clear_batched_inputs)
         with torch.no_grad():
-            multi_level_feats, robust_hidden_states = self._extract_feats(
-                images.tensor, robust=False, returns_robust_hidden_states=True
+            multi_level_feats, rhs_dict = self._extract_feats(
+                images.tensor, robust=False, returns_rhs=True
             )
-            output["clear_robust_hidden_states"] = robust_hidden_states
+            for k, v in rhs_dict.items():
+                output[f"clear_{k}"] = v
 
         # visualize training samples
         if self.vis_period > 0:

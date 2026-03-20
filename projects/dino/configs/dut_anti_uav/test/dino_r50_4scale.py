@@ -1,6 +1,13 @@
 from detectron2.data.catalog import MetadataCatalog
 
 from robust_af.detrex.configs import get_config
+
+# from robust_af.detrex.data.datasets.register_uav_eagle import (
+#     DATASET_NAME as TEST_DATASET_NAME,
+# )
+# from robust_af.detrex.data.datasets.register_dds import (
+#     DATASET_NAME as TEST_DATASET_NAME,
+# )
 from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 from robust_af.detrex.data.datasets.register_dut_anti_uav import (
     DATASET_NAME as TEST_DATASET_NAME,

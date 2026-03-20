@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -6,9 +8,10 @@ class RobustCriterionv3(nn.Module):
     def __init__(
         self,
         criterion: nn.Module,
-        loss_content: nn.Module,
         loss_style: nn.Module,
         weight_dict: dict,
+        loss_image_content: Optional[nn.Module] = None,
+        loss_content: Optional[nn.Module] = None,
     ):
         """Create the criterion.
 
@@ -24,32 +27,28 @@ class RobustCriterionv3(nn.Module):
             weight_dict.update(criterion.weight_dict)
 
         self.criterion = criterion
+        self.loss_image_content = loss_image_content
         self.loss_content = loss_content
         self.loss_style = loss_style
         self.weight_dict = weight_dict
 
-    def forward(self, outputs, targets, dn_metas=None):
-        """This performs the loss computation.
-        Parameters:
-             outputs: dict of tensors, see the output specification of the model for the format
-             targets: list of dicts, such that len(targets) == batch_size.
-                      The expected keys in each dict depends on the losses applied, see each loss' doc
-        """
-        losses = self.criterion(outputs, targets, dn_metas=dn_metas)
-
-        # Compute all the requested losses
-        rhs = outputs["robust_hidden_states"]
-        clear_rhs = outputs["clear_robust_hidden_states"]
-
-        content_losses = self.compute_content_loss(rhs, clear_rhs)
-        losses.update(content_losses)
-
-        style_losses = self.compute_style_loss(rhs, clear_rhs)
-        losses.update(style_losses)
-        return losses
+    def compute_image_content_loss(
+        self,
+        rhss: torch.Tensor,
+        clear_rhss: torch.Tensor,
+        prefix: str = "loss_image_content",
+    ):
+        loss: torch.Tensor = self.loss_image_content(rhss, clear_rhss)
+        # mean over the feature dims & mean over batch_size
+        indices = list(range(1, loss.ndim))
+        loss = loss.mean(indices).mean()
+        return {prefix: loss}
 
     def compute_content_loss(
-        self, rhs: dict[str, torch.Tensor], clear_rhs: dict[str, torch.Tensor]
+        self,
+        rhs: dict[str, torch.Tensor],
+        clear_rhs: dict[str, torch.Tensor],
+        prefix: str = "loss_content",
     ):
         losses = {}
         # layer by layer
@@ -58,11 +57,14 @@ class RobustCriterionv3(nn.Module):
             # mean over the feature dims & mean over batch_size
             indices = list(range(1, loss.ndim))
             loss = loss.mean(indices).mean()
-            losses[f"loss_content_{k}"] = loss
+            losses[f"{prefix}_{k}"] = loss
         return losses
 
     def compute_style_loss(
-        self, rhs: dict[str, torch.Tensor], clear_rhs: dict[str, torch.Tensor]
+        self,
+        rhs: dict[str, torch.Tensor],
+        clear_rhs: dict[str, torch.Tensor],
+        prefix: str = "loss_style",
     ):
         losses = {}
         # layer by layer
@@ -86,5 +88,30 @@ class RobustCriterionv3(nn.Module):
 
             # mean over the channels & mean over batch_size
             loss = loss.mean(dim=1).mean()
-            losses[f"loss_style_{k}"] = loss
+            losses[f"{prefix}_{k}"] = loss
+        return losses
+
+    def forward(self, outputs, targets, dn_metas=None):
+        """This performs the loss computation.
+        Parameters:
+             outputs: dict of tensors, see the output specification of the model for the format
+             targets: list of dicts, such that len(targets) == batch_size.
+                      The expected keys in each dict depends on the losses applied, see each loss' doc
+        """
+        losses = self.criterion(outputs, targets, dn_metas=dn_metas)
+
+        if self.loss_image_content is not None:
+            rhss = outputs["image_rhss"]
+            clear_rhss = outputs["clear_image_rhss"]
+            content_losses = self.compute_image_content_loss(rhss, clear_rhss)
+            losses.update(content_losses)
+
+        if self.loss_content is not None:
+            rhss = outputs["rhss"]
+            clear_rhss = outputs["clear_rhss"]
+            content_losses = self.compute_content_loss(rhss, clear_rhss)
+            losses.update(content_losses)
+
+            style_losses = self.compute_style_loss(rhss, clear_rhss)
+            losses.update(style_losses)
         return losses
