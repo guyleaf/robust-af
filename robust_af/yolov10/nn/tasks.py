@@ -12,8 +12,19 @@ from ultralytics.utils.torch_utils import (
     make_divisible,
 )
 
-from ...models import robust_layers as robust_modules
+from ...models import feature_adapters, image_adapters
 from ..utils.loss import RobustDetectLoss
+
+ADAPTER_MODULES = [image_adapters, feature_adapters]
+
+try:
+    from ...models.feature_adapters import baselines as feature_adapter_baselines
+    from ...models.image_adapters import baselines as image_adapter_baselines
+
+    ADAPTER_MODULES += [image_adapter_baselines, feature_adapter_baselines]
+except ImportError:
+    image_adapter_baselines = None
+    feature_adapter_baselines = None
 
 
 class RobustDetectionModel(tasks.DetectionModel):
@@ -201,10 +212,13 @@ class RobustYOLOv10DetectionModel(RobustDetectionModel):
 def get_module(module: str) -> type[nn.Module]:
     if module.startswith("nn."):
         return getattr(nn, module[3:])
-    elif module.startswith("robust_modules."):
-        return getattr(robust_modules, module[15:])
-    else:
-        return getattr(modules, module)
+
+    for submodule in ADAPTER_MODULES:
+        prefix = f"{submodule.__name__}."
+        if module.startswith(prefix):
+            return getattr(submodule, module[len(prefix) :])
+
+    return getattr(modules, module)
 
 
 def parse_robust_model(
@@ -244,6 +258,9 @@ def parse_robust_model(
     for i, (f, n, m_name, args) in enumerate(
         d["backbone"] + d["robust"] + d["head"]
     ):  # from, number, module, args
+        # backward compatibility with old checkpoints
+        if m_name.startswith("robust_modules."):
+            m_name = m_name.replace("robust_modules.", f"{feature_adapters.__name__}.")
         m = get_module(m_name)
 
         for j, a in enumerate(args):
@@ -349,7 +366,9 @@ def parse_robust_model(
             args = [c1, c2, *args[1:]]
         elif m is modules.CBFuse:
             c2 = ch[f[-1]]
-        elif m_name.startswith("robust_modules."):
+        elif any(
+            m_name.startswith(f"{module.__name__}.") for module in ADAPTER_MODULES
+        ):
             c2 = ch[f]
             args = [c2, *args]
         else:
