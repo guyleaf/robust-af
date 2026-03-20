@@ -54,6 +54,11 @@ class RobustDetectionModel(tasks.DetectionModel):
         tasks.parse_model = parse_robust_model
         super().__init__(cfg=yaml, ch=ch, nc=nc, verbose=verbose)
 
+    # handle missing attributes during unpicking
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        self.__dict__.setdefault("robust_image_layer_range", (0, 0))
+
     def _map_state_dict(self, csd: dict, verbose: bool = False):
         sd = self.state_dict()
 
