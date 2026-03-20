@@ -23,11 +23,11 @@ SimpleNN = register()(feature_adapters.SimpleNN)
 
 # baselines
 try:
-    from ...models.image_adapters import baselines as image_baselines
-    # from ...models.feature_adapters import baselines as feature_baselines
+    from ...models.image_adapters import baselines as image_adapter_baselines
+    # from ...models.feature_adapters import baselines as feature_adapter_baselines
 
     # image-level adapters
-    DENet = register()(image_baselines.DENet)
+    DENet = register()(image_adapter_baselines.DENet)
 
     # feature-level adapters
 except ImportError:
