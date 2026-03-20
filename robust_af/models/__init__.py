@@ -1,5 +1,5 @@
 # ruff: noqa: F401
-from . import feature_adapters
+from . import feature_adapters, image_adapters
 from .frozen_batch_norm import (
     FrozenBatchNorm2d,
     FrozenBatchNormConverterMixin,

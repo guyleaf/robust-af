@@ -1,9 +1,8 @@
 from rtdetrv2.core import register
 
-from ...models import feature_adapters, image_adapters
+from ...models import feature_adapters
 
 # image-level adapters
-DENet = register()(image_adapters.DENet)
 
 # feature-level adapters
 AMFG = register()(feature_adapters.AMFG)
@@ -20,3 +19,16 @@ FrequencyAFR = register()(feature_adapters.FrequencyAFR)
 SpatialAFRDebug = register()(feature_adapters.afr.SpatialAFRDebug)
 
 SimpleNN = register()(feature_adapters.SimpleNN)
+
+
+# baselines
+try:
+    from ...models.image_adapters import baselines as image_baselines
+    # from ...models.feature_adapters import baselines as feature_baselines
+
+    # image-level adapters
+    DENet = register()(image_baselines.DENet)
+
+    # feature-level adapters
+except ImportError:
+    pass
