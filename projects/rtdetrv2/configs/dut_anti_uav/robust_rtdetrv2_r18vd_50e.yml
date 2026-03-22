@@ -7,7 +7,7 @@ __include__:
     "../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_in_only_relu_style_loss_no_train_heads_no_color_augs_in_clear
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_afr_relu_no_train_heads_no_color_augs_in_clear
 
 RobustRTDETR:
   train_heads: False
@@ -36,11 +36,11 @@ RobustRTDETR:
 #     - { type: AFR, embed_dims: 256 }
 #     - { type: AFR, embed_dims: 512 }
 
-# MultiScaleProcessor:
-#   modules:
-#     - { type: AFR, embed_dims: 128, activation: ReLU }
-#     - { type: AFR, embed_dims: 256, activation: ReLU }
-#     - { type: AFR, embed_dims: 512, activation: ReLU }
+MultiScaleProcessor:
+  modules:
+    - { type: AFR, embed_dims: 128, activation: ReLU }
+    - { type: AFR, embed_dims: 256, activation: ReLU }
+    - { type: AFR, embed_dims: 512, activation: ReLU }
 
 # MultiScaleProcessor:
 #   modules:
@@ -54,35 +54,38 @@ RobustRTDETR:
 #     - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
 #     - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
 
-MultiScaleProcessor:
-  modules:
-    - type: SpatialAFR
-      embed_dims: 128
-      spatial_cfg: { conv: False, activation: ~ }
-      activation: ReLU
+# MultiScaleProcessor:
+#   modules:
+#     - type: SpatialAFR
+#       embed_dims: 128
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
 
-    - type: SpatialAFR
-      embed_dims: 256
-      spatial_cfg: { conv: False, activation: ~ }
-      activation: ReLU
+#     - type: SpatialAFR
+#       embed_dims: 256
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
 
-    - type: SpatialAFR
-      embed_dims: 512
-      spatial_cfg: { conv: False, activation: ~ }
-      activation: ReLU
+#     - type: SpatialAFR
+#       embed_dims: 512
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
 
-criterion: RobustCriterionv2
-RobustCriterionv2:
-  model_loss: RTDETRCriterionv2
-  content_loss:
-    type: MSELoss
-    reduction: none
-  style_loss:
-    type: MSELoss
-    reduction: none
-  weight_dict:
-    loss_content: 20
-    loss_style: 20
+# RobustCriterion:
+#   cst_loss: ~
+
+# criterion: RobustCriterionv2
+# RobustCriterionv2:
+#   model_loss: RTDETRCriterionv2
+#   content_loss:
+#     type: MSELoss
+#     reduction: none
+#   style_loss:
+#     type: MSELoss
+#     reduction: none
+#   weight_dict:
+#     loss_content: 20
+#     loss_style: 20
 
 epoches: 50
 

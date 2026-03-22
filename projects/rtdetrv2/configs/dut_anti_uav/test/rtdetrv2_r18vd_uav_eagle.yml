@@ -8,6 +8,6 @@ __include__: [
     "../../common/models/rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/uav_eagle/rtdetrv2_r18vd_120e_degraded
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/uav_eagle/rtdetrv2_r18vd_120e_degraded_3
 
 use_ema: True

@@ -1,0 +1,53 @@
+__include__:
+  [
+    "../common/dataset/dut_anti_uav_degraded_detection.yml",
+    "../common/runtime.yml",
+    "../common/robust_dataloader.yml",
+    "../common/optimizer.yml",
+    "../common/models/robust_rtdetrv2_r18vd.yml",
+  ]
+
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_denet_cst_loss_no_train_heads_no_color_augs_in_clear
+
+RobustRTDETR:
+  train_heads: False
+  robust_image_module: DENet
+  robust_module: ~
+
+DENet:
+  # original code bug: mm1 used for all 4 branches
+  # compat_mode=True => their config in source code
+  # compat_mode=False => their config in paper
+  compat_mode: False
+
+RobustCriterion:
+  image_cst_loss:
+    type: MSELoss
+    reduction: none
+  # image_cst_loss: ~
+  cst_loss: ~
+  weight_dict:
+    loss_image_cst: 20
+    loss_cst: 20
+
+epoches: 50
+
+optimizer:
+  type: AdamW
+  lr: 0.0005
+  params:
+    - params: "^(?=.*(?:norm|bn|BN|IN)).*$"
+      weight_decay: 0.
+
+# lr_scheduler:
+#   type: MultiStepLR
+#   milestones: [100]
+#   gamma: 0.1
+
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 47
+  collate_fn:
+    scales: ~
