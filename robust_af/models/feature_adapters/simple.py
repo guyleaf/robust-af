@@ -3,14 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-
-def _build_activation(name: str, **kwargs) -> nn.Module:
-    kwargs_ = {"inplace": True, **kwargs}
-    act = getattr(nn, name)
-    try:
-        return act(**kwargs_)
-    except Exception:
-        return act(**kwargs)
+from ...utils import build_activation
 
 
 class SimpleNN(nn.Module):
@@ -24,7 +17,7 @@ class SimpleNN(nn.Module):
         self.conv = nn.Conv2d(embed_dims, embed_dims, kernel_size=3, padding=1)
         self.norm = nn.GroupNorm(num_groups, embed_dims)
         if activation is not None:
-            self.act = _build_activation(activation)
+            self.act = build_activation(activation)
         else:
             self.act = None
 

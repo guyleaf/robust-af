@@ -22,6 +22,15 @@ def convert_to_batchnorm_2d(module: nn.Module):
     return module
 
 
+def build_activation(name: str, **kwargs) -> nn.Module:
+    kwargs_ = {"inplace": True, **kwargs}
+    act = getattr(nn, name)
+    try:
+        return act(**kwargs_)
+    except Exception:
+        return act(**kwargs)
+
+
 def unfreeze_modules_and_parameters(
     modules_and_parameters: List[Union[nn.Module, nn.Parameter]],
 ) -> List[Union[nn.Module, nn.Parameter]]:
