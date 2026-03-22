@@ -66,13 +66,14 @@ class RobustDINOv2(DINO):
         train_level_embed: bool = False,
         train_cdn: bool = False,
         train_heads: bool = True,
+        train_all: bool = False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.robust_image_module = robust_image_module
         self.robust_module = robust_module
 
-        self.training_parts: List[Union[nn.Module, nn.Parameter]] = [self.robust_module]
+        self.training_parts: List[Union[nn.Module, nn.Parameter]] = []
         if self.with_robust_image_module:
             self.training_parts += [self.robust_image_module]
         if self.with_robust_module:
@@ -95,7 +96,9 @@ class RobustDINOv2(DINO):
             self.training_parts += [self.label_enc]
         if train_heads:
             self.training_parts += [self.class_embed, self.bbox_embed]
-        self.freeze()
+
+        if not train_all:
+            self.freeze()
 
     def freeze(self):
         self = freeze_all(self)
