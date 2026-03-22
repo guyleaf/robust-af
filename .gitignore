@@ -1,3 +1,5 @@
+# use workspace settings instead of .vscode
+.vscode/
 wandb/
 *.pth
 *.pt

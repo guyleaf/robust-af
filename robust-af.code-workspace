@@ -66,9 +66,11 @@
       "${workspaceFolder:experiments}",
       "${workspaceFolder:checkpoints}",
     ],
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
     "python-envs.pythonProjects": [
       {
-        "path": "",
+        "path": ".",
         "envManager": "ms-python.python:conda",
         "packageManager": "ms-python.python:conda",
       },
