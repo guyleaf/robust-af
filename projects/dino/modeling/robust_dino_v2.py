@@ -20,6 +20,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from detectron2.data.detection_utils import convert_image_to_rgb
+from detectron2.structures import ImageList
 from detectron2.structures.instances import Instances
 from detectron2.utils.events import get_event_storage
 
@@ -143,38 +144,69 @@ class RobustDINOv2(DINO):
             storage.put_image(vis_name, vis_img)
             break  # only visualize one image in a batch
 
+    def preprocess_image(
+        self, batched_inputs: list[dict], robust: bool = True, returns_rhs: bool = False
+    ):
+        rhs_dict = {}
+        # image-level restoration
+        if self.with_robust_image_module:
+            images = [x["image"].to(self.device) for x in batched_inputs]
+            images = ImageList.from_tensors(images)
+
+            # x's value range: [0, 255]
+            # by interface design, the value range must be [0, 1].
+            images.tensor = images.tensor / 255
+            if robust:
+                images.tensor = self.robust_image_module(images.tensor)
+                # make paddings zero again after restoration
+                for i, (h, w) in enumerate(images.image_sizes):
+                    images.tensor[i, :, h:, :] = 0
+                    images.tensor[i, :, :, w:] = 0
+            rhs_dict["image_rhss"] = images.tensor
+            images.tensor = images.tensor * 255
+
+            # normalize x by ImageNet statistics
+            for i, (h, w) in enumerate(images.image_sizes):
+                image = images.tensor[i, :, :h, :w]
+                images.tensor[i, :, :h, :w] = self.normalizer(image)
+        else:
+            images = super().preprocess_image(batched_inputs)
+
+        if returns_rhs:
+            return images, rhs_dict
+        else:
+            return images
+
     def _extract_feats(
         self, images: torch.Tensor, robust: bool = True, returns_rhs: bool = False
     ):
-        # image-level restoration
-        if robust and self.with_robust_image_module:
-            images = self.robust_image_module(images)
-        image_rhss = images
-
         # original features
         features = self.backbone(images)  # output feature dict
 
+        rhs_dict = {}
         # feature-level restoration
-        if robust and self.with_robust_module:
-            features = self.robust_module(features)
-        rhss = features
+        if self.with_robust_module:
+            if robust:
+                features = self.robust_module(features)
+            rhs_dict["rhss"] = features
 
         # project backbone features to the required dimension of transformer
         # we use multi-scale features in DINO
         features = self.neck(features)
         if returns_rhs:
-            return features, {"image_rhss": image_rhss, "rhss": rhss}
+            return features, rhs_dict
         else:
             return features
 
     def _loss(self, batched_inputs: list[dict]):
-        images = self.preprocess_image(batched_inputs)
+        images, image_rhs_dict = self.preprocess_image(batched_inputs, returns_rhs=True)
         multi_level_feats, rhs_dict = self._extract_feats(
             images.tensor, returns_rhs=True
         )
         output = self._forward_transformer(
             multi_level_feats, images.tensor.shape[2:], batched_inputs
         )
+        output.update(image_rhs_dict)
         output.update(rhs_dict)
 
         # visualize training samples
@@ -188,11 +220,15 @@ class RobustDINOv2(DINO):
 
         # clear features are only for loss calculation.
         clear_batched_inputs = [inputs["clear"] for inputs in batched_inputs]
-        images = self.preprocess_image(clear_batched_inputs)
         with torch.no_grad():
+            images, image_rhs_dict = self.preprocess_image(
+                clear_batched_inputs, robust=False, returns_rhs=True
+            )
             multi_level_feats, rhs_dict = self._extract_feats(
                 images.tensor, robust=False, returns_rhs=True
             )
+            for k, v in image_rhs_dict.items():
+                output[f"clear_{k}"] = v
             for k, v in rhs_dict.items():
                 output[f"clear_{k}"] = v
 
