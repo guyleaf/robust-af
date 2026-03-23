@@ -28,6 +28,7 @@ class RobustRTDETR(RTDETR):
         train_query_selection: bool = False,
         train_cdn: bool = False,
         train_heads: bool = True,
+        train_all: bool = False,
     ):
         super().__init__(backbone, encoder, decoder)
         self.robust_image_module = robust_image_module
@@ -49,7 +50,9 @@ class RobustRTDETR(RTDETR):
             self.training_parts += [decoder.denoising_class_embed]
         if train_heads:
             self.training_parts += [decoder.dec_score_head, decoder.dec_bbox_head]
-        self._freeze()
+
+        if not train_all:
+            self._freeze()
 
     def _freeze(self):
         self = freeze_all(self)
@@ -93,27 +96,28 @@ class RobustRTDETR(RTDETR):
         x.squeeze_()
         clear_x.squeeze_()
 
-        # rhs => robust_hidden_states
-        with torch.no_grad():
-            rhs_dict = {
-                "clear_image_rhss": clear_x,
-                "clear_rhss": self.backbone(clear_x),
-            }
-
+        rhs_dict = {}
         # image-level restoration
         if self.with_robust_image_module:
             x = rhs_dict["image_rhss"] = self.robust_image_module(x)
+            rhs_dict["clear_image_rhss"] = clear_x
 
         x = self.backbone(x)
+
+        # IMPORTANT: backbone must be called on the gradient-required path
+        # BEFORE the torch.no_grad() path. Reversing the order causes
+        # SyncBN/BN internal state from the no_grad forward to break the
+        # gradient graph for early backbone layers, triggering DDP
+        # "parameters not used in producing loss" errors.
 
         # feature-level restoration
         if self.with_robust_module:
             x = rhs_dict["rhss"] = self.robust_module(x)
+            with torch.no_grad():
+                rhs_dict["clear_rhss"] = self.backbone(clear_x)
 
         x = self.encoder(x)
         x = self.decoder(x, targets)
-
-        assert isinstance(x, dict)
         x.update(rhs_dict)
         return x
 
