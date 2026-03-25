@@ -20,6 +20,7 @@ from .io import (
 )
 from .misc import allow_tf32_precision, format_size, is_debug_mode, wrap_method
 from .model import (
+    build_activation,
     convert_to_batchnorm_2d,
     convert_to_frozen_batchnorm_2d,
     freeze_all,

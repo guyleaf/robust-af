@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from einops.layers.torch import Rearrange
 
-from ...utils import is_debug_mode
+from ...utils import build_activation, is_debug_mode
 
 
 def _check_nan(x):
@@ -17,15 +17,6 @@ def _check_nan(x):
         logger.error("x has NaNs.", stack_info=True)
     if torch.any(torch.isinf(x)):
         logger.error("x has infs.", stack_info=True)
-
-
-def _build_activation(name: str, **kwargs) -> nn.Module:
-    kwargs_ = {"inplace": True, **kwargs}
-    act = getattr(nn, name)
-    try:
-        return act(**kwargs_)
-    except Exception:
-        return act(**kwargs)
 
 
 class AFR(nn.Module):
@@ -45,7 +36,7 @@ class AFR(nn.Module):
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
         if activation is not None:
-            self.act = _build_activation(activation)
+            self.act = build_activation(activation)
         else:
             self.act = None
 
@@ -79,7 +70,7 @@ class SpatialAFR(nn.Module):
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
         if activation is not None:
-            self.act = _build_activation(activation)
+            self.act = build_activation(activation)
         else:
             self.act = None
 
@@ -175,7 +166,7 @@ class SpatialBlock(nn.Module):
             self.conv = None
 
         if activation is not None:
-            self.act = _build_activation(activation)
+            self.act = build_activation(activation)
         else:
             self.act = None
 
@@ -278,7 +269,7 @@ class SpatialAFRDebug(nn.Module):
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
         if activation is not None:
-            self.act = _build_activation(activation)
+            self.act = build_activation(activation)
         else:
             self.act = None
 
@@ -333,7 +324,7 @@ class SpatialAFRGroup(nn.Module):
 
         # self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
         # if activation is not None:
-        #     self.act = _build_activation(activation)
+        #     self.act = build_activation(activation)
         # else:
         #     self.act = None
 
