@@ -9,7 +9,7 @@ from projects.dino.modeling import (
 )
 from robust_af.detrex.modeling import MultiScaleProcessor
 from robust_af.detrex.modeling.criterion import RobustCriterionv2
-from robust_af.models.robust_layers import AMFG
+from robust_af.models.feature_adapters import AMFG
 
 from .dino_r50 import model as dino_model
 

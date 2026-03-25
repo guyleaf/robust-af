@@ -448,15 +448,20 @@ class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
 
     def get_validator(self):
         """Returns a DetectionValidator for YOLO model validation."""
+        model_yaml = de_parallel(self.model).yaml
         self.loss_names = (
-            "box_om",
-            "cls_om",
-            "dfl_om",
-            "box_oo",
-            "cls_oo",
-            "dfl_oo",
-        ) + tuple(
-            f"cst_{i}" for i in range(len(de_parallel(self.model).yaml["robust"]))
+            (
+                "box_om",
+                "cls_om",
+                "dfl_om",
+                "box_oo",
+                "cls_oo",
+                "dfl_oo",
+            )
+            + tuple(
+                f"img_cst_{i}" for i in range(len(model_yaml.get("robust_image", [])))
+            )
+            + tuple(f"cst_{i}" for i in range(len(model_yaml.get("robust", []))))
         )
         return RobustYOLOv10DetectionValidator(
             self.test_loader,

@@ -10,7 +10,7 @@ from projects.dino.modeling import (
     RobustDINOTransformerEncoder,
 )
 from robust_af.detrex.modeling.criterion import RobustCriterion
-from robust_af.models.robust_layers import AMFG
+from robust_af.models.feature_adapters import AMFG
 
 from .dino_r50 import model as dino_model
 

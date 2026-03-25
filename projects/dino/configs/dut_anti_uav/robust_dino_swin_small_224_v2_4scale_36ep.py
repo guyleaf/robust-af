@@ -4,7 +4,7 @@ from detectron2.config import LazyCall as L
 
 from robust_af.detrex.configs import get_config
 from robust_af.detrex.modeling import MultiScaleProcessor
-from robust_af.models.robust_layers import SpatialAFR
+from robust_af.models.feature_adapters import AFR
 
 from .robust_dino_swin_small_224_v2_4scale_12ep import (  # noqa: F401
     DATASET_NAME,
@@ -35,6 +35,11 @@ num_epochs = 36
 #     p2=L(AMFGv2)(embed_dims=384),
 #     p3=L(AMFGv2)(embed_dims=768),
 # )
+model.robust_module = L(MultiScaleProcessor)(
+    p1=L(AFR)(embed_dims=192, activation="ReLU"),
+    p2=L(AFR)(embed_dims=384, activation="ReLU"),
+    p3=L(AFR)(embed_dims=768, activation="ReLU"),
+)
 # model.robust_module = L(MultiScaleProcessor)(
 #     p1=L(SpatialAFR)(embed_dims=192, activation="ReLU"),
 #     p2=L(SpatialAFR)(embed_dims=384, activation="ReLU"),
@@ -45,14 +50,17 @@ num_epochs = 36
 #     p2=L(SpatialAFR)(embed_dims=384, spatial_cfg=dict(conv=False, activation=None)),
 #     p3=L(SpatialAFR)(embed_dims=768, spatial_cfg=dict(conv=False, activation=None)),
 # )
-model.robust_module = L(MultiScaleProcessor)(
-    p1=L(SpatialAFR)(embed_dims=192, activation="ReLU", spatial_cfg=dict(conv=False, activation=None)),
-    p2=L(SpatialAFR)(embed_dims=384, activation="ReLU", spatial_cfg=dict(conv=False, activation=None)),
-    p3=L(SpatialAFR)(embed_dims=768, activation="ReLU", spatial_cfg=dict(conv=False, activation=None)),
-)
+# model.robust_module = L(MultiScaleProcessor)(
+#     p1=L(SpatialAFR)(embed_dims=192, activation="ReLU", spatial_cfg=dict(conv=False, activation=None)),
+#     p2=L(SpatialAFR)(embed_dims=384, activation="ReLU", spatial_cfg=dict(conv=False, activation=None)),
+#     p3=L(SpatialAFR)(embed_dims=768, activation="ReLU", spatial_cfg=dict(conv=False, activation=None)),
+# )
+
+# no cst loss
+# model.criterion.loss_cst = None
 
 # modify training config
-train.output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/robust_dino_swin_small_224_v2_4scale_36ep_1e-5_lr_spatial_afr_in_only_relu_no_train_heads_from_24ep"
+train.output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/robust_dino_swin_small_224_v2_4scale_36ep_1e-5_lr_afr_relu_no_train_heads_from_24ep"
 
 # max training iterations
 train.max_iter = num_epochs * num_batches

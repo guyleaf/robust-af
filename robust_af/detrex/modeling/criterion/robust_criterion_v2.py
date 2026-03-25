@@ -10,8 +10,9 @@ class RobustCriterionv2(nn.Module):
     def __init__(
         self,
         criterion: nn.Module,
+        weight_dict: dict,
+        loss_image_cst: Optional[nn.Module] = None,
         loss_cst: Optional[nn.Module] = None,
-        weight_dict: dict = {"loss_cst": 20.0},
     ):
         """Create the criterion.
 
@@ -26,71 +27,36 @@ class RobustCriterionv2(nn.Module):
             weight_dict.update(criterion.weight_dict)
 
         self.criterion = criterion
+        self.loss_image_cst = loss_image_cst
         self.loss_cst = loss_cst
         self.weight_dict = weight_dict
 
-    def forward(self, outputs, targets, dn_metas=None):
-        """This performs the loss computation.
-        Parameters:
-             outputs: dict of tensors, see the output specification of the model for the format
-             targets: list of dicts, such that len(targets) == batch_size.
-                      The expected keys in each dict depends on the losses applied, see each loss' doc
-        """
-        losses = self.criterion(outputs, targets, dn_metas=dn_metas)
-
-        # Compute all the requested losses
-
-        cst_losses = self.compute_cst_loss(outputs)
-        losses.update(cst_losses)
-
-        return losses
-
-    def compute_cst_loss(self, outputs: dict):
-        if self.loss_cst is None:
-            return {}
-
-        robust_hidden_states: dict[str, torch.Tensor] = outputs["robust_hidden_states"]
-        clear_robust_hidden_states: dict[str, torch.Tensor] = outputs[
-            "clear_robust_hidden_states"
-        ]
-
-        losses = {}
-        for k in robust_hidden_states:
-            loss: torch.Tensor = self.loss_cst(
-                robust_hidden_states[k], clear_robust_hidden_states[k]
-            )
-            # mean over the feature dims & mean over batch_size
-            indices = list(range(1, loss.ndim))
-            loss = loss.mean(indices).mean()
-            losses[f"loss_cst_{k}"] = loss
-        return losses
-
-
-class RobustCriterionv2Debug(nn.Module):
-    def __init__(
+    def compute_image_cst_loss(
         self,
-        criterion: nn.Module,
-        loss_content: nn.Module,
-        loss_style: nn.Module,
-        weight_dict: dict,
+        rhss: torch.Tensor,
+        clear_rhss: torch.Tensor,
+        prefix: str = "loss_image_cst",
     ):
-        """Create the criterion.
+        loss: torch.Tensor = self.loss_image_cst(rhss, clear_rhss)
+        # mean over the feature dims & mean over batch_size
+        indices = list(range(1, loss.ndim))
+        loss = loss.mean(indices).mean()
+        return {prefix: loss}
 
-        Parameters:
-            criterion: model criterion.
-            loss_content: loss for calculating consistency error for content. Must set reduction=none.
-            loss_style: loss for calculating consistency error for style. Must set reduction=none.
-            weight_dict: dict containing as key the names of the losses and as values their relative weight.
-            start_suffix_index: Start index of losses for robust hidden states. Defaults to 0.
-        """
-        super().__init__()
-        if hasattr(criterion, "weight_dict"):
-            weight_dict.update(criterion.weight_dict)
-
-        self.criterion = criterion
-        self.loss_content = loss_content
-        self.loss_style = loss_style
-        self.weight_dict = weight_dict
+    def compute_cst_loss(
+        self,
+        rhss: dict[str, torch.Tensor],
+        clear_rhss: dict[str, torch.Tensor],
+        prefix: str = "loss_cst",
+    ):
+        losses = {}
+        for k in rhss:
+            loss: torch.Tensor = self.loss_cst(rhss[k], clear_rhss[k])
+            # mean over the feature dims & mean over batch_size
+            indices = list(range(1, loss.ndim))
+            loss = loss.mean(indices).mean()
+            losses[f"{prefix}_{k}"] = loss
+        return losses
 
     def forward(self, outputs, targets, dn_metas=None):
         """This performs the loss computation.
@@ -101,54 +67,15 @@ class RobustCriterionv2Debug(nn.Module):
         """
         losses = self.criterion(outputs, targets, dn_metas=dn_metas)
 
-        # Compute all the requested losses
-        rhs = outputs["robust_hidden_states"]
-        clear_rhs = outputs["clear_robust_hidden_states"]
+        if self.loss_image_cst is not None:
+            rhss: torch.Tensor = outputs["image_rhss"]
+            clear_rhss: torch.Tensor = outputs["clear_image_rhss"]
+            cst_losses = self.compute_image_cst_loss(rhss, clear_rhss)
+            losses.update(cst_losses)
 
-        content_losses = self.compute_content_loss(rhs, clear_rhs)
-        losses.update(content_losses)
-
-        style_losses = self.compute_style_loss(rhs, clear_rhs)
-        losses.update(style_losses)
-        return losses
-
-    def compute_content_loss(
-        self, rhs: dict[str, torch.Tensor], clear_rhs: dict[str, torch.Tensor]
-    ):
-        losses = {}
-        # layer by layer
-        for k in rhs:
-            loss: torch.Tensor = self.loss_content(rhs[k], clear_rhs[k])
-            # mean over the feature dims & mean over batch_size
-            indices = list(range(1, loss.ndim))
-            loss = loss.mean(indices).mean()
-            losses[f"loss_content_{k}"] = loss
-        return losses
-
-    def compute_style_loss(
-        self, rhs: dict[str, torch.Tensor], clear_rhs: dict[str, torch.Tensor]
-    ):
-        losses = {}
-        # layer by layer
-        for k in rhs:
-            feats = rhs[k]
-            clear_feats = clear_rhs[k]
-
-            # calculate statistics of feature maps for each channel
-            indices = list(range(2, feats.ndim))
-            # [B, C]
-            stds, means = torch.std_mean(feats, dim=indices, correction=0)
-            clear_stds, clear_means = torch.std_mean(
-                clear_feats, dim=indices, correction=0
-            )
-
-            # calculate style loss
-            # [B, C]
-            loss_means: torch.Tensor = self.loss_style(means, clear_means)
-            loss_stds: torch.Tensor = self.loss_style(stds, clear_stds)
-            loss = loss_means + loss_stds
-
-            # mean over the channels & mean over batch_size
-            loss = loss.mean(dim=1).mean()
-            losses[f"loss_style_{k}"] = loss
+        if self.loss_cst is not None:
+            rhss: dict[str, torch.Tensor] = outputs["rhss"]
+            clear_rhss: dict[str, torch.Tensor] = outputs["clear_rhss"]
+            cst_losses = self.compute_cst_loss(rhss, clear_rhss)
+            losses.update(cst_losses)
         return losses

@@ -1,8 +1,11 @@
 import pickle
 
 _ENV_SETUP_DONE = False
-# map old package to new namespace while loading pickle objects
-_MODULE_PREFIX_MAP = {"robust_au_od": "robust_af"}
+# map old package/module to new namespace while unpicking objects
+_MODULE_PREFIX_MAP = {
+    "robust_au_od": "robust_af",
+    "robust_af.models.robust_layers": "robust_af.models.feature_adapters",
+}
 
 
 class UnpicklerWrapper(pickle.Unpickler):

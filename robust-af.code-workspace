@@ -1,56 +1,81 @@
 {
   "folders": [
     {
-      "path": "."
+      "name": "project",
+      "path": ".",
     },
     {
-      "path": "/home/leafying/work/work_dirs"
+      "path": "/home/leafying/work/work_dirs",
     },
     {
-      "path": "/home/leafying/work/experiments"
+      "path": "/home/leafying/work/experiments",
     },
     {
-      "path": "/home/leafying/data/checkpoints"
+      "path": "/home/leafying/data/checkpoints",
     },
     {
-      "path": "/home/leafying/archive"
-    }
+      "path": "/home/leafying/archive",
+    },
   ],
   "settings": {
     "files.watcherExclude": {
       "**/.git/objects/**": true,
       "**/.git/subtree-cache/**": true,
       "**/.hg/store/**": true,
+      "${workspaceFolder:project}/projects/dino/datasets/**": true,
+      "${workspaceFolder:project}/projects/dino/outputs/**": true,
+      "${workspaceFolder:project}/projects/rtdetrv2/dataset/**": true,
+      "${workspaceFolder:project}/projects/rtdetrv2/output/**": true,
+      "${workspaceFolder:project}/projects/yolov10/datasets/**": true,
+      "${workspaceFolder:project}/projects/yolov10/yolov10/**": true,
+      "${workspaceFolder:project}/projects/yolov10/runs/**": true,
       "${workspaceFolder:work_dirs}/**": true,
       "${workspaceFolder:archive}/**": true,
       "${workspaceFolder:experiments}/**": true,
-      "${workspaceFolder:checkpoints}/**": true
+      "${workspaceFolder:checkpoints}/**": true,
     },
     "search.exclude": {
       "**/node_modules": true,
       "**/bower_components": true,
       "**/*.code-search": true,
+      "${workspaceFolder:project}/projects/dino/datasets": true,
+      "${workspaceFolder:project}/projects/dino/outputs": true,
+      "${workspaceFolder:project}/projects/rtdetrv2/dataset": true,
+      "${workspaceFolder:project}/projects/rtdetrv2/output": true,
+      "${workspaceFolder:project}/projects/yolov10/datasets": true,
+      "${workspaceFolder:project}/projects/yolov10/yolov10": true,
+      "${workspaceFolder:project}/projects/yolov10/runs": true,
       "${workspaceFolder:work_dirs}": true,
       "${workspaceFolder:archive}": true,
       "${workspaceFolder:experiments}": true,
-      "${workspaceFolder:checkpoints}": true
+      "${workspaceFolder:checkpoints}": true,
     },
     "python.analysis.exclude": [
       "**/node_modules",
       "**/__pycache__",
       "**/.*",
+      "${workspaceFolder:project}/projects/dino/datasets",
+      "${workspaceFolder:project}/projects/dino/outputs",
+      "${workspaceFolder:project}/projects/rtdetrv2/dataset",
+      "${workspaceFolder:project}/projects/rtdetrv2/output",
+      "${workspaceFolder:project}/projects/yolov10/datasets",
+      "${workspaceFolder:project}/projects/yolov10/yolov10",
+      "${workspaceFolder:project}/projects/yolov10/runs",
       "${workspaceFolder:work_dirs}",
       "${workspaceFolder:archive}",
       "${workspaceFolder:experiments}",
-      "${workspaceFolder:checkpoints}"
+      "${workspaceFolder:checkpoints}",
     ],
     "python-envs.pythonProjects": [
       {
         "path": "",
         "envManager": "ms-python.python:conda",
-        "packageManager": "ms-python.python:conda"
-      }
+        "packageManager": "ms-python.python:conda",
+      },
     ],
-    "python.analysis.extraPaths": ["${workspaceFolder}/3rdparty/yolov10"]
-  }
+    "python.analysis.extraPaths": [
+      "${workspaceFolder:project}/3rdparty/yolov10",
+      "${workspaceFolder:project}/3rdparty/DENet",
+    ],
+  },
 }

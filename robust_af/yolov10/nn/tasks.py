@@ -12,8 +12,19 @@ from ultralytics.utils.torch_utils import (
     make_divisible,
 )
 
-from ...models import robust_layers as robust_modules
+from ...models import feature_adapters, image_adapters
 from ..utils.loss import RobustDetectLoss
+
+ADAPTER_MODULES = [image_adapters, feature_adapters]
+
+try:
+    from ...models.feature_adapters import baselines as feature_adapter_baselines
+    from ...models.image_adapters import baselines as image_adapter_baselines
+
+    ADAPTER_MODULES += [image_adapter_baselines, feature_adapter_baselines]
+except ImportError:
+    image_adapter_baselines = None
+    feature_adapter_baselines = None
 
 
 class RobustDetectionModel(tasks.DetectionModel):
@@ -26,42 +37,70 @@ class RobustDetectionModel(tasks.DetectionModel):
     ):  # model, input channels, number of classes
         """Initialize the Robust YOLOv8 detection model with the given config and parameters."""
         yaml = cfg if isinstance(cfg, dict) else tasks.yaml_model_load(cfg)  # cfg dict
+
+        # determine the range of robust layers
+        num_robust_image = len(yaml.get("robust_image", []))
+        num_backbone = len(yaml["backbone"])
+        num_image = len(yaml.get("robust", []))
+        # [start, end)
+        self.robust_image_layer_range = (0, num_robust_image)
         self.robust_layer_range = (
-            len(yaml["backbone"]),
-            len(yaml["backbone"]) + len(yaml["robust"]),
+            num_robust_image + num_backbone,
+            num_robust_image + num_backbone + num_image,
         )
+
         # A workaround to replace the parsing function
         # Ultralytics codebase is messy. (QQ)
         tasks.parse_model = parse_robust_model
         super().__init__(cfg=yaml, ch=ch, nc=nc, verbose=verbose)
 
+    # handle missing attributes during unpicking
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        self.__dict__.setdefault("robust_image_layer_range", (0, 0))
+
     def _map_state_dict(self, csd: dict, verbose: bool = False):
         sd = self.state_dict()
 
-        num_robust_layers = self.robust_layer_range[1] - self.robust_layer_range[0]
-        num_robust_keys = 0
-        for i in range(*self.robust_layer_range):
-            num_robust_keys += len(self.model[i].state_dict())
+        # calculate number of robust layers
+        num_robust_image = (
+            self.robust_image_layer_range[1] - self.robust_image_layer_range[0]
+        )
+        num_robust = self.robust_layer_range[1] - self.robust_layer_range[0]
+        num_inserted = num_robust_image + num_robust
 
-        # for compatibility, map the weights to correct index
-        if len(csd) + num_robust_keys == len(sd):
+        # calculate number of parameters in robust layers
+        num_inserted_keys = 0
+        for i in range(*self.robust_image_layer_range):
+            num_inserted_keys += len(self.model[i].state_dict())
+        for i in range(*self.robust_layer_range):
+            num_inserted_keys += len(self.model[i].state_dict())
+
+        # for compatibility, handle base detector checkpoint
+        # map the weights to correct index
+        if len(csd) + num_inserted_keys == len(sd):
+            # Example
+            # checkpoint:                        backbone[0..10]                        head[11..23]
+            # model:       robust_image[0..R-1]  backbone[R..R+10]  robust[R+11..R+13]  head[R+14..R+26]
             new_csd = {}
+            backbone_end_in_ckpt = self.robust_layer_range[0] - num_robust_image
             for k, v in csd.items():
                 k_splits = k.split(".")
                 layer_i = int(k_splits[1])
 
-                if layer_i >= self.robust_layer_range[0]:
-                    # add the offset to put these layers behind the robust layers
-                    layer_i += num_robust_layers
+                if layer_i < backbone_end_in_ckpt:
+                    # backbone layer -> offset by num_robust_image
+                    layer_i += num_robust_image
+                else:
+                    # head layer -> offset by num_robust_image + num_robust
+                    layer_i += num_inserted
 
-                    k_splits[1] = str(layer_i)
-                    new_k = ".".join(k_splits)
-                    if verbose:
-                        LOGGER.info(
-                            f"{colorstr('load_state_dict:')} map {k} to {new_k}."
-                        )
-                    k = new_k
-                new_csd[k] = v
+                # map to new key
+                k_splits[1] = str(layer_i)
+                new_k = ".".join(k_splits)
+                if verbose:
+                    LOGGER.info(f"{colorstr('load_state_dict:')} map {k} to {new_k}.")
+                new_csd[new_k] = v
             csd = new_csd
         return csd
 
@@ -72,7 +111,7 @@ class RobustDetectionModel(tasks.DetectionModel):
         visualize: bool = False,
         embed: Optional[list] = None,
         robust: bool = True,
-        returns_robust_hidden_states: bool = False,
+        returns_rhss: bool = False,
     ):
         """
         Perform a forward pass through the network.
@@ -88,7 +127,7 @@ class RobustDetectionModel(tasks.DetectionModel):
         If returns_robust_hidden_states is True:
             (list[torch.Tensor]): The hidden states of robust layers.
         """
-        y, dt, embeddings, robust_hidden_states = [], [], [], []  # outputs
+        y, dt, embeddings, rhss = [], [], [], []  # outputs
         for i, m in enumerate(self.model):
             if m.f != -1:  # if not from previous layer
                 x = (
@@ -98,7 +137,8 @@ class RobustDetectionModel(tasks.DetectionModel):
                 )  # from earlier layers
 
             is_robust_layer = (
-                self.robust_layer_range[0] <= i < self.robust_layer_range[1]
+                self.robust_image_layer_range[0] <= i < self.robust_image_layer_range[1]
+                or self.robust_layer_range[0] <= i < self.robust_layer_range[1]
             )
             should_run = not is_robust_layer or robust
             if should_run:
@@ -107,8 +147,8 @@ class RobustDetectionModel(tasks.DetectionModel):
                 x = m(x)  # run
             # else act as identity
 
-            if returns_robust_hidden_states and is_robust_layer:
-                robust_hidden_states.append(x)
+            if returns_rhss and is_robust_layer:
+                rhss.append(x)
             y.append(x if m.i in self.save else None)  # save output
             if visualize:
                 feature_visualization(x, m.type, m.i, save_dir=visualize)
@@ -119,8 +159,9 @@ class RobustDetectionModel(tasks.DetectionModel):
                 if m.i == max(embed):
                     return torch.unbind(torch.cat(embeddings, 1), dim=0)
 
-        if returns_robust_hidden_states:
-            return x, robust_hidden_states
+        if returns_rhss:
+            index = self.robust_image_layer_range[1]
+            return x, (rhss[:index], rhss[index:])
         else:
             return x
 
@@ -165,46 +206,61 @@ class RobustDetectionModel(tasks.DetectionModel):
         )
 
         # NOTE: we need hidden states. so, we cannot reuse preds without returning hidden states.
-        preds, robust_hidden_states = self._predict_once(
-            img, returns_robust_hidden_states=True
-        )
+        preds, (image_rhss, rhss) = self._predict_once(img, returns_rhss=True)
         with torch.no_grad():
-            _, clear_robust_hidden_states = self._predict_once(
-                clear_img, robust=False, returns_robust_hidden_states=True
+            _, (clear_image_rhss, clear_rhss) = self._predict_once(
+                clear_img, robust=False, returns_rhss=True
             )
         preds = dict(
             preds=preds,
-            robust_hidden_states=robust_hidden_states,
-            clear_robust_hidden_states=clear_robust_hidden_states,
+            image_rhss=image_rhss,
+            clear_image_rhss=clear_image_rhss,
+            rhss=rhss,
+            clear_rhss=clear_rhss,
         )
         return self.criterion(preds, batch)
 
-    def _build_cst_loss(self, criterion):
-        if self.args.cst_loss is not None and self.args.cst_loss["module"] is not None:
-            cfg = self.args.cst_loss
-            cst_loss = get_module(cfg["module"])(reduction="none")
-            weight = cfg["weight"]
+    def _build_basic_loss(self, cfg) -> tuple[Optional[nn.Module], float]:
+        if cfg is None or cfg["module"] is None:
+            return None, 20
         else:
-            cst_loss = None
-            weight = 20
-        return RobustDetectLoss(criterion, cst_loss, weight=weight)
+            loss = get_module(cfg["module"])(reduction="none")
+            weight = cfg["weight"]
+            return loss, weight
+
+    def _build_robust_loss(self, criterion):
+        image_cst_loss, image_cst_loss_weight = self._build_basic_loss(
+            self.args.image_cst_loss
+        )
+        cst_loss, cst_loss_weight = self._build_basic_loss(self.args.cst_loss)
+        return RobustDetectLoss(
+            criterion,
+            image_cst_loss=image_cst_loss,
+            cst_loss=cst_loss,
+            weight_dict=dict(
+                image_cst_loss=image_cst_loss_weight, cst_loss=cst_loss_weight
+            ),
+        )
 
     def init_criterion(self):
-        return self._build_cst_loss(super().init_criterion())
+        return self._build_robust_loss(super().init_criterion())
 
 
 class RobustYOLOv10DetectionModel(RobustDetectionModel):
     def init_criterion(self):
-        return self._build_cst_loss(v10DetectLoss(self))
+        return self._build_robust_loss(v10DetectLoss(self))
 
 
 def get_module(module: str) -> type[nn.Module]:
     if module.startswith("nn."):
         return getattr(nn, module[3:])
-    elif module.startswith("robust_modules."):
-        return getattr(robust_modules, module[15:])
-    else:
-        return getattr(modules, module)
+
+    for submodule in ADAPTER_MODULES:
+        prefix = f"{submodule.__name__}."
+        if module.startswith(prefix):
+            return getattr(submodule, module[len(prefix) :])
+
+    return getattr(modules, module)
 
 
 def parse_robust_model(
@@ -242,8 +298,11 @@ def parse_robust_model(
     ch = [ch]
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
     for i, (f, n, m_name, args) in enumerate(
-        d["backbone"] + d["robust"] + d["head"]
+        d.get("robust_image", []) + d["backbone"] + d.get("robust", []) + d["head"]
     ):  # from, number, module, args
+        # backward compatibility with old checkpoints
+        if m_name.startswith("robust_modules."):
+            m_name = m_name.replace("robust_modules.", f"{feature_adapters.__name__}.")
         m = get_module(m_name)
 
         for j, a in enumerate(args):
@@ -349,7 +408,9 @@ def parse_robust_model(
             args = [c1, c2, *args[1:]]
         elif m is modules.CBFuse:
             c2 = ch[f[-1]]
-        elif m_name.startswith("robust_modules."):
+        elif any(
+            m_name.startswith(f"{module.__name__}.") for module in ADAPTER_MODULES
+        ):
             c2 = ch[f]
             args = [c2, *args]
         else:

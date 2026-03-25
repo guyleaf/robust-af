@@ -28,6 +28,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+baseline = ["denet @ {root:uri}/3rdparty/DENet"]
 dev = [
     "mkdocs",
     "mkdocs-material",
@@ -35,6 +36,9 @@ dev = [
     "mkdocs-git-authors-plugin",
     "mkdocs-glightbox",
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 only-packages = true
