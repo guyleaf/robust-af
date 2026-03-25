@@ -25,7 +25,7 @@ num_epochs = 36
 # ==============================================================
 
 model.robust_module = None
-model.robust_image_module = L(DENet)()
+model.robust_image_module = L(DENet)(compat_mode=False)
 
 model.criterion.loss_cst = None
 model.criterion.loss_image_cst = None
