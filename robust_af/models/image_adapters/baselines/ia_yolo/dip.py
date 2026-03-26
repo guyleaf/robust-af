@@ -1,10 +1,8 @@
-from typing import Union
-
 import torch
 import torch.nn as nn
 
 from .cnn_pp import CNNPP
-from .filters import FILTERS, Filter
+from .filters import Filters
 
 LOW_LIGHT_CFG = dict(
     filter_cfgs=dict(
@@ -17,12 +15,7 @@ LOW_LIGHT_CFG = dict(
 
 
 class DIP(nn.Module):
-    def __init__(
-        self,
-        filter_cfgs: dict = {},
-        ignored_filters: Union[list[str], set[str]] = [],
-        pp_cfg: dict = {},
-    ):
+    def __init__(self, pp_cfg: dict = {}, **kwargs):
         """Initialize DIP module (IA-YOLO)
 
         Defaults to the config of normal version.
@@ -35,30 +28,15 @@ class DIP(nn.Module):
         super().__init__()
 
         # build filters
-        filters: list[Filter] = []
-        ignored_filters = set(ignored_filters)
-        num_filter_parameters = 0
-        for name, filter_cls in FILTERS.items():
-            if name in ignored_filters:
-                continue
-
-            cfg = filter_cfgs.get(name, {})
-            instance = filter_cls(**cfg)
-
-            filters.append(instance)
-            num_filter_parameters += instance.num_parameters
-        self.filters = filters
+        self.filters = Filters(**kwargs)
 
         # build predictor
-        self.param_predictor = CNNPP(num_filter_params=num_filter_parameters, **pp_cfg)
+        self.param_predictor = CNNPP(
+            num_filter_params=self.filters.num_parameters, **pp_cfg
+        )
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         # [b, num_parameters]
         parameters = self.param_predictor(images)
-        offset = 0
-        for instance in self.filters:
-            num_parameters = instance.num_parameters
-            filter_parameters = parameters[:, offset : offset + num_parameters]
-            images = instance(images, filter_parameters)
-            offset += num_parameters
+        images = self.filters(images, parameters)
         return images

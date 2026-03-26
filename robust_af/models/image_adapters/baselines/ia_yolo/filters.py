@@ -1,7 +1,7 @@
 import math
 from abc import ABCMeta, abstractmethod
 from collections import OrderedDict
-from typing import Optional, TypeVar
+from typing import Optional, TypeVar, Union
 
 import torch
 import torch.nn.functional as F
@@ -289,3 +289,34 @@ FILTERS = OrderedDict(
     contrast=ContrastFilter,
     usm=UsmFilter,
 )
+
+
+class Filters(Filter):
+    def __init__(
+        self, filter_cfgs: dict = {}, ignored_filters: Union[list[str], set[str]] = []
+    ):
+        super().__init__()
+        self._num_parameters = 0
+
+        # build filters
+        filters: list[Filter] = []
+        ignored_filters = set(ignored_filters)
+        for name, filter_cls in FILTERS.items():
+            if name in ignored_filters:
+                continue
+
+            cfg = filter_cfgs.get(name, {})
+            instance = filter_cls(**cfg)
+
+            filters.append(instance)
+            self._num_parameters += instance.num_parameters
+        self.filters = filters
+
+    def process(self, images: torch.Tensor, parameters: torch.Tensor) -> torch.Tensor:
+        offset = 0
+        for instance in self.filters:
+            num_parameters = instance.num_parameters
+            filter_parameters = parameters[:, offset : offset + num_parameters]
+            images = instance(images, filter_parameters)
+            offset += num_parameters
+        return images
