@@ -1,6 +1,7 @@
 import math
 from abc import ABCMeta, abstractmethod
-from typing import Optional, OrderedDict, TypeVar
+from collections import OrderedDict
+from typing import Optional, TypeVar
 
 import torch
 import torch.nn.functional as F
@@ -145,10 +146,10 @@ class DefogFilter(Filter):
         # indices = indices[(imsz - numpx) : imsz]
 
         # select top-k pixels (0.1%)
-        k = int(max(image_size // 1000, 1))
-        _, indices = flat_dark.topk(k)
-        indices = indices.expand_as(flat_image)
-        selected_pixels = flat_image.gather(2, indices)
+        num_pixels = int(max(image_size // 1000, 1))
+        # [b, 1, num_pixels]
+        _, indices = flat_dark.topk(num_pixels)
+        indices = indices.expand(-1, c, -1)
 
         # NOTE: in TF implementation, it gather pixels from 1 to k-1.
         # we think it is a bug because it is divided by numpx.
@@ -158,7 +159,8 @@ class DefogFilter(Filter):
         #     atmsum = atmsum + imvec[indices[ind]]
         # A = atmsum / numpx
 
-        # [b, c, k] -> [b, c, 1] -> [b, c, 1, 1]
+        selected_pixels = flat_image.gather(2, indices)
+        # [b, c, num_pixels] -> [b, c, 1] -> [b, c, 1, 1]
         return selected_pixels.mean(2, keepdim=True)[..., None]
 
     def _estimate_dark_ica(self, images: torch.Tensor, A: torch.Tensor):
@@ -242,14 +244,17 @@ class ToneFilter(Filter):
         return self._parameter_mapper(parameters)
 
     def process(self, images: torch.Tensor, parameters: torch.Tensor) -> torch.Tensor:
+        # NOTE: scale images to [0, curve_steps] instead of multiple divisions
         scaled_images = images * self._curve_steps
         total_images = torch.zeros_like(scaled_images)
         for i in range(self._curve_steps):
+            # value range: [0, 1] * tone_curve -> [0, tone_curve]
             total_images = total_images + (
                 torch.clamp(scaled_images - i, min=0, max=1)
                 * parameters[:, i, None, None, None]
             )
 
+        # value range: [0, tone_curve] -> normalized by sum of tone_curve -> [0, 1]
         # [b, curve_steps] -> [b, 1]
         tone_curve_sum = parameters.sum(dim=1, keepdim=True).clamp(min=1e-30)
         # [b, c, h, w] / [b, 1, 1, 1] -> [b, c, h, w]
