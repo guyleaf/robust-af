@@ -1,4 +1,5 @@
 import contextlib
+from types import ModuleType
 from typing import Optional, Union
 
 import torch
@@ -15,8 +16,9 @@ from ultralytics.utils.torch_utils import (
 from ...models import feature_adapters, image_adapters
 from ..utils.loss import RobustDetectLoss
 
-ADAPTER_MODULES = [image_adapters, feature_adapters]
+ADAPTER_MODULES = []
 
+# longest path matching
 try:
     from ...models.feature_adapters import baselines as feature_adapter_baselines
     from ...models.image_adapters import baselines as image_adapter_baselines
@@ -25,6 +27,8 @@ try:
 except ImportError:
     image_adapter_baselines = None
     feature_adapter_baselines = None
+
+ADAPTER_MODULES += [image_adapters, feature_adapters]
 
 
 class RobustDetectionModel(tasks.DetectionModel):
@@ -233,6 +237,8 @@ class RobustDetectionModel(tasks.DetectionModel):
             self.args.image_cst_loss
         )
         cst_loss, cst_loss_weight = self._build_basic_loss(self.args.cst_loss)
+        LOGGER.info(f"image_cst_loss: {image_cst_loss}")
+        LOGGER.info(f"cst_loss: {cst_loss}")
         return RobustDetectLoss(
             criterion,
             image_cst_loss=image_cst_loss,
@@ -251,12 +257,16 @@ class RobustYOLOv10DetectionModel(RobustDetectionModel):
         return self._build_robust_loss(v10DetectLoss(self))
 
 
+def get_module_path(module: ModuleType, prefix: str = "robust_af.models."):
+    return module.__name__.removeprefix(prefix)
+
+
 def get_module(module: str) -> type[nn.Module]:
     if module.startswith("nn."):
         return getattr(nn, module[3:])
 
     for submodule in ADAPTER_MODULES:
-        prefix = f"{submodule.__name__}."
+        prefix = f"{get_module_path(submodule)}."
         if module.startswith(prefix):
             return getattr(submodule, module[len(prefix) :])
 
@@ -302,7 +312,9 @@ def parse_robust_model(
     ):  # from, number, module, args
         # backward compatibility with old checkpoints
         if m_name.startswith("robust_modules."):
-            m_name = m_name.replace("robust_modules.", f"{feature_adapters.__name__}.")
+            m_name = m_name.replace(
+                "robust_modules.", f"{get_module_path(feature_adapters)}."
+            )
         m = get_module(m_name)
 
         for j, a in enumerate(args):
@@ -409,10 +421,12 @@ def parse_robust_model(
         elif m is modules.CBFuse:
             c2 = ch[f[-1]]
         elif any(
-            m_name.startswith(f"{module.__name__}.") for module in ADAPTER_MODULES
+            m_name.startswith(f"{get_module_path(module)}.")
+            for module in ADAPTER_MODULES
         ):
             c2 = ch[f]
-            args = [c2, *args]
+            if m_name.startswith(get_module_path(feature_adapters)):
+                args = [c2, *args]
         else:
             c2 = ch[f]
 
