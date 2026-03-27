@@ -17,10 +17,10 @@ from .robust_dino_r50_v2_4scale_12ep import (  # noqa: F401
 # get default config
 lr_multiplier = get_config(
     f"schedules/{DATASET_NAME}_schedule.py"
-).detr_schedulers.lr_multiplier_36ep_warmup_8bs
+).detr_schedulers.lr_multiplier_50ep_warmup_8bs
 
 lr = 5e-5
-num_epochs = 36
+num_epochs = 50
 
 # ==============================================================
 
@@ -37,7 +37,7 @@ model.criterion.weight_dict = {"loss_image_cst": 20.0}
 
 # modify training config
 train.init_checkpoint = "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
-train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_36ep_5e-5_lr_denet_fixed_warmup_from_scratch"
+train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_50ep_5e-5_lr_denet_warmup_from_scratch"
 
 # max training iterations
 train.max_iter = num_epochs * num_batches
@@ -55,7 +55,7 @@ dataloader.evaluator.output_dir = train.output_dir
 params = dict(
     dir=train.output_dir,
     name=os.path.basename(train.output_dir),
-    group="robust_dino_r50_v2_4scale_36ep",
+    group="robust_dino_r50_v2_4scale_50ep",
 )
 train.wandb["params"].update(params)
 
