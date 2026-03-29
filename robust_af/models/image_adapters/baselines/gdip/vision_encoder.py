@@ -46,7 +46,7 @@ class VisionEncoder(nn.Module):
 
     @property
     def layer_channels(self):
-        return {name: self._layer_channels[name] for name in self.out_features}
+        return {name: self._layer_channels[name] for name in sorted(self.out_features)}
 
     def forward(self, x) -> dict[str, torch.Tensor]:
         outputs = {}
