@@ -1,3 +1,4 @@
+import functools
 import math
 from typing import Optional, Union
 
@@ -8,6 +9,20 @@ def tanh01(x: torch.Tensor):
     return torch.tanh(x) * 0.5 + 0.5
 
 
+def tanhlr(x: torch.Tensor, left: float, right: float, bias: float = 0):
+    """Returns tanh constrained to a particular range
+
+    Args:
+        x (torch.Tensor): Input tensor
+        left (float): Left bound
+        right (float): Right bound
+
+    Returns:
+        torch.Tensor: Constrained tanh
+    """
+    return tanh01(x + bias) * (right - left) + left
+
+
 def get_tanh(left: float, right: float, initial: Optional[float] = None):
     if initial is not None:
         if left < initial < right:
@@ -16,11 +31,7 @@ def get_tanh(left: float, right: float, initial: Optional[float] = None):
             raise ValueError(f"The initial ({initial}) must be in ({left}, {right}).")
     else:
         bias = 0
-
-    def activation(x: torch.Tensor):
-        return tanh01(x + bias) * (right - left) + left
-
-    return activation
+    return functools.partial(tanhlr, left=left, right=right, bias=bias)
 
 
 def rgb2lum(image: torch.Tensor):

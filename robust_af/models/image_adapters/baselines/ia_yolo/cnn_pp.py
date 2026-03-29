@@ -76,7 +76,11 @@ class CNNPP(nn.Module):
         # so, we suppose the image size >= 256, too.
         scale_factor = self.image_size / min(h, w)
         x = F.interpolate(
-            x, scale_factor=scale_factor, mode="bilinear", align_corners=False
+            x,
+            scale_factor=scale_factor,
+            mode="bilinear",
+            align_corners=False,
+            recompute_scale_factor=True,
         )
 
         # 2. predict filter params
