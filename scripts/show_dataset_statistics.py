@@ -37,14 +37,25 @@ def parse_args():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    parser.add_argument("root_dir", help="Root path of the COCO dataset")
     parser.add_argument(
-        "--root-dirs",
-        nargs="+",
-        help="List of images directories for each of the coco files. "
-        "If 1 element is given, it will be used for all of the"
-        "elements of coco_files",
+        "--image-dir",
+        default="images",
+        help="Image folder relative to the root dir",
     )
-    parser.add_argument("--annotations", nargs="+", help="List of COCO files path")
+    parser.add_argument(
+        "--annotation-files",
+        type=str,
+        nargs="+",
+        default=[
+            "train.json",
+            "val.json",
+            "test.json",
+            "degraded_val.json",
+            "degraded_test.json",
+        ],
+        help="List of COCO annotations relative to the root dir",
+    )
     parser.add_argument(
         "--out-file",
         type=str,
@@ -62,12 +73,7 @@ def parse_args():
     parser.add_argument("--title", default="", help="The title of the figure")
     args = parser.parse_args()
 
-    assert len(args.annotations) > 0 and len(args.root_dirs) > 0
-    assert len(args.annotations) == len(args.root_dirs) or len(args.root_dirs) == 1
     assert len(args.coco_areas) == 3
-
-    if len(args.annotations) != len(args.root_dirs):
-        args.root_dirs *= len(args.annotations)
 
     return args
 
@@ -75,7 +81,7 @@ def parse_args():
 def collect_statistics(
     annotations_file_paths: list[str], area_rules: list[int] = DEFAULT_COCO_AREAS
 ):
-    x, y, w, h, areas, normalized_areas, area_nums, image_sizes, captions = (
+    x, y, w, h, areas, normalized_areas, area_nums, image_sizes = (
         [],
         [],
         [],
@@ -84,18 +90,21 @@ def collect_statistics(
         [],
         [0] * len(area_rules),
         [],
-        {},
     )
+    captions, degradations = {}, {}
     for ann_file in annotations_file_paths:
+        name = os.path.basename(ann_file)
         with open(ann_file, "r") as f:
             coco = json.load(f)
 
         images = coco["images"]
         annotations = coco["annotations"]
 
-        captions[os.path.basename(ann_file)] = [
-            im.get("caption", "unknown") for im in images
-        ]
+        captions[name] = [im.get("caption", "unknown") for im in images]
+        tmp = [im["degradation"] for im in images if "degradation" in im]
+        if len(tmp) != 0:
+            degradations[name] = tmp
+
         sizes = {im["id"]: (im["width"], im["height"]) for im in images}
         image_sizes.extend(sizes.values())
 
@@ -130,7 +139,18 @@ def collect_statistics(
     normalized_areas = np.array(normalized_areas)
     area_label2num = dict(zip(DEFAULT_COCO_PARAMS.areaRngLbl, area_nums))
     image_sizes = np.array(image_sizes)
-    return x, y, w, h, areas, normalized_areas, area_label2num, image_sizes, captions
+    return (
+        x,
+        y,
+        w,
+        h,
+        areas,
+        normalized_areas,
+        area_label2num,
+        image_sizes,
+        captions,
+        degradations,
+    )
 
 
 def make_location_plot(axes: Axes, x: np.ndarray, y: np.ndarray):
@@ -170,13 +190,13 @@ def make_coco_area_plot(axes: Axes, area_label2num: dict[str, int]):
 
 
 def make_image_intensity_plot(
-    axes: Axes, image_root_folders: list[str], annotations_file_paths: list[str]
+    axes: Axes, image_dir: str, annotations_file_paths: list[str]
 ):
     r, g, b = torch.zeros(256), torch.zeros(256), torch.zeros(256)
 
-    for root_dir, ann_file in zip(image_root_folders, annotations_file_paths):
+    for ann_file in annotations_file_paths:
         dataset = torchvision.datasets.CocoDetection(
-            root_dir, ann_file, transform=torchvision.transforms.ToTensor()
+            image_dir, ann_file, transform=torchvision.transforms.ToTensor()
         )
         dataloader = DataLoader(
             dataset, num_workers=8, sampler=StrideSampler(dataset, 100)
@@ -242,13 +262,15 @@ def make_image_area_plot(axes: Axes, sizes: np.ndarray):
     axes.set_title("Image Area (Outlier removed)")
 
 
-def make_caption_plot(axes: Axes, captions: dict[str, list[str]]):
-    labels = sorted(set(itertools.chain.from_iterable(captions.values())))
+def make_label_dist_plot(
+    axes: Axes, label_dict: dict[str, list[str]], title: str = "Image Caption"
+):
+    labels = sorted(set(itertools.chain.from_iterable(label_dict.values())))
     x = np.arange(len(labels))
     width = 0.25  # the width of the bars
 
     max_count = 0
-    for multiplier, (subset, texts) in enumerate(captions.items()):
+    for multiplier, (subset, texts) in enumerate(label_dict.items()):
         counter = Counter(texts)
         offset = width * multiplier
         rects = axes.bar(
@@ -257,20 +279,38 @@ def make_caption_plot(axes: Axes, captions: dict[str, list[str]]):
         axes.bar_label(rects, padding=3)
         max_count = max(max_count, counter.most_common(1)[0][1])
 
-    axes.set_xticks(x + width, labels=labels)
+    axes.set_xticks(x, labels=labels, rotation=45)
+    # axes.tick_params(axis="x", labelsize="x-large")
     axes.set_ylabel("Number of images", fontsize="x-large")
     axes.set_ylim(0, max_count + 5000)
     axes.tick_params(axis="both", labelsize="large")
-    axes.set_title("Image Caption")
+    axes.set_title(title)
     axes.legend(loc="upper left", ncols=3)
 
 
 def main(args):
-    annotations_file_paths = args.annotations
-    image_root_folders = args.root_dirs
-    x, y, w, h, areas, normalized_areas, area_label2num, image_sizes, captions = (
-        collect_statistics(annotations_file_paths, args.coco_areas)
+    root_dir = args.root_dir
+    image_dir = os.path.join(root_dir, args.image_dir)
+    annotations_file_paths = (
+        os.path.join(root_dir, "annotations", annotations_file)
+        for annotations_file in args.annotation_files
     )
+    annotations_file_paths = list(
+        filter(lambda x: os.path.exists(x), annotations_file_paths)
+    )
+
+    (
+        x,
+        y,
+        w,
+        h,
+        areas,
+        normalized_areas,
+        area_label2num,
+        image_sizes,
+        captions,
+        degradations,
+    ) = collect_statistics(annotations_file_paths, args.coco_areas)
 
     print(f"Average W, H: {w.mean()}, {h.mean()}")
     print("Average Area:", areas.mean())
@@ -280,21 +320,36 @@ def main(args):
     print(f"Average Image W, H: {W}, {H}")
     print("Average Image Area:", np.prod(image_sizes, axis=1).mean())
 
-    fig, ((axes_1, axes_2, axes_3), (axes_4, axes_5, axes_6), (axes_7, *_)) = (
-        plt.subplots(nrows=3, ncols=3, figsize=(15, 15))
+    rows = 3
+    cols = 3
+    fig, axes = plt.subplot_mosaic(
+        [
+            [f"ax0_{i}" for i in range(cols)],
+            [f"ax1_{i}" for i in range(cols)],
+            ["ax2_0", "ax2_1", "ax2_1"],
+            # ["ax3_0", "ax3_0", "ax3_0"],
+        ],
+        figsize=(9 * cols, 6 * rows),
+        constrained_layout=True,
     )
+    # fig, ((axes_1, axes_2, axes_3), (axes_4, axes_5, axes_6), (axes_7, axes_8, *_)) = (
+    #     plt.subplots(nrows=3, ncols=3, figsize=(6 * 3, 4 * 3), constrained_layout=True)
+    # )
     fig.suptitle(args.title)
 
-    make_location_plot(axes_1, x, y)
-    make_area_plot(axes_2, normalized_areas)
-    make_coco_area_plot(axes_3, area_label2num)
-    make_image_intensity_plot(axes_4, image_root_folders, annotations_file_paths)
-    make_image_size_plot(axes_5, image_sizes)
-    make_image_area_plot(axes_6, image_sizes)
-    make_caption_plot(axes_7, captions)
+    make_location_plot(axes["ax0_0"], x, y)
+    make_area_plot(axes["ax0_1"], normalized_areas)
+    make_coco_area_plot(axes["ax0_2"], area_label2num)
+    make_image_intensity_plot(axes["ax1_0"], image_dir, annotations_file_paths)
+    make_image_size_plot(axes["ax1_1"], image_sizes)
+    make_image_area_plot(axes["ax1_2"], image_sizes)
+    make_label_dist_plot(axes["ax2_0"], captions)
+    if len(degradations) != 0:
+        make_label_dist_plot(axes["ax2_1"], degradations, title="Degradations")
 
-    fig.tight_layout()
-    fig.savefig(args.out_file)
+    # fig.tight_layout()
+    os.makedirs(os.path.dirname(args.out_file), exist_ok=True)
+    fig.savefig(args.out_file, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 

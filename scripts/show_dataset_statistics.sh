@@ -5,7 +5,32 @@ cwd=$(dirname "$0")
 root=$(dirname "$cwd")
 out_dir=${1:-$root/images}
 
-python "$cwd/show_dataset_statistics.py" --out-file "$out_dir/dut_anti_uav_detection.png" --root-dirs ~/data/UAV/DUT_Anti_UAV/detection/images --annotations ~/data/UAV/DUT_Anti_UAV/detection/annotations/train.json ~/data/UAV/DUT_Anti_UAV/detection/annotations/val.json ~/data/UAV/DUT_Anti_UAV/detection/annotations/test.json --title "DUT Anti-UAV"
-python "$cwd/show_dataset_statistics.py" --out-file "$out_dir/det_fly.png" --root-dirs ~/data/UAV/Det_Fly/images --annotations ~/data/UAV/Det_Fly/annotations/train.json ~/data/UAV/Det_Fly/annotations/val.json --title "Det-Fly"
-python "$cwd/show_dataset_statistics.py" --out-file "$out_dir/mav_vid.png" --root-dirs ~/data/UAV/MAV_VID/images --annotations ~/data/UAV/MAV_VID/annotations/train.json ~/data/UAV/MAV_VID/annotations/val.json --title "MAV-VID"
-python "$cwd/show_dataset_statistics.py" --out-file "$out_dir/dds.png" --root-dirs ~/data/UAV/DDS/images --annotations ~/data/UAV/DDS/annotations/train.json ~/data/UAV/DDS/annotations/val.json --title "DDS"
+python "$cwd/show_dataset_statistics.py" \
+    --out-file "$out_dir/dut_anti_uav_detection.png" \
+    --title "DUT Anti-UAV" \
+    ~/data/UAV/DUT_Anti_UAV/detection
+
+python "$cwd/show_dataset_statistics.py" \
+    --out-file "$out_dir/det_fly.png" \
+    --title "Det-Fly" \
+    ~/data/UAV/Det_Fly
+
+python "$cwd/show_dataset_statistics.py" \
+    --out-file "$out_dir/mav_vid.png" \
+    --title "MAV-VID" \
+    ~/data/UAV/MAV_VID
+
+python "$cwd/show_dataset_statistics.py" \
+    --out-file "$out_dir/dds.png" \
+    --title "DDS" \
+    ~/data/UAV/DDS
+
+python "$cwd/show_dataset_statistics.py" \
+    --out-file "$out_dir/sim2air/uav_eagle.png" \
+    --title "UAV-Eagle" \
+    ~/data/UAV/Sim2Air/UAV_Eagle
+
+python "$cwd/show_dataset_statistics.py" \
+    --out-file "$out_dir/sim2air/s_uav_t.png" \
+    --title "S-UAV-T" \
+    ~/data/UAV/Sim2Air/S_UAV_T
