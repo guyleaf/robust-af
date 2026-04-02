@@ -9,13 +9,11 @@ from .dataset import (
 )
 from .dist import get_worker_id
 from .enum import VideoSamplingMethod
+from .ffmpeg import choose_ffmpeg_vf, count_video_frames, extract_video_frames
 from .io import (
-    choose_ffmpeg_vf,
     collect_files,
     collect_images,
     collect_videos,
-    count_video_frames,
-    extract_video_frames,
     is_image,
 )
 from .misc import allow_tf32_precision, format_size, is_debug_mode, wrap_method
