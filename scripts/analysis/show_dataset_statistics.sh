@@ -2,7 +2,7 @@
 set -e
 
 cwd=$(dirname "$0")
-root=$(dirname "$cwd")
+root=$(dirname "$(dirname "$cwd")")
 out_dir=${1:-$root/images}
 
 python "$cwd/show_dataset_statistics.py" \
