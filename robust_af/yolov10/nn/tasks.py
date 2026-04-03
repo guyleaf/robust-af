@@ -211,10 +211,17 @@ class RobustDetectionModel(tasks.DetectionModel):
 
         # NOTE: we need hidden states. so, we cannot reuse preds without returning hidden states.
         preds, (image_rhss, rhss) = self._predict_once(img, returns_rhss=True)
+
+        # avoid side effects, such as polluting BN's running statistics.
+        training = self.training
+        self.eval()
         with torch.no_grad():
             _, (clear_image_rhss, clear_rhss) = self._predict_once(
                 clear_img, robust=False, returns_rhss=True
             )
+        # loss method may be used in eval mode.
+        self.train(training)
+
         preds = dict(
             preds=preds,
             image_rhss=image_rhss,

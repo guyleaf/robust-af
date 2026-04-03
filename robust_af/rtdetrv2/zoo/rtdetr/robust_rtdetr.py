@@ -113,8 +113,11 @@ class RobustRTDETR(RTDETR):
         # feature-level restoration
         if self.with_robust_module:
             x = rhs_dict["rhss"] = self.robust_module(x)
+            # avoid side effects, such as polluting BN's running statistics.
+            self.backbone.eval()
             with torch.no_grad():
                 rhs_dict["clear_rhss"] = self.backbone(clear_x)
+            self.backbone.train()
 
         x = self.encoder(x)
         x = self.decoder(x, targets)

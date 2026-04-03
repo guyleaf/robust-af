@@ -218,6 +218,9 @@ class RobustDINOv2(DINO):
                 results = self.inference(box_cls, box_pred, images.image_sizes)
                 self.visualize_training(batched_inputs, results, vis_name="Degraded")
 
+        # avoid side effects, such as polluting BN's running statistics.
+        self.eval()
+
         # clear features are only for loss calculation.
         clear_batched_inputs = [inputs["clear"] for inputs in batched_inputs]
         with torch.no_grad():
@@ -245,6 +248,8 @@ class RobustDINOv2(DINO):
                 results = self.inference(box_cls, box_pred, images.image_sizes)
                 self.visualize_training(clear_batched_inputs, results, vis_name="Clear")
             del clear_output
+
+        self.train()
 
         # compute loss
         targets = output.pop("targets")
