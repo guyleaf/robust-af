@@ -28,6 +28,8 @@ try:
 
     # image-level adapters
     DENet = register()(image_adapter_baselines.DENet)
+    DIP = register()(image_adapter_baselines.DIP)
+    GDIP = register()(image_adapter_baselines.GDIP)
 
     # feature-level adapters
 except ImportError:
