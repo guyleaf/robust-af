@@ -26,8 +26,8 @@ num_epochs = 36
 
 model.robust_module = None
 # model.robust_image_module = L(DENet)(compat_mode=False)
-# model.robust_image_module = L(GDIP)()
-model.robust_image_module = L(DIP)()
+model.robust_image_module = L(GDIP)(multi_level=True)
+# model.robust_image_module = L(DIP)()
 
 model.criterion.loss_cst = None
 model.criterion.loss_image_cst = None
@@ -35,7 +35,7 @@ model.criterion.loss_image_cst = None
 model.criterion.weight_dict = {"loss_image_cst": 20.0}
 
 # modify training config
-train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_36ep_1e-5_lr_dip_no_train_heads_from_24ep"
+train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_36ep_1e-5_lr_gdip_multi_level_no_train_heads_from_24ep"
 
 # max training iterations
 train.max_iter = num_epochs * num_batches

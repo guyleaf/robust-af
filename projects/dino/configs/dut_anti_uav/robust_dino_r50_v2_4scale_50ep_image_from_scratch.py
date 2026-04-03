@@ -3,7 +3,7 @@ import os
 from detectron2.config import LazyCall as L
 
 from robust_af.detrex.configs import get_config
-from robust_af.models.image_adapters.baselines import DENet
+from robust_af.models.image_adapters.baselines import DIP, GDIP, DENet  # noqa: F401
 
 from .robust_dino_r50_v2_4scale_12ep import (  # noqa: F401
     DATASET_NAME,
@@ -28,7 +28,9 @@ num_epochs = 50
 model.train_all = True
 
 model.robust_module = None
-model.robust_image_module = L(DENet)(compat_mode=False)
+# model.robust_image_module = L(DENet)(compat_mode=False)
+model.robust_image_module = L(GDIP)(multi_level=True)
+# model.robust_image_module = L(DIP)()
 
 model.criterion.loss_cst = None
 model.criterion.loss_image_cst = None
@@ -37,7 +39,7 @@ model.criterion.weight_dict = {"loss_image_cst": 20.0}
 
 # modify training config
 train.init_checkpoint = "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
-train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_50ep_5e-5_lr_denet_warmup_from_scratch"
+train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_50ep_5e-5_lr_gdip_multi_level_warmup_from_scratch"
 
 # max training iterations
 train.max_iter = num_epochs * num_batches
