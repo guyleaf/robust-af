@@ -1,3 +1,4 @@
+import json
 import mimetypes
 from pathlib import Path
 from typing import Callable, Union
@@ -36,3 +37,8 @@ def collect_videos(
 ) -> list[Path]:
     """Collect videos from path folder in ascending order"""
     return collect_files(path, filter_fn)
+
+
+def dump_json(path: Path, obj, **kwargs):
+    with open(path, "w") as f:
+        json.dump(obj, f, **kwargs)
