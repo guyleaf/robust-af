@@ -7,7 +7,13 @@ from ultralytics.data.augment import Compose, Format, LetterBox
 from ultralytics.utils import LOGGER
 
 from ...utils import RandomContext
-from .augment import Degradation, Identity, MultiBranch, robust_v8_transforms
+from .augment import (
+    Degradation,
+    Identity,
+    MultiBranch,
+    robust_v8_transforms,
+    v8_transforms,
+)
 
 
 class YOLODataset(ORIGINAL_YOLODataset):
@@ -25,7 +31,30 @@ class YOLODataset(ORIGINAL_YOLODataset):
     def build_transforms(self, hyp: Optional[SimpleNamespace] = None):
         """Builds and appends transforms to the list."""
         assert hyp is not None
-        transforms = super().build_transforms(hyp)
+        if self.augment:
+            hyp.mosaic = hyp.mosaic if self.augment and not self.rect else 0.0
+            hyp.mixup = hyp.mixup if self.augment and not self.rect else 0.0
+            transforms = v8_transforms(
+                self, self.imgsz, hyp, degraded=hyp.degraded_augs
+            )
+        else:
+            transforms = Compose(
+                [LetterBox(new_shape=(self.imgsz, self.imgsz), scaleup=False)]
+            )
+        transforms.append(
+            Format(
+                bbox_format="xywh",
+                normalize=True,
+                return_mask=self.use_segments,
+                return_keypoint=self.use_keypoints,
+                return_obb=self.use_obb,
+                batch_idx=True,
+                mask_ratio=hyp.mask_ratio,
+                mask_overlap=hyp.overlap_mask,
+                bgr=hyp.bgr if self.augment else 0.0,  # only affect training.
+            )
+        )
+        LOGGER.info(transforms)
         if self.augment:
             return transforms
         if hyp.degradation["always"]:

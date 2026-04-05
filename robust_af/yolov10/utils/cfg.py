@@ -19,6 +19,8 @@ DEFAULT_CFG_DICT = dict(
         ignored_degradations=[],
     ),
     sync_bn=False,
+    # use degraded related augmentations in YOLODataset. Defaults to original design.
+    degraded_augs=True,
 )
 DEFAULT_ROBUST_CFG_DICT = dict(
     **DEFAULT_CFG_DICT,
