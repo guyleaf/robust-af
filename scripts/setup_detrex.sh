@@ -4,7 +4,7 @@ set -e
 cwd=$(dirname "$0")
 root=$(dirname "$cwd")
 
-envName="detrex"
+envName=${1:-"detrex"}
 sourcePath="$root/3rdparty/detrex"
 
 # create conda env
