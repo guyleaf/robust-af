@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 from detectron2.config import LazyCall as L
 from detectron2.config import LazyConfig, instantiate
+from detectron2.data import MetadataCatalog
 from detectron2.engine import default_setup
 from detectron2.utils.env import seed_all_rng
 from omegaconf import DictConfig
@@ -51,11 +52,16 @@ class DumpInferencer(Inferencer):
 
         self.images: Optional[torch.Tensor] = None
         self.features: Optional[dict[str, torch.Tensor]] = None
+        self.backbone_features: Optional[dict[str, torch.Tensor]] = None
 
-        if self.model.with_robust_image_module:
+        if (
+            hasattr(self.model, "with_robust_image_module")
+            and self.model.with_robust_image_module
+        ):
             self.model.robust_image_module.register_forward_hook(self._save_images)
-        if self.model.with_robust_module:
+        if hasattr(self.model, "with_robust_module") and self.model.with_robust_module:
             self.model.robust_module.register_forward_hook(self._save_features)
+        self.model.backbone.register_forward_hook(self._save_backbone_features)
 
     def _save_images(
         self,
@@ -71,6 +77,12 @@ class DumpInferencer(Inferencer):
     ):
         # [1, c, h, w]
         self.features = output
+
+    def _save_backbone_features(
+        self, module: nn.Module, args: tuple, output: dict[str, torch.Tensor]
+    ):
+        # [1, c, h, w]
+        self.backbone_features = output
 
     def prepare_dataloaders(
         self,
@@ -136,12 +148,13 @@ class DumpInferencer(Inferencer):
                     sample = batch_inputs[i]
                     sample["degradation"] = name
 
+                    sample["backbone_features"] = {
+                        k: v[i] for k, v in self.backbone_features.items()
+                    }
                     if self.images is not None:
-                        sample["restored_image"] = self.images[i]
+                        sample["images"] = self.images[i]
                     if self.features is not None:
-                        sample["restored_features"] = {
-                            k: v[i] for k, v in self.features.items()
-                        }
+                        sample["features"] = {k: v[i] for k, v in self.features.items()}
 
                     counter += 1
                     last_sample = counter == num_samples
@@ -160,18 +173,23 @@ def main(cfg: DictConfig):
 
     images = {}
     features = {}
+    backbone_features = {}
     predictions = []
     out_dir: Path = Path(cfg.train.output_dir)
-    for i, (preds, sample, counter, last_sample) in enumerate(generator):
+    for preds, sample, counter, last_sample in generator:
         image_id = sample["image_id"]
-        restored_image = sample.get("restored_image")
-        restored_features = sample.get("restored_features")
+        images_i = sample.get("images")
+        features_i = sample.get("features")
+        backbone_features_i = sample["backbone_features"]
         instances = preds["instances"]
 
-        if restored_image is not None:
-            images[image_id] = restored_image.cpu()
-        if restored_features is not None:
-            features[image_id] = {k: v.cpu() for k, v in restored_features.items()}
+        backbone_features[image_id] = {
+            k: v.cpu() for k, v in backbone_features_i.items()
+        }
+        if images_i is not None:
+            images[image_id] = images_i.cpu()
+        if features_i is not None:
+            features[image_id] = {k: v.cpu() for k, v in features_i.items()}
 
         # convert preds to coco format
         coco_instances = convert_instances_to_coco(
@@ -189,7 +207,7 @@ def main(cfg: DictConfig):
                 features=None if len(features) == 0 else features,
                 metadata=dict(degradation=name, num_samples=counter),
             )
-            dump_results(out_dir / name, predictions, **kwargs)
+            dump_results(out_dir / name, predictions, backbone_features, **kwargs)
 
             images = {}
             features = {}
@@ -213,7 +231,7 @@ def parse_args():
         "--max-num-samples",
         type=int,
         default=100,
-        help="The maximum number of samples per category. "
+        help="The maximum number of samples per degradation. "
         "Higher number need longer time to calculate.",
     )
 
@@ -266,13 +284,15 @@ if __name__ == "__main__":
         out_dir = Path(args.out_dir) / out_dir.name
 
     out_dir = out_dir / f"dump_{len(args.degradations)}_degradations"
-    cfg.train.output_dir = args.out_dir = out_dir.as_posix()
+    cfg.train.output_dir = args.out_dir = out_dir.resolve().as_posix()
 
     default_setup(cfg, args)
 
+    metadata = MetadataCatalog.get(cfg.dataloader.test.dataset.names)
+    args.annotation_file = metadata.json_file
     # save args
-    with open(osp.join(out_dir, "args.json"), "w") as f:
+    with open(osp.join(out_dir, "metadata.json"), "w") as f:
         content = vars(args)
         json.dump(content, f, indent=4)
 
-    main(cfg, vis_period=args.vis_period)
+    main(cfg)

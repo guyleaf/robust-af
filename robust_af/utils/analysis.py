@@ -60,16 +60,20 @@ def dump_metadata(folder: Path, metadata: dict, file_name: str = "metadata.json"
 def dump_results(
     folder: Path,
     predictions: list[dict],
+    backbone_features: dict[int, dict[str, torch.Tensor]],
     images: Optional[dict[int, torch.Tensor]] = None,
     features: Optional[dict[int, dict[str, torch.Tensor]]] = None,
     metadata: dict = {},
 ):
     for pred in predictions:
+        image_id = pred["image_id"]
+        assert image_id in backbone_features
         if images is not None:
-            assert pred["image_id"] in images
+            assert image_id in images
         if features is not None:
-            assert pred["image_id"] in features
+            assert image_id in features
 
+    dump_coco_features(folder, backbone_features, file_name="backbone_features.pt")
     if images is not None:
         dump_coco_images(folder, images)
     if features is not None:
