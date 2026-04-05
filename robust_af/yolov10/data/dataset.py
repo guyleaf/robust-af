@@ -54,7 +54,7 @@ class YOLODataset(ORIGINAL_YOLODataset):
                 bgr=hyp.bgr if self.augment else 0.0,  # only affect training.
             )
         )
-        LOGGER.info(transforms)
+
         if self.augment:
             return transforms
         if hyp.degradation["always"]:
