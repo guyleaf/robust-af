@@ -1,5 +1,4 @@
 import argparse
-import itertools
 import json
 import os
 from collections import defaultdict
@@ -10,6 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
+from pycocotools.coco import COCO
+from pycocotools.cocoeval import COCOeval
 from rich.console import Console
 from rich.live import Live
 from rich.progress import track
@@ -22,15 +23,63 @@ from robust_af.transforms import DEGRADATION_TRANSFORMS
 CONSOLE = Console()
 
 
-# @dataclass
-# class Feature:
-#     image_id: int
-#     tensor: Optional[torch.Tensor] = None
-#     ndarray: Optional[np.ndarray] = None
+def find_failures(
+    coco_gt: COCO, coco_results_file: Path, iou_thr: float = 0.5, score_thr: float = 0.3
+):
+    coco_dt = coco_gt.loadRes(coco_results_file.as_posix())
+    coco_eval = COCOeval(cocoGt=coco_gt, cocoDt=coco_dt, iouType="bbox")
+    # only evaluate specific images to avoid unnecessary comparison
+    coco_eval.params.imgIds = coco_dt.getImgIds()
+    coco_eval.evaluate()
 
+    params = coco_eval.params
+    iou_index = int(np.where(np.isclose(params.iouThrs, iou_thr))[0][0])
+    max_det = params.maxDets[-1]
 
-def find_failures(annotation_file: Path, coco_results_file: Path):
-    pass
+    num_cat = len(params.catIds) if params.useCats else 1
+    num_area = len(coco_eval.params.areaRng)
+    stride = num_cat * num_area
+
+    # chunk by image, take only 1st area range (all)
+    eval_imgs = [
+        sample
+        for i in range(0, len(coco_eval.evalImgs), stride)
+        for sample in coco_eval.evalImgs[i : i + num_cat]
+        if sample is not None
+    ]
+
+    failures = set()
+    for sample in eval_imgs:
+        # FP: confident, non-ignored detections that matched nothing
+        # [1 x D]
+        dt_m = sample["dtMatches"][iou_index, :max_det]
+        dt_scores = np.array(sample["dtScores"])[:max_det]
+        dt_ig = sample["dtIgnore"][iou_index, :max_det]
+
+        confident = (dt_scores >= score_thr) & (dt_ig == 0)
+        has_fp = np.any(dt_m[confident] == 0)
+
+        # FN: non-ignored GTs not matched or matched by low-score dt
+        # [1 x G]
+        dt_ids = np.array(sample["dtIds"])
+        gt_m = sample["gtMatches"][iou_index]
+        gt_ig = sample["gtIgnore"]
+
+        has_fn = False
+        for dt_id, ignored in zip(gt_m, gt_ig):
+            if ignored:
+                continue
+            if dt_id == 0:
+                has_fn = True
+                break
+            dt_idx = np.where(dt_ids == dt_id)[0]
+            if len(dt_idx) > 0 and sample["dtScores"][dt_idx[0]] < score_thr:
+                has_fn = True
+                break
+
+        if has_fp or has_fn:
+            failures.add(sample["image_id"])
+    return np.array(sorted(failures))
 
 
 def standardize_representations(
@@ -46,7 +95,7 @@ def standardize_representations(
     return results
 
 
-def collect_degradation_features(
+def load_degradation_features(
     path: Path, feat_size: int, max_num_samples: Optional[int] = None
 ):
     features: dict[int, dict[str, torch.Tensor]] = torch.load(path, weights_only=True)
@@ -60,32 +109,51 @@ def collect_degradation_features(
         for scale, features_ in features[image_id].items():
             grouped_features[scale].append(features_)
 
-    # TODO: find failures
-
-    return standardize_representations(grouped_features, output_size=feat_size)
+    return standardize_representations(
+        grouped_features, output_size=feat_size
+    ), image_ids
 
 
 def collect_features(
     dump_dir: Path, args: argparse.Namespace
-) -> dict[str, dict[str, dict[str, np.ndarray]]]:
+) -> tuple[dict[str, dict[str, dict[str, np.ndarray]]], dict[str, np.ndarray]]:
+    coco = COCO(args.annotation_file)
+
     backbone_features = {}
     features = {}
+    failures = {}
     for name in track(
         args.degradations, description="Collecting features...", console=CONSOLE
     ):
         degradation_dir = dump_dir / name
         backbone_features_file = degradation_dir / "backbone_features.pt"
         features_file = degradation_dir / "features.pt"
+        coco_results_file = degradation_dir / "coco_results.json"
 
-        backbone_features[name] = collect_degradation_features(
-            backbone_features_file, args.feat_size
+        backbone_features[name], image_ids = load_degradation_features(
+            backbone_features_file, args.feat_size, max_num_samples=args.max_num_samples
         )
-        features[name] = collect_degradation_features(features_file, args.feat_size)
-    return dict(backbone_features=backbone_features, features=features)
+        features[name], _ = load_degradation_features(
+            features_file, args.feat_size, max_num_samples=args.max_num_samples
+        )
+
+        image_ids = np.array(image_ids)
+        failed_image_ids = find_failures(
+            coco,
+            coco_results_file,
+            iou_thr=args.iou_threshold,
+            score_thr=args.score_threshold,
+        )
+        failures[name] = np.isin(image_ids, failed_image_ids, assume_unique=True)
+
+    return dict(backbone_features=backbone_features, features=features), failures
 
 
 def visualize_with_tsne(
-    out_dir: Path, features: dict[str, dict[str, np.ndarray]], args: argparse.Namespace
+    out_dir: Path,
+    features: dict[str, dict[str, np.ndarray]],
+    failures: dict[str, np.ndarray],
+    args: argparse.Namespace,
 ):
     # build t-SNE model
     # disable OpenBLAS multi-threading, due to it is already multi-threaded
@@ -132,15 +200,21 @@ def visualize_with_tsne(
         fig.suptitle(f"{scale} backbone layer")
         axes = fig.add_subplot(projection="3d" if args.n_components == 3 else None)
 
-        colors = list(
-            itertools.chain.from_iterable([i] * batch_size for i in range(len(keys)))
-        )
+        colors = [i for i in range(len(keys)) for _ in range(batch_size)]
+        # colors = list(
+        #     itertools.chain.from_iterable([i] * batch_size for i in range(len(keys)))
+        # )
+        linewidths = [
+            linewidth.item()
+            for k in keys
+            for linewidth in np.where(failures[k], 1.0, 0.2)
+        ]
         scatter = axes.scatter(
             *np.transpose(result),
             alpha=0.8,
             s=20,
             c=colors,
-            linewidths=0.5,
+            linewidths=linewidths,
             edgecolors="black",
             cmap="tab20",
         )
@@ -194,6 +268,18 @@ def parse_args():
         nargs="+",
         default=list(DEGRADATION_TRANSFORMS.keys()),
         help="Visualized degradations. If it is not existed in dump_dir, ignore it.",
+    )
+    parser.add_argument(
+        "--iou-threshold",
+        type=float,
+        default=0.5,
+        help="IoU threshold to identiy as Matched or Unmatched.",
+    )
+    parser.add_argument(
+        "--score-threshold",
+        type=float,
+        default=0.3,
+        help="Score threshold to filter invalid predictions.",
     )
     parser.add_argument(
         "--show", action="store_true", help="Display the result in a graphical window."
@@ -291,9 +377,8 @@ if __name__ == "__main__":
     args.degradations = list(
         filter(lambda name: name in target_degradations, metadata["degradations"])
     )
-    # annotation_file = metadata.get("annotation_file")
-    # if annotation_file is None:
-    #     annotation_file = args.annotation_file
+    if args.annotation_file is None:
+        args.annotation_file = metadata.get("annotation_file")
 
     # determine out_dir
     if args.out_dir is None:
@@ -302,7 +387,7 @@ if __name__ == "__main__":
         out_dir = Path(args.out_dir)
     out_dir = (
         out_dir
-        / f"tsne_{len(args.degradations)}_{args.feat_size}_{args.perplexity}_{args.n_components}d"
+        / f"tsne_{len(args.degradations)}_{args.feat_size}_{args.perplexity}_{args.n_components}d_iou_{args.iou_threshold}_score_{args.score_threshold}"
     )
     args.out_dir = out_dir.as_posix()
 
@@ -312,10 +397,10 @@ if __name__ == "__main__":
         content = vars(args)
         json.dump(content, f, indent=4)
 
-    results = collect_features(dump_dir, args)
+    results, failures = collect_features(dump_dir, args)
     with Live(console=CONSOLE):
         for name, features in results.items():
             CONSOLE.log(f"t-SNE features: {name}")
             tsne_out_dir = out_dir / name
             tsne_out_dir.mkdir(parents=True, exist_ok=True)
-            visualize_with_tsne(tsne_out_dir, features, args)
+            visualize_with_tsne(tsne_out_dir, features, failures, args)
