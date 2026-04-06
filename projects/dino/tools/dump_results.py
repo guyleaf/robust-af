@@ -289,7 +289,7 @@ if __name__ == "__main__":
     default_setup(cfg, args)
 
     metadata = MetadataCatalog.get(cfg.dataloader.test.dataset.names)
-    args.annotation_file = metadata.json_file
+    args.annotation_file = Path(metadata.json_file).resolve().as_posix()
     # save args
     with open(osp.join(out_dir, "metadata.json"), "w") as f:
         content = vars(args)
