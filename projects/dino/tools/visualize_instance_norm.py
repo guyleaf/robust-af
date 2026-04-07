@@ -24,7 +24,6 @@ from detectron2.config import LazyCall as L
 from detectron2.config import LazyConfig, instantiate
 from detectron2.data import DatasetFromList
 from detectron2.data.detection_utils import convert_image_to_rgb
-from detectron2.engine import default_setup
 from detectron2.utils.env import seed_all_rng
 from omegaconf import DictConfig
 from rich.progress import track
@@ -35,6 +34,7 @@ from torch.utils.hooks import RemovableHandle
 
 from robust_af.detrex.data.dataset_mappers import DetrDatasetMapper
 from robust_af.detrex.data.transforms import Degradation
+from robust_af.detrex.engine import default_setup
 from robust_af.transforms import DEGRADATION_TRANSFORMS
 
 LOGGER = logging.getLogger("detectron2")

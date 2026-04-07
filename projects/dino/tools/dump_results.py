@@ -12,7 +12,6 @@ import torch.nn as nn
 from detectron2.config import LazyCall as L
 from detectron2.config import LazyConfig
 from detectron2.data import MetadataCatalog
-from detectron2.engine import default_setup
 from detectron2.utils.env import seed_all_rng
 from omegaconf import DictConfig
 from rich.progress import track
@@ -21,6 +20,7 @@ from torch.utils.data import DataLoader
 from robust_af.detrex.apis import Inferencer
 from robust_af.detrex.data.dataset_mappers import DetrDatasetMapper
 from robust_af.detrex.data.transforms import Degradation
+from robust_af.detrex.engine import default_setup
 from robust_af.detrex.utils import convert_instances_to_coco
 from robust_af.transforms import DEGRADATION_TRANSFORMS
 from robust_af.utils import dump_results
