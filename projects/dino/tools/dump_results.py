@@ -283,7 +283,11 @@ if __name__ == "__main__":
     if args.out_dir is not None:
         out_dir = Path(args.out_dir) / out_dir.name
 
-    out_dir = out_dir / f"dump_{len(args.degradations)}_degradations"
+    suffix = f"{len(args.degradations)}_degrads_max_num_{args.max_num_samples}"
+    if args.shuffle:
+        suffix += "_shuffle"
+
+    out_dir = out_dir / f"dump_{suffix}"
     cfg.train.output_dir = args.out_dir = out_dir.resolve().as_posix()
 
     default_setup(cfg, args)
