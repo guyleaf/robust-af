@@ -17,7 +17,7 @@ from ....transforms import (
 )
 from ....utils import get_worker_id
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 class DegradationTransform(Transform):
@@ -76,7 +76,7 @@ class Degradation(Augmentation):
         self._init_random(None)
 
         if self.name is not None:
-            logger.info(f"Specified degradation: {self.name}")
+            LOGGER.info(f"Specified degradation: {self.name}")
 
     def _init_random(self, seed: Optional[int]):
         if seed is None:
