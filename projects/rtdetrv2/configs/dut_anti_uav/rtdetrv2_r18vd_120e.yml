@@ -7,7 +7,7 @@ __include__:
     "../common/models/rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/rtdetrv2_r18vd_120e_5e_warmup
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/rtdetrv2_r18vd_120e_no_color_augs_in_clear
 
 epoches: 120
 
@@ -18,11 +18,29 @@ optimizer:
       weight_decay: 0.
   # weight_decay: 0.1
 
+# train_dataloader:
+#   dataset:
+#     transforms:
+#       policy:
+#         epoch: 117
+#   collate_fn:
+#     scales: ~
+
 train_dataloader:
   dataset:
     transforms:
+      ops:
+        - { type: RandomZoomOut, fill: 0 }
+        - { type: RandomIoUCrop, p: 0.8 }
+        - { type: SanitizeBoundingBoxes, min_size: 1 }
+        - { type: RandomHorizontalFlip }
+        - { type: Resize, size: [640, 640] }
+        - { type: SanitizeBoundingBoxes, min_size: 1 }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }
+        - { type: ConvertBoxes, fmt: "cxcywh", normalize: True }
       policy:
         epoch: 117
+        ops: ["RandomZoomOut", "RandomIoUCrop"]
   collate_fn:
     scales: ~
 
@@ -31,6 +49,6 @@ train_dataloader:
 # RTDETRTransformerv2:
 #   dropout: 0.2
 
-lr_warmup_scheduler:
-  type: LinearWarmup
-  warmup_duration: 1625
+# lr_warmup_scheduler:
+#   type: LinearWarmup
+#   warmup_duration: 1625

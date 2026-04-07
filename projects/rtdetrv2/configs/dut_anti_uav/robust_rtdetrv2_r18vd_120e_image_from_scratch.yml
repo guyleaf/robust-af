@@ -7,11 +7,13 @@ __include__:
     "../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_120e_denet_from_scratch_no_color_augs_in_clear
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_120e_denet_paper_from_scratch_no_color_augs_in_clear
 
 RobustRTDETR:
   train_all: true
   robust_image_module: DENet
+  # robust_image_module: DIP
+  # robust_image_module: GDIP
   robust_module: ~
 
 PResNet:
@@ -22,7 +24,10 @@ DENet:
   # original code bug: mm1 used for all 4 branches
   # compat_mode=True => their config in source code
   # compat_mode=False => their config in paper
-  compat_mode: false
+  compat_mode: true
+
+# GDIP:
+#   multi_level: true
 
 RobustCriterion:
   # image_cst_loss:
