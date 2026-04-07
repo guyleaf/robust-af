@@ -18,4 +18,9 @@ def default_setup(cfg, args):
     d2_default_setup(cfg, args)
 
     rank = comm.get_rank()
-    setup_logger(cfg.train.output_dir, distributed_rank=rank, name="robust_af")
+    setup_logger(
+        cfg.train.output_dir,
+        distributed_rank=rank,
+        name="robust_af.detrex",
+        abbrev_name="robust_af",
+    )
