@@ -3,7 +3,6 @@ import json
 import logging
 import os.path as osp
 from copy import deepcopy
-from functools import partial
 from pathlib import Path
 from typing import Optional, Union
 
@@ -11,7 +10,7 @@ import detectron2.data.transforms as T
 import torch
 import torch.nn as nn
 from detectron2.config import LazyCall as L
-from detectron2.config import LazyConfig, instantiate
+from detectron2.config import LazyConfig
 from detectron2.data import MetadataCatalog
 from detectron2.engine import default_setup
 from detectron2.utils.env import seed_all_rng
@@ -102,15 +101,15 @@ class DumpInferencer(Inferencer):
             mapper = deepcopy(TEST_MAPPER)
 
             # specify name of degradation
-            aug: Degradation = instantiate(mapper.augmentations[0])
-            assert isinstance(aug, Degradation)
-            aug.get_transform = partial(aug.get_transform, name=name)
-            mapper.augmentations[0] = aug
-            cfg.mapper = mapper
+            aug = mapper.augmentations[0]
+            assert aug["_target_"] is Degradation
+            aug.name = name
 
+            cfg.mapper = mapper
             dataloaders[name] = self.prepare_dataloader(
                 cfg, max_num_samples, shuffle=shuffle
             )
+
         # validate consistency across degradations
         indices = dataloaders[degradations[0]].dataset._dataset.indices
         for dataloader in dataloaders.values():
@@ -161,7 +160,7 @@ class DumpInferencer(Inferencer):
                     yield preds, sample, counter, last_sample
 
 
-def main(cfg: DictConfig):
+def main(cfg: DictConfig, args: argparse.Namespace):
     inferencer = DumpInferencer(cfg)
     generator = inferencer(
         cfg.dataloader.test,
@@ -299,4 +298,4 @@ if __name__ == "__main__":
         content = vars(args)
         json.dump(content, f, indent=4)
 
-    main(cfg)
+    main(cfg, args)

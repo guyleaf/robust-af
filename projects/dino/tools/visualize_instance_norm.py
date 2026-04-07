@@ -9,7 +9,6 @@ import sys
 from collections import defaultdict
 from contextlib import redirect_stderr, redirect_stdout
 from copy import deepcopy
-from functools import partial
 from pathlib import Path
 from typing import Optional, Union
 
@@ -140,10 +139,9 @@ class Inferencer:
             mapper = deepcopy(TEST_MAPPER)
 
             # specify name of degradation
-            aug: Degradation = instantiate(mapper.augmentations[0])
-            assert isinstance(aug, Degradation)
-            aug.get_transform = partial(aug.get_transform, name=name)
-            mapper.augmentations[0] = aug
+            aug = mapper.augmentations[0]
+            assert aug["_target_"] == Degradation.__name__
+            aug.name = name
 
             dataloader_config.dataset = self.prepare_dataset(dataset_config, unpair)
             dataloader_config.mapper = mapper
