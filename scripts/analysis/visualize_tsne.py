@@ -122,8 +122,9 @@ def collect_features(
     backbone_features = {}
     features = {}
     failures = {}
+    degradations: list[str] = args.degradations
     for name in track(
-        args.degradations, description="Collecting features...", console=CONSOLE
+        degradations, description="Collecting features...", console=CONSOLE
     ):
         degradation_dir = dump_dir / name
         backbone_features_file = degradation_dir / "backbone_features.pt"
@@ -133,9 +134,10 @@ def collect_features(
         backbone_features[name], image_ids = load_degradation_features(
             backbone_features_file, args.feat_size, max_num_samples=args.max_num_samples
         )
-        features[name], _ = load_degradation_features(
-            features_file, args.feat_size, max_num_samples=args.max_num_samples
-        )
+        if features_file.exists():
+            features[name], _ = load_degradation_features(
+                features_file, args.feat_size, max_num_samples=args.max_num_samples
+            )
 
         image_ids = np.array(image_ids)
         failed_image_ids = find_failures(
@@ -400,6 +402,9 @@ if __name__ == "__main__":
     results, failures = collect_features(dump_dir, args)
     with Live(console=CONSOLE):
         for name, features in results.items():
+            if len(features) == 0:
+                continue
+
             CONSOLE.log(f"t-SNE features: {name}")
             tsne_out_dir = out_dir / name
             tsne_out_dir.mkdir(parents=True, exist_ok=True)
