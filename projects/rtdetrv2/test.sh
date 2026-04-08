@@ -12,7 +12,7 @@ SEED=${SEED:-2025}
 torchrun \
     --master-port "$PORT" \
     --nproc-per-node "$GPUS" \
-    "$CWD/tools/train.py" \
+    "$CWD/tools/base/train.py" \
     --config "$CONFIG" \
     --resume "$CHECKPOINT" \
     --print-method rich \
