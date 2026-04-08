@@ -12,7 +12,7 @@ dependencies:
       - torch==2.7.1
       - torchvision==0.22.1
       - tensorboard
-      - -e .
+      - -e .[baseline]
 variables:
   GPUS: 4
   # register our classes before rtdetrv2

@@ -19,7 +19,7 @@ dependencies:
       - tensorboard
       # for analysis
       - scikit-learn~=1.6.1
-      - -e .
+      - -e .[baseline]
 variables:
   GPUS: 4
   # set the default explicitly to let user modify it easily by shell completions.

@@ -14,7 +14,7 @@ dependencies:
       - numpy<2
       - wandb
       - tensorboard
-      - -e .
+      - -e .[baseline]
 variables:
   # GPUS: 4
   # setup the environment before yolov10
