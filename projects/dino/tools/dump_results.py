@@ -12,7 +12,10 @@ import torch.nn as nn
 from detectron2.config import LazyCall as L
 from detectron2.config import LazyConfig
 from detectron2.data import MetadataCatalog
+from detectron2.data.detection_utils import convert_image_to_rgb
+from detectron2.structures import Instances
 from detectron2.utils.env import seed_all_rng
+from detectron2.utils.visualizer import Visualizer
 from omegaconf import DictConfig
 from rich.progress import track
 from torch.utils.data import DataLoader
@@ -96,16 +99,17 @@ class DumpInferencer(Inferencer):
 
         dataloaders: dict[str, DataLoader] = {}
         for name in degradations:
-            # make shuffle determinitic
-            seed_all_rng(seed)
             mapper = deepcopy(TEST_MAPPER)
 
             # specify name of degradation
             aug = mapper.augmentations[0]
             assert aug["_target_"] is Degradation
             aug.name = name
+            aug.seed = seed
 
             cfg.mapper = mapper
+            # make shuffle determinitic
+            seed_all_rng(seed)
             dataloaders[name] = self.prepare_dataloader(
                 cfg, max_num_samples, shuffle=shuffle
             )
@@ -128,13 +132,10 @@ class DumpInferencer(Inferencer):
         if not isinstance(dataloader_cfg, DictConfig):
             dataloader_cfg = LazyConfig.load(dataloader_cfg).dataloader.test
         dataloaders = self.prepare_dataloaders(
-            dataloader_cfg,
-            degradations,
-            max_num_samples,
-            shuffle=shuffle,
-            seed=seed + 1,
+            dataloader_cfg, degradations, max_num_samples, shuffle=shuffle, seed=seed
         )
 
+        # avoid any randomness
         seed_all_rng(seed)
         for name, dataloader in dataloaders.items():
             num_samples = len(dataloader.dataset)
@@ -161,6 +162,7 @@ class DumpInferencer(Inferencer):
 
 
 def main(cfg: DictConfig, args: argparse.Namespace):
+    metadata = MetadataCatalog.get(cfg.dataloader.test.dataset.names)
     inferencer = DumpInferencer(cfg)
     generator = inferencer(
         cfg.dataloader.test,
@@ -175,12 +177,14 @@ def main(cfg: DictConfig, args: argparse.Namespace):
     backbone_features = {}
     predictions = []
     out_dir: Path = Path(cfg.train.output_dir)
+    vis_image_ids = set(args.vis_image_ids)
     for preds, sample, counter, last_sample in generator:
-        image_id = sample["image_id"]
-        images_i = sample.get("images")
-        features_i = sample.get("features")
-        backbone_features_i = sample["backbone_features"]
-        instances = preds["instances"]
+        image_id: int = sample["image_id"]
+        name: str = sample["degradation"]
+        images_i: Optional[torch.Tensor] = sample.get("images")
+        features_i: Optional[dict[str, torch.Tensor]] = sample.get("features")
+        backbone_features_i: dict[str, torch.Tensor] = sample["backbone_features"]
+        instances: Instances = preds["instances"]
 
         backbone_features[image_id] = {
             k: v.cpu() for k, v in backbone_features_i.items()
@@ -198,9 +202,9 @@ def main(cfg: DictConfig, args: argparse.Namespace):
 
         # save results per degradation
         if last_sample:
-            assert len(images) == counter or len(features) == counter
+            assert len(images) in (0, counter)
+            assert len(features) in (0, counter)
 
-            name = sample["degradation"]
             kwargs = dict(
                 images=None if len(images) == 0 else images,
                 features=None if len(features) == 0 else features,
@@ -211,6 +215,17 @@ def main(cfg: DictConfig, args: argparse.Namespace):
             images = {}
             features = {}
             predictions = []
+
+        if image_id in vis_image_ids:
+            image = convert_image_to_rgb(
+                sample["image"].permute(1, 2, 0), inferencer.input_format
+            )
+            vis = Visualizer(image, metadata=metadata)
+            vis_image = vis.draw_instance_predictions(instances)
+
+            image_dir = out_dir / name / "images"
+            image_dir.mkdir(parents=True, exist_ok=True)
+            vis_image.save(image_dir / f"{image_id:05d}.jpg")
 
 
 def parse_args():
@@ -232,6 +247,13 @@ def parse_args():
         default=100,
         help="The maximum number of samples per degradation. "
         "Higher number need longer time to calculate.",
+    )
+    parser.add_argument(
+        "--vis-image-ids",
+        type=int,
+        nargs="*",
+        default=[],
+        help="Specify image ids for dumping the input image for easier analysis.",
     )
 
     parser.add_argument(

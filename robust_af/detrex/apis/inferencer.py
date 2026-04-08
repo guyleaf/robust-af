@@ -40,6 +40,10 @@ class Inferencer:
             ema.apply_model_ema(model)
         return model
 
+    @property
+    def input_format(self) -> str:
+        return getattr(self.model, "input_format", "RGB")
+
     def prepare_dataset(
         self, cfg: DictConfig, max_num_samples: int, shuffle: bool = False
     ):
