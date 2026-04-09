@@ -33,7 +33,6 @@ if __name__ == "__main__":
     mode = cfg.get("mode")
     task = cfg.get("task")
     model = cfg.get("model")
-    pretrained = cfg.get("pretrained")
     robust = cfg.get("robust", False)
 
     if robust:
@@ -45,9 +44,6 @@ if __name__ == "__main__":
         model = model_cls.from_pretrained(model, task=task)
     else:
         model = model_cls(model, task=task)
-
-    if isinstance(pretrained, str):
-        model.load(pretrained)
 
     # Run command in python
     getattr(model, mode)(**cfg)
