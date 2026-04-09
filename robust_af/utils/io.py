@@ -40,5 +40,6 @@ def collect_videos(
 
 
 def dump_json(path: Path, obj, **kwargs):
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(obj, f, **kwargs)

@@ -42,6 +42,9 @@ class Degradation(T.Transform):
         self.ignored_degradations = ignored_degradations
         self._init_random(None)
 
+        if self.name is not None:
+            print(f"Specified degradation: {self.name}")
+
     def _init_random(self, seed: Optional[int]):
         if seed is None:
             self.np_random_generator = None
