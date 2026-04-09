@@ -76,6 +76,7 @@
       },
     ],
     "python.analysis.extraPaths": [
+      "${workspaceFolder:project}/3rdparty/RT-DETR/rtdetrv2_pytorch",
       "${workspaceFolder:project}/3rdparty/yolov10",
       "${workspaceFolder:project}/3rdparty/DENet",
     ],
