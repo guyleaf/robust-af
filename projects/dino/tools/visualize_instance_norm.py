@@ -9,7 +9,6 @@ import sys
 from collections import defaultdict
 from contextlib import redirect_stderr, redirect_stdout
 from copy import deepcopy
-from functools import partial
 from pathlib import Path
 from typing import Optional, Union
 
@@ -25,7 +24,6 @@ from detectron2.config import LazyCall as L
 from detectron2.config import LazyConfig, instantiate
 from detectron2.data import DatasetFromList
 from detectron2.data.detection_utils import convert_image_to_rgb
-from detectron2.engine import default_setup
 from detectron2.utils.env import seed_all_rng
 from omegaconf import DictConfig
 from rich.progress import track
@@ -36,6 +34,7 @@ from torch.utils.hooks import RemovableHandle
 
 from robust_af.detrex.data.dataset_mappers import DetrDatasetMapper
 from robust_af.detrex.data.transforms import Degradation
+from robust_af.detrex.engine import default_setup
 from robust_af.transforms import DEGRADATION_TRANSFORMS
 
 LOGGER = logging.getLogger("detectron2")
@@ -140,10 +139,9 @@ class Inferencer:
             mapper = deepcopy(TEST_MAPPER)
 
             # specify name of degradation
-            aug: Degradation = instantiate(mapper.augmentations[0])
-            assert isinstance(aug, Degradation)
-            aug.get_transform = partial(aug.get_transform, name=name)
-            mapper.augmentations[0] = aug
+            aug = mapper.augmentations[0]
+            assert aug["_target_"] == Degradation.__name__
+            aug.name = name
 
             dataloader_config.dataset = self.prepare_dataset(dataset_config, unpair)
             dataloader_config.mapper = mapper

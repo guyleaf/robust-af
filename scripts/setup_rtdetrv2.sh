@@ -4,7 +4,7 @@ set -e
 cwd=$(dirname "$0")
 root=$(dirname "$cwd")
 
-envName="rtdetrv2"
+envName=${1:-"rtdetrv2"}
 sourcePath="$root/3rdparty/RT-DETR/rtdetrv2_pytorch"
 
 # create conda env

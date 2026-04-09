@@ -1,3 +1,4 @@
+import logging
 import random
 from typing import Optional
 
@@ -15,6 +16,8 @@ from ....transforms import (
     sample_degradation_name,
 )
 from ....utils import get_worker_id
+
+LOGGER = logging.getLogger(__name__)
 
 
 class DegradationTransform(Transform):
@@ -60,15 +63,20 @@ class Degradation(Augmentation):
 
     def __init__(
         self,
+        name: Optional[str] = None,
         seed: Optional[int] = None,
         identity: bool = True,
         ignored_degradations: list[str] = [],
     ):
         super().__init__()
+        self.name = name
         self.seed = seed
         self.identity = identity
         self.ignored_degradations = ignored_degradations
         self._init_random(None)
+
+        if self.name is not None:
+            LOGGER.info(f"Specified degradation: {self.name}")
 
     def _init_random(self, seed: Optional[int]):
         if seed is None:
@@ -79,7 +87,7 @@ class Degradation(Augmentation):
             self.np_random_generator = np.random.default_rng(seed)
             self.py_random = random.Random(seed)
 
-    def get_transform(self, name: Optional[str] = None):
+    def get_transform(self, *args):
         if self.np_random_generator is None or self.py_random is None:
             if self.seed is None:
                 # determine the seed by global generator
@@ -91,6 +99,7 @@ class Degradation(Augmentation):
                 seed = (self.seed + get_rank() + worker_id) % (2**32)
             self._init_random(seed)
 
+        name = self.name
         if name is None:
             name = sample_degradation_name(
                 identity=self.identity,

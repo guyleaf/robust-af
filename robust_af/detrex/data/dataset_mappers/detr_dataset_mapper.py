@@ -7,6 +7,8 @@ import torch
 from detectron2.data import detection_utils as utils
 from detectron2.data import transforms as T
 
+LOGGER = logging.getLogger(__name__)
+
 
 class DetrDatasetMapper:
     """
@@ -55,11 +57,8 @@ class DetrDatasetMapper:
         self.image_format = image_format
         self.is_train = is_train
 
-        logger = logging.getLogger(__name__)
         mode = "training" if is_train else "inference"
-        logger.info(
-            f"[DetrDatasetMapper] Augmentations used in {mode}: {self.augmentations}"
-        )
+        LOGGER.info(f"Augmentations used in {mode}: {self.augmentations}")
 
     def __call__(self, dataset_dict: dict):
         """

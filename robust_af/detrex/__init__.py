@@ -4,6 +4,6 @@ def setup_environment():
     pass
 
 
-from . import configs, data, engine, modeling, utils
+from . import apis, configs, data, engine, evaluation, modeling, utils
 
 __all__ = list(globals().keys())

@@ -2,7 +2,7 @@
 set -e
 
 cwd=$(dirname "$0")
-root=$(dirname "$cwd")
+root=$(dirname "$(dirname "$cwd")")
 out_dir=${1:-$root/images/vis}
 
 python "$cwd/browse_coco_dataset.py" --out-dir "$out_dir/dut_anti_uav" ~/data/UAV/DUT_Anti_UAV/detection

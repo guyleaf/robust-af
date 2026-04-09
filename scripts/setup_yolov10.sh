@@ -4,7 +4,7 @@ set -e
 cwd=$(dirname "$(realpath "$0")")
 root=$(dirname "$cwd")
 
-envName="yolov10"
+envName=${1:-"yolov10"}
 sourcePath="$root/3rdparty/yolov10"
 projectPath="$root/projects/yolov10"
 
