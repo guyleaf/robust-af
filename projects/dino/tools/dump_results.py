@@ -1,7 +1,5 @@
 import argparse
-import json
 import logging
-import os.path as osp
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
@@ -26,7 +24,7 @@ from robust_af.detrex.data.transforms import Degradation
 from robust_af.detrex.engine import default_setup
 from robust_af.detrex.utils import convert_instances_to_coco
 from robust_af.transforms import DEGRADATION_TRANSFORMS
-from robust_af.utils import dump_results
+from robust_af.utils import dump_json, dump_results
 
 LOGGER = logging.getLogger("detectron2")
 
@@ -315,9 +313,6 @@ if __name__ == "__main__":
 
     metadata = MetadataCatalog.get(cfg.dataloader.test.dataset.names)
     args.annotation_file = Path(metadata.json_file).resolve().as_posix()
-    # save args
-    with open(osp.join(out_dir, "metadata.json"), "w") as f:
-        content = vars(args)
-        json.dump(content, f, indent=4)
+    dump_json(out_dir / "metadata.json", vars(args), indent=4)
 
     main(cfg, args)
