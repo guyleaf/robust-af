@@ -13,7 +13,6 @@ class UnpicklerWrapper(pickle.Unpickler):
         for k, v in _MODULE_PREFIX_MAP.items():
             if module_name.startswith(k):
                 module_name = module_name.replace(k, v, 1)
-                break
         return super().find_class(module_name, global_name)
 
 
