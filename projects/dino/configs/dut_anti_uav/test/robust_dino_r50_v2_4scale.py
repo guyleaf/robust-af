@@ -13,11 +13,12 @@ from robust_af.detrex.data.datasets.register_dut_anti_uav import (
     DATASET_NAME as TEST_DATASET_NAME,
 )
 from robust_af.detrex.modeling.processors import MultiScaleProcessor
-from robust_af.models.feature_adapters import SpatialAFR
+from robust_af.models.feature_adapters import SimpleNN  # noqa: F401
 
 from ...models.robust_dino_r50_v2 import model
 
-degraded = True
+test_subset = True
+degraded = False
 test_dataset_name = TEST_DATASET_NAME
 
 dataset = get_config(f"datasets/{test_dataset_name}_detr.py")
@@ -25,21 +26,25 @@ if degraded:
     dataloader = dataset.robust_dataloader
 else:
     dataloader = dataset.dataloader
+if test_subset:
+    name = dataloader.test.dataset.names.replace("_val", "_test")
+    dataloader.test.dataset.names = name
 
 train = get_config("train.py").train
 
 metadata = MetadataCatalog.get(test_dataset_name)
 
-suffix = "_degraded" if degraded else ""
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_36ep_1e-5_lr_spatial_afr_relu_no_cst_loss_no_train_heads_from_24ep{suffix}"
+suffix = "_test" if test_subset else ""
+suffix += "_degraded" if degraded else ""
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_36ep_1e-5_lr_simple_nn_no_train_heads_from_24ep{suffix}"
 
 # ==============================================================
 
-# model.robust_module = L(MultiScaleProcessor)(
-#     res3=L(SimpleNN)(embed_dims=512),
-#     res4=L(SimpleNN)(embed_dims=1024),
-#     res5=L(SimpleNN)(embed_dims=2048),
-# )
+model.robust_module = L(MultiScaleProcessor)(
+    res3=L(SimpleNN)(embed_dims=512),
+    res4=L(SimpleNN)(embed_dims=1024),
+    res5=L(SimpleNN)(embed_dims=2048),
+)
 # model.robust_module = L(MultiScaleProcessor)(
 #     res3=L(AMFGv2)(embed_dims=512),
 #     res4=L(AMFGv2)(embed_dims=1024),
@@ -60,11 +65,11 @@ output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robu
 #     res4=L(SpatialAFR)(embed_dims=1024),
 #     res5=L(SpatialAFR)(embed_dims=2048),
 # )
-model.robust_module = L(MultiScaleProcessor)(
-    res3=L(SpatialAFR)(embed_dims=512, activation="ReLU"),
-    res4=L(SpatialAFR)(embed_dims=1024, activation="ReLU"),
-    res5=L(SpatialAFR)(embed_dims=2048, activation="ReLU"),
-)
+# model.robust_module = L(MultiScaleProcessor)(
+#     res3=L(SpatialAFR)(embed_dims=512, activation="ReLU"),
+#     res4=L(SpatialAFR)(embed_dims=1024, activation="ReLU"),
+#     res5=L(SpatialAFR)(embed_dims=2048, activation="ReLU"),
+# )
 # model.robust_module = L(MultiScaleProcessor)(
 #     res3=L(SpatialAFR)(
 #         embed_dims=512, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"

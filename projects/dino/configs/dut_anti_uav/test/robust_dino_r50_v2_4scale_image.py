@@ -11,11 +11,12 @@ from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 from robust_af.detrex.data.datasets.register_dut_anti_uav import (
     DATASET_NAME as TEST_DATASET_NAME,
 )
+from robust_af.models.image_adapters.baselines import DIP, GDIP, DENet  # noqa: F401
 
-from ...models.dino_swin_small_224 import model
+from ...models.robust_dino_r50_v2 import model
 
 test_subset = False
-degraded = True
+degraded = False
 test_dataset_name = TEST_DATASET_NAME
 
 dataset = get_config(f"datasets/{test_dataset_name}_detr.py")
@@ -28,28 +29,31 @@ if test_subset:
     dataloader.test.dataset.names = name
 
 train = get_config("train.py").train
+
 metadata = MetadataCatalog.get(test_dataset_name)
 
 suffix = "_test" if test_subset else ""
 suffix += "_degraded" if degraded else ""
-output_dir = f"./outputs/dino_swin_small_224_4scale/{DATASET_NAME}/{test_dataset_name}/dino_swin_small_224_4scale_24ep_5e-5_lr_new_mapper_warmup_again{suffix}"
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_50ep_5e-5_lr_warmup_from_scratch{suffix}"
 
 # ==============================================================
 
-# NOTE: for tsne vis
-# model.backbone.out_indices = [0, 1, 2, 3]
-# model.neck.input_shapes = {
-#     "p0": ShapeSpec(channels=96),
-#     "p1": ShapeSpec(channels=192),
-#     "p2": ShapeSpec(channels=384),
-#     "p3": ShapeSpec(channels=768),
-# }
+model.robust_module = None
+model.robust_image_module = None
+# model.robust_image_module = L(DENet)(compat_mode=False)
+# model.robust_image_module = L(GDIP)(multi_level=False)
+# model.robust_image_module = L(DIP)()
 
-# set output dir
-train.output_dir = output_dir
+# modify model config
+# use the original implementation of dab-detr position embedding.
+model.position_embedding.temperature = 20
+model.position_embedding.offset = 0.0
 
 # change the number of classes
 model.num_classes = metadata.num_classes
+
+# set output dir
+train.output_dir = output_dir
 
 # set training devices
 train.device = "cuda"

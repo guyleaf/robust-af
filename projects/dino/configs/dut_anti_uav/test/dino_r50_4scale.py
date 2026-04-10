@@ -1,6 +1,4 @@
-from detectron2.data.catalog import MetadataCatalog
-
-from robust_af.detrex.configs import get_config
+from detectron2.data import MetadataCatalog
 
 # from robust_af.detrex.data.datasets.register_uav_eagle import (
 #     DATASET_NAME as TEST_DATASET_NAME,
@@ -8,6 +6,7 @@ from robust_af.detrex.configs import get_config
 # from robust_af.detrex.data.datasets.register_dds import (
 #     DATASET_NAME as TEST_DATASET_NAME,
 # )
+from robust_af.detrex.configs import get_config
 from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 from robust_af.detrex.data.datasets.register_dut_anti_uav import (
     DATASET_NAME as TEST_DATASET_NAME,
@@ -15,6 +14,7 @@ from robust_af.detrex.data.datasets.register_dut_anti_uav import (
 
 from ...models.dino_r50 import model
 
+test_subset = True
 degraded = False
 test_dataset_name = TEST_DATASET_NAME
 
@@ -23,12 +23,16 @@ if degraded:
     dataloader = dataset.robust_dataloader
 else:
     dataloader = dataset.dataloader
+if test_subset:
+    name = dataloader.test.dataset.names.replace("_val", "_test")
+    dataloader.test.dataset.names = name
 
 train = get_config("train.py").train
 metadata = MetadataCatalog.get(test_dataset_name)
 
 use_paper_pos = True
-suffix = "_degraded" if degraded else ""
+suffix = "_test" if test_subset else ""
+suffix += "_degraded" if degraded else ""
 output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/dino_r50_4scale_24ep_5e-5_lr_new_mapper_warmup{suffix}"
 
 # ==============================================================
