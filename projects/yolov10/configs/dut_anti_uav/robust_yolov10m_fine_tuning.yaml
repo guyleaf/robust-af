@@ -5,26 +5,28 @@
 
 task: detect # (str) YOLO task, i.e. detect, segment, classify, pose
 mode: train # (str) YOLO mode, i.e. train, val, predict, export, track, benchmark
+robust: True # (bool) use the robust version of YOLO
 
 # Train settings -------------------------------------------------------------------------------------------------------
+# model: configs/robust_models/yolov10m.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
 model: yolov10m.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
 data: configs/datasets/dut_anti_uav.yaml # (str, optional) path to data file, i.e. coco128.yaml
-epochs: 500 # (int) number of epochs to train for
+epochs: 100 # (int) number of epochs to train for
 # time: # (float, optional) number of hours to train for, overrides epochs if supplied
 # patience: 100 # (int) epochs to wait for no observable improvement for early stopping of training
 batch: 128 # (int) number of images per batch (-1 for AutoBatch)
 imgsz: 640 # (int | list) input images size as int for train and val modes, or list[w,h] for predict and export modes
 save: True # (bool) save train checkpoints and predict results
-save_period: 100 # (int) Save checkpoint every x epochs (disabled if < 1)
+save_period: 25 # (int) Save checkpoint every x epochs (disabled if < 1)
 val_period: 1 # (int) Validation every x epochs
 cache: ram # (bool) True/ram, disk or False. Use cache for data loading
-# device: 0,1,2,3 # (int | str | list, optional) device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
-device: 4,5,6,7
+device: 0,1,2,3 # (int | str | list, optional) device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
+# device: 4,5,6,7
 workers: 4 # (int) number of worker threads for data loading (per RANK if DDP)
 project: yolov10 # (str, optional) project name
-name: yolov10m/dut_anti_uav/yolov10m_500e_1e-2_lr_no_degraded_augs # (str, optional) experiment name, results saved to 'project/name' directory
+name: yolov10m/dut_anti_uav/robust_yolov10m_100e_1e-2_lr_fine_tuning # (str, optional) experiment name, results saved to 'project/name' directory
 exist_ok: False # (bool) whether to overwrite existing experiment
-pretrained: False # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
+pretrained: /home/leafying/data/checkpoints/yolov10/yolov10m/dut_anti_uav/yolov10m_500e_1e-2_lr/best.pt # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
 optimizer: SGD # (str) optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]
 verbose: True # (bool) whether to print verbose output
 seed: 2025 # (int) random seed for reproducibility
@@ -37,7 +39,11 @@ resume: False # (bool) resume training from last checkpoint
 amp: True # (bool) Automatic Mixed Precision (AMP) training, choices=[True, False], True runs AMP check
 # fraction: 1.0 # (float) dataset fraction to train on (default is 1.0, all images in train set)
 # profile: False # (bool) profile ONNX and TensorRT speeds during training for loggers
-# freeze: None # (int | list, optional) freeze first n layers, or freeze list of layer indices during training
+freeze: ~ # (int | list, optional) freeze first n layers, or freeze list of layer indices during training
+
+# if True, freeze based on the freeze arg. Otherwise, act like the rule of freeze arg.
+freeze_bn: False # (bool | int | list, optional) freeze batch norm during training.
+
 # multi_scale: False # (bool) Whether to use multiscale during training
 # Segmentation
 # overlap_mask: True # (bool) masks should overlap during training (segment train only)
@@ -47,7 +53,7 @@ amp: True # (bool) Automatic Mixed Precision (AMP) training, choices=[True, Fals
 
 # Val/Test settings ----------------------------------------------------------------------------------------------------
 val: True # (bool) validate/test during training
-split: val # (str) dataset split to use for validation, i.e. 'val', 'test' or 'train'
+split: degraded_val # (str) dataset split to use for validation, i.e. 'val', 'test' or 'train'
 save_json: False # (bool) save results to JSON file
 save_hybrid: False # (bool) save hybrid version of labels (labels + additional predictions)
 # conf: # (float, optional) object confidence threshold for detection (default 0.25 predict, 0.001 val)
@@ -90,4 +96,12 @@ copy_paste: 0.1 # (float) segment copy-paste (probability)
 # auto_augment: randaugment # (str) auto augmentation policy for classification (randaugment, autoaugment, augmix)
 # erasing: 0.4 # (float) probability of random erasing during classification training (0-1)
 # crop_fraction: 1.0 # (float) image crop fraction for classification evaluation/inference (0-1)
-degraded_augs: False # (bool) use degraded related augmentations in YOLODataset. Defaults to original design.
+degradation:
+  enabled: True # (bool) apply degradation augmentation
+  # always: False # (bool) whether always apply on test (YOLODataset only)
+  # NOTE: we must specify the seed to avoid using global random sequence (due to reproducibility and integration of mixup, mosaic augment, etc.)
+  seed: 2025 # (int, optional) if None, sample a seed from global random generator
+  identity: True # (bool) add identity (skip connection) to the degradation list
+  ignored_degradations: [] # (list[str]) don't apply these types of degradations.
+cst_loss: ~
+image_cst_loss: ~
