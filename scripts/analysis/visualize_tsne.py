@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from collections import defaultdict
+from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
@@ -116,12 +117,15 @@ def load_degradation_features(
 
 def collect_features(
     dump_dir: Path, args: argparse.Namespace
-) -> tuple[dict[str, dict[str, dict[str, np.ndarray]]], dict[str, np.ndarray]]:
+) -> tuple[
+    dict[str, dict[str, dict[str, np.ndarray]]], dict[str, dict[str, np.ndarray]]
+]:
     coco = COCO(args.annotation_file)
 
     backbone_features = {}
     features = {}
-    failures = {}
+    image_idss = {}
+    failed_image_idss = {}
     degradations: list[str] = args.degradations
     for name in track(
         degradations, description="Collecting features...", console=CONSOLE
@@ -146,9 +150,31 @@ def collect_features(
             iou_thr=args.iou_threshold,
             score_thr=args.score_threshold,
         )
-        failures[name] = np.isin(image_ids, failed_image_ids, assume_unique=True)
+        image_idss[name] = image_ids
+        failed_image_idss[name] = failed_image_ids
 
-    return dict(backbone_features=backbone_features, features=features), failures
+    return dict(backbone_features=backbone_features, features=features), dict(
+        image_idss=image_idss, failed_image_idss=failed_image_idss
+    )
+
+
+def preprocess_metadata(metadata: dict, args: argparse.Namespace):
+    # filter failures
+    failed_image_idss = metadata["failed_image_idss"]
+    for degradation in args.failure_exclude:
+        exclusive = deepcopy(failed_image_idss[degradation])
+        for name, image_ids in failed_image_idss.items():
+            failed_image_idss[name] = np.setdiff1d(image_ids, exclusive)
+
+    # generate failure boolean map
+    failures = {}
+    image_idss = metadata["image_idss"]
+    for degradation, image_ids in image_idss.items():
+        failures[degradation] = np.isin(
+            image_ids, failed_image_idss[degradation], assume_unique=True
+        )
+    metadata["failures"] = failures
+    return metadata
 
 
 def visualize_with_tsne(
@@ -177,17 +203,26 @@ def visualize_with_tsne(
 
     CONSOLE.log("Running t-SNE.")
     fig = plt.figure(figsize=(9, 6), layout="constrained")
+
+    _degradation_features = next(iter(features.values()))
+    _tmp = next(iter(_degradation_features.values()))
+
     # degradations -> multi-scales -> samples
-    scales = list(list(features.values())[0].keys())
+    degradations = list(features.keys())
+    scales = list(_degradation_features.keys())
+    batch_size = _tmp.shape[0]
+
+    colors = [i for i in range(len(degradations)) for _ in range(batch_size)]
+    linewidths = [
+        linewidth.item()
+        for k in degradations
+        for linewidth in np.where(failures[k], 1.0, 0.2)
+    ]
 
     # visualize feature distribution for each scale
     minmax = MinMaxScaler(feature_range=(-10, 10))
     for scale in track(scales, description="Running t-SNE...", console=CONSOLE):
-        samples = {k: v[scale] for k, v in features.items()}
-
-        keys = list(samples.keys())
-        samples = list(samples.values())
-        batch_size, _ = samples[0].shape
+        samples = [v[scale] for v in features.values()]
 
         # K: number of degradations
         # [[B, C], ...] -> [K*B, C]
@@ -201,16 +236,6 @@ def visualize_with_tsne(
 
         fig.suptitle(f"{scale} backbone layer")
         axes = fig.add_subplot(projection="3d" if args.n_components == 3 else None)
-
-        colors = [i for i in range(len(keys)) for _ in range(batch_size)]
-        # colors = list(
-        #     itertools.chain.from_iterable([i] * batch_size for i in range(len(keys)))
-        # )
-        linewidths = [
-            linewidth.item()
-            for k in keys
-            for linewidth in np.where(failures[k], 1.0, 0.2)
-        ]
         scatter = axes.scatter(
             *np.transpose(result),
             alpha=0.8,
@@ -223,7 +248,7 @@ def visualize_with_tsne(
         # axes.set_xlim(-10, 10)
         # axes.set_ylim(-10, 10)
         handles, _ = scatter.legend_elements(prop="colors", num=None)
-        fig.legend(handles, keys, loc="outside right")
+        fig.legend(handles, degradations, loc="outside right")
 
         fig.savefig(out_dir / f"backbone_{scale}.png")
         if args.show:
@@ -282,6 +307,13 @@ def parse_args():
         type=float,
         default=0.3,
         help="Score threshold to filter invalid predictions.",
+    )
+    parser.add_argument(
+        "--failure-exclude",
+        type=str,
+        nargs="*",
+        default=[],
+        help="Don't show any failures (same image_id) if fail in specific degradations",
     )
     parser.add_argument(
         "--show", action="store_true", help="Display the result in a graphical window."
@@ -399,7 +431,8 @@ if __name__ == "__main__":
         content = vars(args)
         json.dump(content, f, indent=4)
 
-    results, failures = collect_features(dump_dir, args)
+    results, metadata = collect_features(dump_dir, args)
+    metadata = preprocess_metadata(metadata, args)
     with Live(console=CONSOLE):
         for name, features in results.items():
             if len(features) == 0:
@@ -408,4 +441,4 @@ if __name__ == "__main__":
             CONSOLE.log(f"t-SNE features: {name}")
             tsne_out_dir = out_dir / name
             tsne_out_dir.mkdir(parents=True, exist_ok=True)
-            visualize_with_tsne(tsne_out_dir, features, failures, args)
+            visualize_with_tsne(tsne_out_dir, features, metadata["failures"], args)
