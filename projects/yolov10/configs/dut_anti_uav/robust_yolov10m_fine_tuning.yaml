@@ -24,7 +24,7 @@ device: 0,1,2,3 # (int | str | list, optional) device to run on, i.e. cuda devic
 # device: 4,5,6,7
 workers: 4 # (int) number of worker threads for data loading (per RANK if DDP)
 project: yolov10 # (str, optional) project name
-name: yolov10m/dut_anti_uav/robust_yolov10m_100e_1e-2_lr_fine_tuning # (str, optional) experiment name, results saved to 'project/name' directory
+name: yolov10m/dut_anti_uav/robust_yolov10m_100e_1e-3_lr_fine_tuning # (str, optional) experiment name, results saved to 'project/name' directory
 exist_ok: False # (bool) whether to overwrite existing experiment
 pretrained: /home/leafying/data/checkpoints/yolov10/yolov10m/dut_anti_uav/yolov10m_500e_1e-2_lr/best.pt # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
 optimizer: SGD # (str) optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]
@@ -65,7 +65,7 @@ plots: True # (bool) save plots and images during train/val
 
 # Hyperparameters ------------------------------------------------------------------------------------------------------
 # 4 gpu ver. by linear scaling rule
-lr0: 0.01 # (float) initial learning rate (i.e. SGD=1E-2, Adam=1E-3)
+lr0: 0.001 # (float) initial learning rate (i.e. SGD=1E-2, Adam=1E-3)
 lrf: 0.01 # (float) final learning rate (lr0 * lrf)
 momentum: 0.937 # (float) SGD momentum/Adam beta1
 weight_decay: 0.0005 # (float) optimizer weight decay 5e-4
