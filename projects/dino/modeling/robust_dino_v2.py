@@ -68,11 +68,13 @@ class RobustDINOv2(DINO):
         train_cdn: bool = False,
         train_heads: bool = True,
         train_all: bool = False,
+        zero_pad_after_image_adapter: bool = True,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.robust_image_module = robust_image_module
         self.robust_module = robust_module
+        self.zero_pad_after_image_adapter = zero_pad_after_image_adapter
 
         self.training_parts: List[Union[nn.Module, nn.Parameter]] = []
         if self.with_robust_image_module:
@@ -158,10 +160,11 @@ class RobustDINOv2(DINO):
             images.tensor = images.tensor / 255
             if robust:
                 images.tensor = self.robust_image_module(images.tensor)
-                # make paddings zero again after restoration
-                for i, (h, w) in enumerate(images.image_sizes):
-                    images.tensor[i, :, h:, :] = 0
-                    images.tensor[i, :, :, w:] = 0
+                if self.zero_pad_after_image_adapter:
+                    # make paddings zero again after restoration
+                    for i, (h, w) in enumerate(images.image_sizes):
+                        images.tensor[i, :, h:, :] = 0
+                        images.tensor[i, :, :, w:] = 0
             rhs_dict["image_rhss"] = images.tensor
             images.tensor = images.tensor * 255
 
