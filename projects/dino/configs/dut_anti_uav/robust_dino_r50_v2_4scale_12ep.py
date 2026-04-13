@@ -62,7 +62,7 @@ model.position_embedding.temperature = 20
 model.position_embedding.offset = 0.0
 
 # modify training config
-train.init_checkpoint = "/home/leafying/work/experiments/work_dirs/detrex/dino_r50_4scale/dut_anti_uav/dino_r50_4scale_24ep_5e-5_lr_new_mapper_warmup/model_best_0014949.pth"
+train.init_checkpoint = "/home/leafying/data/checkpoints/detrex/dino_r50_4scale/dut_anti_uav/dino_r50_4scale_24ep_5e-5_lr_new_mapper_warmup/model_best_0014949.pth"
 train.output_dir = output_dir
 
 # train.sync_bn = True

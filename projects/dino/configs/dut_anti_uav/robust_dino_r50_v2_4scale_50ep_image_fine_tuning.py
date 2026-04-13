@@ -26,8 +26,6 @@ num_epochs = 50
 
 # no freeze
 model.train_all = True
-
-model.pad_after_image_adapter = False
 model.robust_module = None
 model.robust_image_module = L(DENet)(compat_mode=False)
 # model.robust_image_module = L(GDIP)(multi_level=True)
@@ -39,8 +37,7 @@ model.criterion.loss_image_cst = None
 model.criterion.weight_dict = {"loss_image_cst": 20.0}
 
 # modify training config
-train.init_checkpoint = "detectron2://ImageNetPretrained/torchvision/R-50.pkl"
-train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_50ep_5e-5_lr_denet_warmup_from_scratch_no_pad"
+train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_50ep_5e-5_lr_denet_fine_tuning_from_24ep"
 
 # max training iterations
 train.max_iter = num_epochs * num_batches

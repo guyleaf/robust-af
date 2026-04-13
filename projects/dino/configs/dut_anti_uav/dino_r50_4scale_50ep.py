@@ -29,7 +29,7 @@ model.position_embedding.offset = 0.0
 
 # modify training config
 train.output_dir = (
-    f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_50ep_5e-5_lr_new_mapper_warmup_2"
+    f"./outputs/dino_r50_4scale/{DATASET_NAME}/dino_r50_4scale_50ep_5e-5_lr_new_mapper_warmup"
 )
 
 # max training iterations
@@ -52,4 +52,4 @@ train.wandb["params"].update(params)
 
 # set the random seed
 # [42, 123, 456, 789, 2025]
-train.seed = 789
+train.seed = 2025
