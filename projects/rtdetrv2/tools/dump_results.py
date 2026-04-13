@@ -198,7 +198,8 @@ def main(cfg: YAMLConfig, args: argparse.Namespace):
             k: v.cpu() for k, v in backbone_features_i.items()
         }
         if images_i is not None:
-            images[image_id] = images_i.cpu()
+            image = sample["image"]
+            images[image_id] = dict(before=image.cpu(), after=images_i.cpu())
         if features_i is not None:
             features[image_id] = {k: v.cpu() for k, v in features_i.items()}
 

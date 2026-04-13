@@ -8,13 +8,14 @@ from .io import dump_json
 
 def dump_coco_images(
     folder: Path,
-    images: dict[int, torch.Tensor],
+    images: dict[int, dict[str, torch.Tensor]],
     file_name: str = "images.pt",
 ):
     # validate features follow [C, H, W]
     for image_id, image in images.items():
         assert isinstance(image_id, int) and image_id > 0
-        assert isinstance(image, torch.Tensor) and image.dim() == 3
+        for k, v in image.items():
+            assert isinstance(v, torch.Tensor) and v.dim() == 3, k
 
     folder.mkdir(parents=True, exist_ok=True)
     torch.save(images, folder / file_name)
@@ -61,7 +62,7 @@ def dump_results(
     folder: Path,
     predictions: list[dict],
     backbone_features: dict[int, dict[str, torch.Tensor]],
-    images: Optional[dict[int, torch.Tensor]] = None,
+    images: Optional[dict[int, dict[str, torch.Tensor]]] = None,
     features: Optional[dict[int, dict[str, torch.Tensor]]] = None,
     metadata: dict = {},
 ):

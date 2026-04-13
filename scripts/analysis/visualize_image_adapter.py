@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import PIL.Image as Image
 import torch
-from rich import Console
+from rich.console import Console
 from rich.progress import track
 
 from robust_af.transforms import DEGRADATION_TRANSFORMS
@@ -14,24 +14,33 @@ CONSOLE = Console()
 
 
 def visualize_image_adapter(dump_dir: Path, out_dir: Path, args: argparse.Namespace):
-    for name in track(args.degradations, description="Visualizing...", console=CONSOLE):
+    degradations: list[str] = args.degradations
+    for name in track(degradations, description="Visualizing...", console=CONSOLE):
+        out_image_dir = out_dir / name
+        out_image_dir.mkdir(parents=True, exist_ok=True)
         degradation_dir = dump_dir / name
         images_file = degradation_dir / "images.pt"
-        images: dict[int, torch.Tensor] = torch.load(images_file, weights_only=True)
+        images: dict[int, dict[str, torch.Tensor]] = torch.load(
+            images_file, weights_only=True
+        )
 
         image_ids = list(images.keys())
         for image_id in image_ids[:: args.vis_period]:
-            image_name = f"{image_id}:05d.jpg"
+            image_name = f"{image_id:05d}.jpg"
+            image = images[image_id]
 
-            # [H, W, 3]
-            # value range: [0, 1]
-            np_image: np.ndarray = images[image_id].permute(1, 2, 0).numpy()
-            np_image = (np_image * 255).clip(min=0, max=255).astype(np.uint8)
-            image = Image.fromarray(np_image, mode="RGB")
-            image.save(out_dir / image_name)
+            for k, image in images[image_id].items():
+                image_name = f"{image_id:05d}_{k}.jpg"
 
-            if args.show:
-                image.show(title=image_name)
+                # [H, W, 3]
+                # value range: [0, 1]
+                np_image: np.ndarray = image.permute(1, 2, 0).numpy()
+                np_image = (np_image * 255).clip(min=0, max=255).astype(np.uint8)
+                image = Image.fromarray(np_image)
+                image.save(out_image_dir / image_name)
+
+                if args.show:
+                    image.show(title=image_name)
 
 
 def parse_args():
