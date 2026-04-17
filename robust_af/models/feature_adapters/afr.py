@@ -6,6 +6,7 @@ import torch.nn as nn
 from einops.layers.torch import Rearrange
 
 from ...utils import build_activation, is_debug_mode
+from .amfg import Selector
 
 
 def _check_nan(x):
@@ -27,9 +28,13 @@ class AFR(nn.Module):
         embed_dims: int = 256,
         activation: Optional[str] = None,
         spatial_cfg: dict = dict(),
+        use_bn: bool = False,
     ):
         super().__init__()
-        s_block = SpatialBlock(embed_dims, embed_dims, **spatial_cfg)
+        if use_bn:
+            s_block = SpatialBNBlock(embed_dims, embed_dims, **spatial_cfg)
+        else:
+            s_block = SpatialBlock(embed_dims, embed_dims, **spatial_cfg)
         self.sf_block = SpatialFusionBlock(s_block, embed_dims)
 
         self.f_block = FrequencyBlock(embed_dims * 2)
@@ -63,9 +68,13 @@ class SpatialAFR(nn.Module):
         embed_dims: int = 256,
         activation: Optional[str] = None,
         spatial_cfg: dict = dict(),
+        use_bn: bool = False,
     ):
         super().__init__()
-        s_block = SpatialBlock(embed_dims, embed_dims, **spatial_cfg)
+        if use_bn:
+            s_block = SpatialBNBlock(embed_dims, embed_dims, **spatial_cfg)
+        else:
+            s_block = SpatialBlock(embed_dims, embed_dims, **spatial_cfg)
         self.sf_block = SpatialFusionBlock(s_block, embed_dims)
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
@@ -189,6 +198,81 @@ class SpatialBlock(nn.Module):
             x = self.selector(x)
             # _check_nan(x)
         return x
+
+
+class SpatialBNBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: Union[int, tuple[int, int]] = 3,
+        padding: Union[int, tuple[int, int]] = 1,
+        bias: bool = False,
+        # affine: bool = False,
+        # conv: bool = True,
+        activation: Optional[str] = "LeakyReLU",
+        pre_activation: bool = False,
+        selector: bool = True,
+        reduction: int = 16,
+        spatial_attention: int = 4,
+    ):
+        super().__init__()
+        self.pre_activation = pre_activation
+        self.BN = nn.BatchNorm2d(in_channels)
+        self.IN = nn.InstanceNorm2d(in_channels)
+
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            padding=padding,
+            bias=bias,
+        )
+        self.conv2 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            padding=padding,
+            bias=bias,
+        )
+
+        if activation is not None:
+            self.act = build_activation(activation)
+        else:
+            self.act = None
+
+        if selector:
+            self.selector = Selector(
+                out_channels, reduction=reduction, spatial_attention=spatial_attention
+            )
+        else:
+            self.selector = None
+
+    def forward(self, x: torch.Tensor):
+        bn_x = self.BN(x)
+        in_x = self.IN(x)
+
+        if self.pre_activation:
+            if self.act is not None:
+                bn_x = self.act(bn_x)
+                in_x = self.act(in_x)
+
+            out1 = self.conv1(bn_x)
+            out2 = self.conv2(in_x)
+        else:
+            out1 = self.conv1(bn_x)
+            out2 = self.conv2(in_x)
+
+            if self.act is not None:
+                out1 = self.act(out1)
+                out2 = self.act(out2)
+
+        out = out1 + out2
+
+        if self.selector is not None:
+            att1, att2 = self.selector(out)
+            out = torch.mul(out1, att1) + torch.mul(out2, att2)
+        return out
 
 
 class FrequencyBlock(nn.Module):
