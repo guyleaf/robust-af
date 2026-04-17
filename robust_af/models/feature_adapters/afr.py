@@ -287,6 +287,7 @@ class FrequencyBlock(nn.Module):
             fft_map = torch.fft.fft2(x.float(), dim=(-2, -1))
         # _check_nan(fft_map)
 
+        # FIXME: torch.angle may encounter NaN during backward if using with Batch Norm and a small batch size in the upstream.
         magnitude_map = torch.abs(fft_map)
         phase_map = torch.angle(fft_map)
         # _check_nan(phase_map)
