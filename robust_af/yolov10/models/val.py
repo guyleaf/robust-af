@@ -3,8 +3,9 @@ import json
 from ultralytics.models.yolov10 import (
     YOLOv10DetectionValidator as ORIGINAL_YOLOv10DetectionValidator,
 )
-from ultralytics.utils import LOGGER
+from ultralytics.utils import LOGGER, RANK
 from ultralytics.utils.plotting import plot_images
+from ultralytics.utils.torch_utils import init_seeds
 
 from ..data import build_yolo_dataset
 from ..utils import DEFAULT_CFG, DEFAULT_ROBUST_CFG
@@ -15,6 +16,9 @@ class YOLOv10DetectionValidator(ORIGINAL_YOLOv10DetectionValidator):
         super().__init__(*args, cfg=cfg, **kwargs)
 
     def __call__(self, trainer=None, model=None):
+        if trainer is None:
+            # avoid any randomness during inference (e.g., GDIP)
+            init_seeds(self.args.seed + 1 + RANK, deterministic=self.args.deterministic)
         stats = super().__call__(trainer, model)
         if not self.training:
             # save eval results in json for easier checking
