@@ -1,4 +1,5 @@
-__include__: [
+__include__:
+  [
     "../common/dataset/dut_anti_uav_degraded_detection.yml",
     "../common/runtime.yml",
     "../common/robust_dataloader.yml",

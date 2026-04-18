@@ -49,4 +49,4 @@ train_dataloader:
       policy:
         epoch: 117
   collate_fn:
-    scales: ~
+    stop_epoch: 117

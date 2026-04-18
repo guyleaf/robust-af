@@ -1,0 +1,53 @@
+__include__:
+  [
+    "../common/dataset/dut_anti_uav_degraded_detection.yml",
+    "../common/runtime.yml",
+    "../common/robust_dataloader.yml",
+    "../common/optimizer.yml",
+    "../common/models/robust_rtdetrv2_r34vd.yml",
+  ]
+
+output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/robust_rtdetrv2_r34vd_120e_1e-4_lr_fine_tuning_no_color_augs_in_clear
+
+RobustRTDETR:
+  train_all: true
+  robust_image_module: ~
+  robust_module: ~
+
+PResNet:
+  freeze_at: -1
+  freeze_norm: false
+
+RobustCriterion:
+  image_cst_loss: ~
+  cst_loss: ~
+  weight_dict:
+    loss_image_cst: 20
+    loss_cst: 20
+
+epoches: 120
+
+optimizer:
+  type: AdamW
+  params:
+    - params: "^(?=.*backbone)(?!.*norm|bn).*$"
+      lr: 0.00005
+    - params: "^(?=.*backbone)(?=.*norm|bn).*$"
+      lr: 0.00005
+      weight_decay: 0.
+    - params: "^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$"
+      weight_decay: 0.
+    - params: "^(?=.*(?:robust_module|robust_image_module))(?=.*(?:norm|bn|BN|IN)).*$"
+      weight_decay: 0.
+
+  lr: 0.0001
+  betas: [0.9, 0.999]
+  weight_decay: 0.0001
+
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 117
+  collate_fn:
+    stop_epoch: 117
