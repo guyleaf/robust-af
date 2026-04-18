@@ -1,3 +1,11 @@
+"""
+The main difference from AMFG:
+1. Refactor every components
+2. Make components configurable
+3. SEBlock follows https://github.com/moskomule/senet.pytorch implementation. (bias=False)
+4. Add some modules for experiments
+"""
+
 import logging
 from typing import Optional, Union
 
@@ -29,13 +37,14 @@ class AFR(nn.Module):
         activation: Optional[str] = None,
         spatial_cfg: dict = dict(),
         use_bn: bool = False,
+        spatial_fusion_cfg: dict = dict(),
     ):
         super().__init__()
         if use_bn:
             s_block = SpatialBNBlock(embed_dims, embed_dims, **spatial_cfg)
         else:
             s_block = SpatialBlock(embed_dims, embed_dims, **spatial_cfg)
-        self.sf_block = SpatialFusionBlock(s_block, embed_dims)
+        self.sf_block = SpatialFusionBlock(s_block, embed_dims, **spatial_fusion_cfg)
 
         self.f_block = FrequencyBlock(embed_dims * 2)
 
@@ -69,13 +78,14 @@ class SpatialAFR(nn.Module):
         activation: Optional[str] = None,
         spatial_cfg: dict = dict(),
         use_bn: bool = False,
+        spatial_fusion_cfg: dict = dict(),
     ):
         super().__init__()
         if use_bn:
             s_block = SpatialBNBlock(embed_dims, embed_dims, **spatial_cfg)
         else:
             s_block = SpatialBlock(embed_dims, embed_dims, **spatial_cfg)
-        self.sf_block = SpatialFusionBlock(s_block, embed_dims)
+        self.sf_block = SpatialFusionBlock(s_block, embed_dims, **spatial_fusion_cfg)
 
         self.conv = nn.Conv2d(embed_dims * 2, embed_dims, kernel_size=3, padding=1)
         if activation is not None:
@@ -109,16 +119,16 @@ class FrequencyAFR(nn.Module):
 class SEBlock(nn.Module):
     """Squeeze-and-Excitation Networks (https://arxiv.org/abs/1709.01507)"""
 
-    def __init__(self, channels: int, reduction: int = 16):
+    def __init__(self, channels: int, reduction: int = 16, bias: bool = False):
         super().__init__()
         assert channels % reduction == 0, (
             "The channel size should be divisible by reduction ratio."
         )
         self.squeeze = nn.AdaptiveAvgPool2d(1)
         self.excitation = nn.Sequential(
-            nn.Linear(channels, channels // reduction, bias=False),
+            nn.Linear(channels, channels // reduction, bias=bias),
             nn.ReLU(inplace=True),
-            nn.Linear(channels // reduction, channels, bias=False),
+            nn.Linear(channels // reduction, channels, bias=bias),
             nn.Sigmoid(),
         )
 
@@ -130,14 +140,10 @@ class SEBlock(nn.Module):
 
 
 class SpatialFusionBlock(nn.Module):
-    def __init__(
-        self,
-        s_block: nn.Module,
-        embed_dims: int,
-    ):
+    def __init__(self, s_block: nn.Module, embed_dims: int, bias: bool = False):
         super().__init__()
         self.s_block = s_block
-        self.ca_block = SEBlock(embed_dims * 2)
+        self.ca_block = SEBlock(embed_dims * 2, bias=bias)
 
     def forward(self, x: torch.Tensor):
         x_in = self.s_block(x)
