@@ -149,6 +149,7 @@ def make_degraded_coco_dataset(
     seed: int = 2025,
     num_workers: int = 8,
     identity: bool = False,
+    degradations: list[str] = None,
 ):
     seed_everything(seed % 2**32)
     CONSOLE.print(f"Initialized main process: seed={seed}")
@@ -158,7 +159,9 @@ def make_degraded_coco_dataset(
     annotations_dir = root_dir / "annotations"
 
     tgt_images_dir = images_dir / tgt_images_name
-    transform_fn = partial(apply_random_degradation, identity=identity)
+    transform_fn = partial(
+        apply_random_degradation, identity=identity, transforms=degradations
+    )
     with ThreadPoolExecutor(max_workers=8) as executor:
         for annotation_file in annotation_files:
             annotation_path = annotations_dir / annotation_file
@@ -210,6 +213,13 @@ def parse_args():
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Add a skip connection to the augmentation list. In common case, only apply offline augmentation to val, test subsets. So, the identity is not added by default.",
+    )
+    parser.add_argument(
+        "--degradations",
+        type=str,
+        nargs="+",
+        default=None,
+        help="Apply specific degradations to all images. If it is not None, --identity is ignored.",
     )
     parser.add_argument(
         "--seed",

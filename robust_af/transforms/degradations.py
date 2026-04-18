@@ -202,14 +202,18 @@ DEGRADATION_TRANSFORMS = dict(
 
 def sample_degradation_name(
     identity: bool = True,
+    transforms: Optional[Union[list[str], set[str]]] = None,
     ignored_transforms: Union[list[str], set[str]] = [],
     np_random_generator: Optional[np.random.Generator] = None,
     py_random: Optional[random.Random] = None,
 ):
-    transforms = set(DEGRADATION_TRANSFORMS.keys())
     ignored_transforms = set(ignored_transforms)
-    if not identity:
-        ignored_transforms.add("identity")
+    if transforms is None:
+        transforms = set(DEGRADATION_TRANSFORMS.keys())
+        if not identity:
+            ignored_transforms.add("identity")
+    else:
+        transforms = set(transforms)
 
     assert len(transforms & ignored_transforms) == len(ignored_transforms)
     transforms -= ignored_transforms
@@ -242,6 +246,7 @@ def apply_degradation(
 def apply_random_degradation(
     image: np.ndarray,
     identity: bool = True,
+    transforms: Optional[Union[list[str], set[str]]] = None,
     ignored_transforms: Union[list[str], set[str]] = [],
     np_random_generator: Optional[np.random.Generator] = None,
     py_random: Optional[random.Random] = None,
@@ -249,6 +254,7 @@ def apply_random_degradation(
 ):
     name = sample_degradation_name(
         identity=identity,
+        transforms=transforms,
         ignored_transforms=ignored_transforms,
         np_random_generator=np_random_generator,
         py_random=py_random,
