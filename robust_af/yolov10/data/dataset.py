@@ -1,3 +1,4 @@
+import inspect
 from types import SimpleNamespace
 from typing import Optional
 
@@ -20,11 +21,9 @@ class YOLODataset(ORIGINAL_YOLODataset):
     def _build_degradation_transform(self, hyp: SimpleNamespace):
         if hyp.degradation["enabled"]:
             LOGGER.info("Degradation transform enabled!")
-            return Degradation(
-                seed=hyp.degradation["seed"],
-                identity=hyp.degradation["identity"],
-                ignored_degradations=hyp.degradation["ignored_degradations"],
-            )
+            sig = inspect.signature(Degradation)
+            kwargs = {k: v for k, v in hyp.degradation.items() if k in sig.parameters}
+            return Degradation(**kwargs)
         else:
             return Identity()
 

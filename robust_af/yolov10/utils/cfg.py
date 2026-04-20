@@ -14,8 +14,10 @@ DEFAULT_CFG_DICT = dict(
         enabled=False,
         # whether always apply on test (YOLODataset only)
         always=False,
+        name=None,
         seed=2025,
         identity=True,
+        degradations=None,
         ignored_degradations=[],
     ),
     sync_bn=False,
