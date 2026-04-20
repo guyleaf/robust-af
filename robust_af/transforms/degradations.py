@@ -214,6 +214,7 @@ def sample_degradation_name(
             ignored_transforms.add("identity")
     else:
         transforms = set(transforms)
+        assert len(transforms - DEGRADATION_TRANSFORMS.keys()) == 0
 
     assert len(transforms & ignored_transforms) == len(ignored_transforms)
     transforms -= ignored_transforms
