@@ -160,6 +160,11 @@ class RobustDINOv2(DINO):
             images.tensor = images.tensor / 255
             if robust:
                 images.tensor = self.robust_image_module(images.tensor)
+                # safe guard: avoid numerical failure from degenerate inputs (e.g., all-black frames in video-extracted datasets like DDS)
+                images.tensor = torch.nan_to_num(
+                    images.tensor, nan=0.0, posinf=1.0, neginf=0.0
+                )
+                # TODO: clamp to [0, 1] to follow the interface? require rerunning experiments
                 if self.zero_pad_after_image_adapter:
                     # make paddings zero again after restoration
                     for i, (h, w) in enumerate(images.image_sizes):
