@@ -12,6 +12,14 @@ ANN_FILES = dict(
     test=os.path.join("annotations", "test.json"),
     val_degraded=os.path.join("annotations", "degraded_val.json"),
     test_degraded=os.path.join("annotations", "degraded_test.json"),
+    val_degraded_fog=os.path.join("annotations", "degraded_fog_val.json"),
+    test_degraded_fog=os.path.join("annotations", "degraded_fog_test.json"),
+    val_degraded_brightness=os.path.join("annotations", "degraded_brightness_val.json"),
+    test_degraded_brightness=os.path.join(
+        "annotations", "degraded_brightness_test.json"
+    ),
+    val_degraded_weather=os.path.join("annotations", "degraded_weather_val.json"),
+    test_degraded_weather=os.path.join("annotations", "degraded_weather_test.json"),
 )
 
 METADATA = dict(

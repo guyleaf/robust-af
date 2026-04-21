@@ -140,18 +140,25 @@ class RobustDetectionModel(tasks.DetectionModel):
                     else [x if j == -1 else y[j] for j in m.f]
                 )  # from earlier layers
 
-            is_robust_layer = (
+            is_robust_image_layer = (
                 self.robust_image_layer_range[0] <= i < self.robust_image_layer_range[1]
-                or self.robust_layer_range[0] <= i < self.robust_layer_range[1]
             )
-            should_run = not is_robust_layer or robust
+            is_robust_layer = (
+                self.robust_layer_range[0] <= i < self.robust_layer_range[1]
+            )
+            is_robust = is_robust_image_layer or is_robust_layer
+            should_run = not is_robust or robust
             if should_run:
                 if profile:
                     self._profile_one_layer(m, x, dt)
                 x = m(x)  # run
+                if is_robust_image_layer:
+                    # safe guard: avoid numerical failure from degenerate inputs (e.g., all-black frames in video-extracted datasets like DDS)
+                    x = torch.nan_to_num(x, nan=0.0, posinf=1.0, neginf=0.0)
+                    # TODO: clamp to [0, 1] to follow the interface? require rerunning experiments
             # else act as identity
 
-            if returns_rhss and is_robust_layer:
+            if returns_rhss and is_robust:
                 rhss.append(x)
             y.append(x if m.i in self.save else None)  # save output
             if visualize:

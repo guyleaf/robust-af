@@ -67,6 +67,13 @@ class RobustRTDETR(RTDETR):
     def with_robust_module(self):
         return self.robust_module is not None
 
+    def _forward_robust_image_module(self, x: torch.Tensor):
+        x = self.robust_image_module(x)
+        # safe guard: avoid numerical failure from degenerate inputs (e.g., all-black frames in video-extracted datasets like DDS)
+        x = torch.nan_to_num(x, nan=0.0, posinf=1.0, neginf=0.0)
+        # TODO: clamp to [0, 1] to follow the interface? require rerunning experiments
+        return x
+
     def _forward_inference(
         self,
         x: torch.Tensor,
@@ -74,7 +81,7 @@ class RobustRTDETR(RTDETR):
     ):
         # image-level restoration
         if self.with_robust_image_module:
-            x = self.robust_image_module(x)
+            x = self._forward_robust_image_module(x)
 
         x = self.backbone(x)
 
@@ -99,7 +106,7 @@ class RobustRTDETR(RTDETR):
         rhs_dict = {}
         # image-level restoration
         if self.with_robust_image_module:
-            x = rhs_dict["image_rhss"] = self.robust_image_module(x)
+            x = rhs_dict["image_rhss"] = self._forward_robust_image_module(x)
             rhs_dict["clear_image_rhss"] = clear_x
 
         x = self.backbone(x)
