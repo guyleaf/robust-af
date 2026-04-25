@@ -34,14 +34,14 @@ backbone:
 #   - [4, 1, robust_modules.SpatialAMFGv2, []] # 11
 #   - [6, 1, robust_modules.SpatialAMFGv2, []] # 12
 #   - [10, 1, robust_modules.SpatialAMFGv2, []] # 13
-robust:
-  - [4, 1, robust_modules.AFR, ["ReLU"]] # 11
-  - [6, 1, robust_modules.AFR, ["ReLU"]] # 12
-  - [10, 1, robust_modules.AFR, ["ReLU"]] # 13
 # robust:
-#   - [4, 1, robust_modules.SpatialAFR, []] # 11
-#   - [6, 1, robust_modules.SpatialAFR, []] # 12
-#   - [10, 1, robust_modules.SpatialAFR, []] # 13
+#   - [4, 1, robust_modules.AFR, ["ReLU"]] # 11
+#   - [6, 1, robust_modules.AFR, ["ReLU"]] # 12
+#   - [10, 1, robust_modules.AFR, ["ReLU"]] # 13
+robust:
+  - [4, 1, robust_modules.SpatialAFR, []] # 11
+  - [6, 1, robust_modules.SpatialAFR, []] # 12
+  - [10, 1, robust_modules.SpatialAFR, []] # 13
 # robust:
 #   - [4, 1, robust_modules.SpatialAFR, [~, { conv: False, activation: ~ }]] # 11
 #   - [6, 1, robust_modules.SpatialAFR, [~, { conv: False, activation: ~ }]] # 12

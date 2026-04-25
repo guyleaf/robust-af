@@ -8,9 +8,9 @@ mode: train # (str) YOLO mode, i.e. train, val, predict, export, track, benchmar
 robust: True # (bool) use the robust version of YOLO
 
 # Train settings -------------------------------------------------------------------------------------------------------
-# model: configs/robust_models/yolov10n_denet.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
+model: configs/robust_models/yolov10n_denet.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
 # model: configs/robust_models/yolov10n_gdip.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
-model: configs/robust_models/yolov10n_dip.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
+# model: configs/robust_models/yolov10n_dip.yaml # (str, optional) path to model file, i.e. yolov8n.pt, yolov8n.yaml
 data: configs/datasets/dut_anti_uav.yaml # (str, optional) path to data file, i.e. coco128.yaml
 epochs: 100 # (int) number of epochs to train for
 # time: # (float, optional) number of hours to train for, overrides epochs if supplied
@@ -25,7 +25,7 @@ cache: ram # (bool) True/ram, disk or False. Use cache for data loading
 device: 4,5,6,7
 workers: 4 # (int) number of worker threads for data loading (per RANK if DDP)
 project: yolov10 # (str, optional) project name
-name: yolov10n/dut_anti_uav/robust_yolov10n_100e_1e-3_lr_dip_fine_tuning # (str, optional) experiment name, results saved to 'project/name' directory
+name: yolov10n/dut_anti_uav/robust_yolov10n_100e_1e-3_lr_denet_fine_tuning # (str, optional) experiment name, results saved to 'project/name' directory
 exist_ok: False # (bool) whether to overwrite existing experiment
 pretrained: /home/leafying/data/checkpoints/yolov10/yolov10n/dut_anti_uav/yolov10n_500e_1e-2_lr/best.pt # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
 optimizer: SGD # (str) optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]

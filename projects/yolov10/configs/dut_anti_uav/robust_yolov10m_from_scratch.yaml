@@ -102,5 +102,6 @@ degradation:
   # NOTE: we must specify the seed to avoid using global random sequence (due to reproducibility and integration of mixup, mosaic augment, etc.)
   seed: 2025 # (int, optional) if None, sample a seed from global random generator
   identity: True # (bool) add identity (skip connection) to the degradation list
+  degradations: ~ # (list[str], optional) Apply specific degradations. If it is not None, identity option will be ignored.
   ignored_degradations: [] # (list[str]) don't apply these types of degradations.
 cst_loss: ~
