@@ -31,7 +31,7 @@ model.criterion.loss_cst = None
 model.criterion.loss_image_cst = None
 
 # modify training config
-train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/robust_dino_r50_v2_4scale_50ep_5e-5_lr_fine_tuning_from_24ep"
+train.output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}_fog/robust_dino_r50_v2_4scale_50ep_5e-5_lr_fine_tuning_from_24ep"
 
 # max training iterations
 train.max_iter = num_epochs * num_batches

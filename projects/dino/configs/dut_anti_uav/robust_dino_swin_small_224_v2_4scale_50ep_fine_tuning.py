@@ -1,7 +1,5 @@
 import os
 
-from detectron2.config import LazyCall as L
-
 from robust_af.detrex.configs import get_config
 
 from .robust_dino_swin_small_224_v2_4scale_12ep import (  # noqa: F401
@@ -51,6 +49,7 @@ params = dict(
     dir=train.output_dir,
     name=os.path.basename(train.output_dir),
     group="robust_dino_swin_small_224_v2_4scale_50ep",
+    job_type="fine tuning",
 )
 train.wandb["params"].update(params)
 

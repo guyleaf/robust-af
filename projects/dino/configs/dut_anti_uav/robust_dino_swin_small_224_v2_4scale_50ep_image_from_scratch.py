@@ -44,8 +44,8 @@ train.max_iter = num_epochs * num_batches
 
 # modify optimizer config
 optimizer.lr = lr
-optimizer.params.lr_factor_func = (
-    lambda module_name: 0.1 if "backbone" in module_name else 1
+optimizer.params.lr_factor_func = lambda module_name: (
+    0.1 if "backbone" in module_name else 1
 )
 
 # dump the testing results into output_dir for visualization
@@ -56,6 +56,7 @@ params = dict(
     dir=train.output_dir,
     name=os.path.basename(train.output_dir),
     group="robust_dino_swin_small_224_v2_4scale_50ep",
+    job_type="from scratch",
 )
 train.wandb["params"].update(params)
 

@@ -56,6 +56,7 @@ params = dict(
     dir=train.output_dir,
     name=os.path.basename(train.output_dir),
     group="robust_dino_r50_v2_4scale_36ep",
+    job_type="fine tuning",
 )
 train.wandb["params"].update(params)
 

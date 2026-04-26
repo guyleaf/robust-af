@@ -123,7 +123,7 @@ train.wandb = dict(
         name=os.path.basename(output_dir),
         project="detrex",
         group="robust_dino_r50_v2_4scale_12ep",
-        job_type="from scratch",
+        job_type="peft",
         tags=tags,
         notes=notes,
     ),
