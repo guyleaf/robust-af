@@ -1,0 +1,61 @@
+__include__:
+  [
+    "../common/dataset/dut_anti_uav_degraded_fog_detection.yml",
+    "../common/runtime.yml",
+    "./include/robust_dataloader.yml",
+    "../common/optimizer.yml",
+    "../common/models/robust_rtdetrv2_r18vd.yml",
+  ]
+
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav_fog/robust_rtdetrv2_r18vd_120e_5e-4_lr_spatial_afr_relu_no_train_heads
+
+RobustRTDETR:
+  train_heads: False
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128 }
+#     - { type: SpatialAFR, embed_dims: 256 }
+#     - { type: SpatialAFR, embed_dims: 512 }
+
+MultiScaleProcessor:
+  modules:
+    - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
+    - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
+    - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+
+# criterion: RobustCriterionv2
+# RobustCriterionv2:
+#   model_loss: RTDETRCriterionv2
+#   content_loss:
+#     type: MSELoss
+#     reduction: none
+#   style_loss:
+#     type: MSELoss
+#     reduction: none
+#   weight_dict:
+#     loss_content: 20
+#     loss_style: 20
+
+epoches: 120
+
+optimizer:
+  type: AdamW
+  lr: 0.0005
+  params:
+    - params: "^(?=.*(?:norm|bn|BN|IN)).*$"
+      weight_decay: 0.
+
+# lr_scheduler:
+#   type: MultiStepLR
+#   milestones: [100]
+#   gamma: 0.1
+
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 117
+
+  collate_fn:
+    scales: ~

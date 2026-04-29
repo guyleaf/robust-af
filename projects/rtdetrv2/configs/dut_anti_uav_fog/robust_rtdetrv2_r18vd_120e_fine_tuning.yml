@@ -1,0 +1,44 @@
+__include__:
+  [
+    "../common/dataset/dut_anti_uav_degraded_fog_detection.yml",
+    "../common/runtime.yml",
+    "./include/robust_dataloader.yml",
+    "../common/optimizer.yml",
+    "../common/models/robust_rtdetrv2_r18vd.yml",
+  ]
+
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav_fog/robust_rtdetrv2_r18vd_120e_1e-4_lr_fine_tuning
+
+RobustRTDETR:
+  train_all: true
+  robust_image_module: ~
+  robust_module: ~
+
+PResNet:
+  freeze_at: -1
+  freeze_norm: false
+
+RobustCriterion:
+  image_cst_loss: ~
+  cst_loss: ~
+  weight_dict:
+    loss_image_cst: 20
+    loss_cst: 20
+
+epoches: 120
+
+optimizer:
+  type: AdamW
+  lr: 0.0001
+  params:
+    - params: "^(?=.*(?:norm|bn|BN|IN)).*$"
+      weight_decay: 0.
+
+train_dataloader:
+  dataset:
+    transforms:
+      policy:
+        epoch: 117
+
+  collate_fn:
+    scales: ~

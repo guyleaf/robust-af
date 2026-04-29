@@ -1,0 +1,19 @@
+__include__: ["../../common/robust_dataloader.yml"]
+
+train_dataloader:
+  dataset:
+    robust_transforms:
+      type: Compose
+      ops:
+        - { type: Degradation, degradations: ["fog", "identity"] }
+
+  collate_fn:
+    scales: ~
+
+val_train_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - { type: Degradation, name: "fog" }
+        - { type: Resize, size: [640, 640] }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }

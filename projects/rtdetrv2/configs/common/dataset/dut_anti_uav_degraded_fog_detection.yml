@@ -1,0 +1,5 @@
+__include__: ["./dut_anti_uav_detection.yml"]
+
+val_dataloader:
+  dataset:
+    ann_file: ./dataset/DUT_Anti_UAV/detection/annotations/degraded_fog_val.json
