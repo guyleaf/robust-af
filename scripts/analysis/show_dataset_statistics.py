@@ -326,7 +326,7 @@ def main(args):
         [
             [f"ax0_{i}" for i in range(cols)],
             [f"ax1_{i}" for i in range(cols)],
-            ["ax2_0", "ax2_1", "ax2_1"],
+            ["ax2_0", "ax2_0", "ax2_0"],
             # ["ax3_0", "ax3_0", "ax3_0"],
         ],
         figsize=(9 * cols, 6 * rows),
@@ -343,9 +343,9 @@ def main(args):
     make_image_intensity_plot(axes["ax1_0"], image_dir, annotations_file_paths)
     make_image_size_plot(axes["ax1_1"], image_sizes)
     make_image_area_plot(axes["ax1_2"], image_sizes)
-    make_label_dist_plot(axes["ax2_0"], captions)
+    # make_label_dist_plot(axes["ax2_0"], captions)
     if len(degradations) != 0:
-        make_label_dist_plot(axes["ax2_1"], degradations, title="Degradations")
+        make_label_dist_plot(axes["ax2_0"], degradations, title="Degradations")
 
     # fig.tight_layout()
     os.makedirs(os.path.dirname(args.out_file), exist_ok=True)

@@ -10,15 +10,15 @@ python "$cwd/show_dataset_statistics.py" \
     --title "DUT Anti-UAV" \
     ~/data/UAV/DUT_Anti_UAV/detection
 
-python "$cwd/show_dataset_statistics.py" \
-    --out-file "$out_dir/det_fly.png" \
-    --title "Det-Fly" \
-    ~/data/UAV/Det_Fly
+# python "$cwd/show_dataset_statistics.py" \
+#     --out-file "$out_dir/det_fly.png" \
+#     --title "Det-Fly" \
+#     ~/data/UAV/Det_Fly
 
-python "$cwd/show_dataset_statistics.py" \
-    --out-file "$out_dir/mav_vid.png" \
-    --title "MAV-VID" \
-    ~/data/UAV/MAV_VID
+# python "$cwd/show_dataset_statistics.py" \
+#     --out-file "$out_dir/mav_vid.png" \
+#     --title "MAV-VID" \
+#     ~/data/UAV/MAV_VID
 
 python "$cwd/show_dataset_statistics.py" \
     --out-file "$out_dir/dds.png" \
@@ -30,7 +30,12 @@ python "$cwd/show_dataset_statistics.py" \
     --title "UAV-Eagle" \
     ~/data/UAV/Sim2Air/UAV_Eagle
 
+# python "$cwd/show_dataset_statistics.py" \
+#     --out-file "$out_dir/sim2air/s_uav_t.png" \
+#     --title "S-UAV-T" \
+#     ~/data/UAV/Sim2Air/S_UAV_T
+
 python "$cwd/show_dataset_statistics.py" \
-    --out-file "$out_dir/sim2air/s_uav_t.png" \
-    --title "S-UAV-T" \
-    ~/data/UAV/Sim2Air/S_UAV_T
+    --out-file "$out_dir/robust_anti_uav_low.png" \
+    --title "Robust Anti-UAV (Low-Poly)" \
+    ~/data/UAV/Robust_Anti_UAV_Low
