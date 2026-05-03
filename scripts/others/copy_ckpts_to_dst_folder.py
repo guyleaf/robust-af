@@ -27,6 +27,9 @@ if __name__ == "__main__":
             continue
 
         files = list(exp_folder.glob(args.pattern))
+        if len(files) == 0:
+            print(f"{exp_folder}, skipped.")
+            continue
         assert len(files) == 1, "Found multiple files in the experiment folder."
         checkpoint = files[0]
 
