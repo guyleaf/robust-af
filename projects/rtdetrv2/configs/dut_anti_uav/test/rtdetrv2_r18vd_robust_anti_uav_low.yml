@@ -1,0 +1,13 @@
+__include__: [
+    # clear ver.
+    # "../../common/dataset/robust_anti_uav_low_detection.yml",
+    # degraded ver.
+    "../../common/dataset/robust_anti_uav_low_degraded_detection.yml",
+    "../../common/runtime.yml",
+    "../../common/dataloader.yml",
+    "../../common/models/rtdetrv2_r18vd.yml",
+  ]
+
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_anti_uav_low/rtdetrv2_r18vd_120e_degraded
+
+use_ema: True

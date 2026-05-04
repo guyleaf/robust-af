@@ -6,8 +6,12 @@ from detectron2.data.datasets import register_coco_instances
 DATASET_FOLDER = "Robust_Anti_UAV"
 DATASET_NAME = DATASET_FOLDER.lower()
 IMAGES_ROOT = "images"
-TRAIN_ANN_FILE = os.path.join("annotations", "train.json")
-VAL_ANN_FILE = os.path.join("annotations", "val.json")
+ANN_FILES = dict(
+    train=os.path.join("annotations", "train.json"),
+    val=os.path.join("annotations", "val.json"),
+    val_degraded=os.path.join("annotations", "degraded_val.json"),
+    val_degraded_fog=os.path.join("annotations", "degraded_fog_val.json"),
+)
 
 METADATA = dict(
     num_classes=1,
@@ -23,11 +27,11 @@ METADATA = dict(
 
 def register_robust_anti_uav(root: str, name: str, **kwargs):
     images_root = os.path.join(root, IMAGES_ROOT)
-    train_ann_file = os.path.join(root, TRAIN_ANN_FILE)
-    val_ann_file = os.path.join(root, VAL_ANN_FILE)
 
-    register_coco_instances(f"{name}_train", {}, train_ann_file, images_root)
-    register_coco_instances(f"{name}_val", {}, val_ann_file, images_root)
+    for subset, ann_file in ANN_FILES.items():
+        ann_file = os.path.join(root, ann_file)
+        register_coco_instances(f"{name}_{subset}", {}, ann_file, images_root)
+
     # one metadata for all subsets
     MetadataCatalog.get(name).set(**{**METADATA, **kwargs})
 
