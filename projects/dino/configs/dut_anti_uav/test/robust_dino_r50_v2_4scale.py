@@ -2,11 +2,14 @@ from detectron2.config import LazyCall as L  # noqa: F401
 from detectron2.data import MetadataCatalog
 
 from robust_af.detrex.configs import get_config
-from robust_af.detrex.data.datasets.register_dds import (
+
+# from robust_af.detrex.data.datasets.register_dds import (
+#     DATASET_NAME as TEST_DATASET_NAME,
+# )
+from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_af.detrex.data.datasets.register_robust_anti_uav_low import (
     DATASET_NAME as TEST_DATASET_NAME,
 )
-from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
-from robust_af.detrex.modeling.processors import MultiScaleProcessor  # noqa: F401
 
 # from robust_af.detrex.data.datasets.register_uav_eagle import (
 #     DATASET_NAME as TEST_DATASET_NAME,
@@ -14,38 +17,34 @@ from robust_af.detrex.modeling.processors import MultiScaleProcessor  # noqa: F4
 # from robust_af.detrex.data.datasets.register_dut_anti_uav import (
 #     DATASET_NAME as TEST_DATASET_NAME,
 # )
+from robust_af.detrex.modeling.processors import MultiScaleProcessor  # noqa: F401
 from robust_af.models.feature_adapters import SimpleNN, SpatialAFR  # noqa: F401
 
 from ...models.robust_dino_r50_v2 import model
 
-test_subset = True
+test_subset = False
 degraded = True
 fog = False
 test_dataset_name = TEST_DATASET_NAME
 
+metadata = MetadataCatalog.get(test_dataset_name)
+
+if fog:
+    test_dataset_name += "_fog"
 dataset = get_config(f"datasets/{test_dataset_name}_detr.py")
 if degraded:
     dataloader = dataset.robust_dataloader
 else:
     dataloader = dataset.dataloader
-
 name: str = dataloader.test.dataset.names
-if degraded:
-    assert name.endswith("degraded")
-    if fog:
-        name = name.replace("degraded", "degraded_fog")
 if test_subset:
     name = name.replace("_val", "_test")
 dataloader.test.dataset.names = name
 
 train = get_config("train.py").train
-
-metadata = MetadataCatalog.get(test_dataset_name)
-
 suffix = "_test" if test_subset else ""
 suffix += "_degraded" if degraded else ""
-suffix += "_fog" if fog else ""
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_36ep_1e-5_lr_spatial_afr_relu_no_train_heads_from_24ep{suffix}"
+output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_50ep_1e-5_lr_spatial_afr_relu_no_train_heads_from_24ep{suffix}"
 
 # ==============================================================
 

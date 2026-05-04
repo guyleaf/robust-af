@@ -5,42 +5,43 @@ from robust_af.detrex.configs import get_config
 # from robust_af.detrex.data.datasets.register_uav_eagle import (
 #     DATASET_NAME as TEST_DATASET_NAME,
 # )
-from robust_af.detrex.data.datasets.register_dds import (
-    DATASET_NAME as TEST_DATASET_NAME,
-)
+# from robust_af.detrex.data.datasets.register_dds import (
+#     DATASET_NAME as TEST_DATASET_NAME,
+# )
 from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
 
 # from robust_af.detrex.data.datasets.register_dut_anti_uav import (
 #     DATASET_NAME as TEST_DATASET_NAME,
 # )
+from robust_af.detrex.data.datasets.register_robust_anti_uav_low import (
+    DATASET_NAME as TEST_DATASET_NAME,
+)
+
 from ...models.dino_r50 import model
 
-test_subset = True
+test_subset = False
 degraded = True
 fog = False
 test_dataset_name = TEST_DATASET_NAME
 
+metadata = MetadataCatalog.get(test_dataset_name)
+
+if fog:
+    test_dataset_name += "_fog"
 dataset = get_config(f"datasets/{test_dataset_name}_detr.py")
 if degraded:
     dataloader = dataset.robust_dataloader
 else:
     dataloader = dataset.dataloader
 name: str = dataloader.test.dataset.names
-if degraded:
-    assert name.endswith("degraded")
-    if fog:
-        name = name.replace("degraded", "degraded_fog")
 if test_subset:
     name = name.replace("_val", "_test")
 dataloader.test.dataset.names = name
 
 train = get_config("train.py").train
-metadata = MetadataCatalog.get(test_dataset_name)
-
 use_paper_pos = True
 suffix = "_test" if test_subset else ""
 suffix += "_degraded" if degraded else ""
-suffix += "_fog" if fog else ""
 output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/dino_r50_4scale_24ep_5e-5_lr_new_mapper_warmup{suffix}"
 
 # ==============================================================
