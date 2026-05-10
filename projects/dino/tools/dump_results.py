@@ -211,6 +211,7 @@ def main(cfg: DictConfig, args: argparse.Namespace):
             )
             dump_results(out_dir / name, predictions, backbone_features, **kwargs)
 
+            backbone_features = {}
             images = {}
             features = {}
             predictions = []
