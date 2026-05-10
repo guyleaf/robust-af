@@ -12,6 +12,10 @@ output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/dds/robust_rtdetrv2_r18vd_50e_5
 
 use_ema: True
 
+# RobustRTDETR:
+#   robust_image_module: ~
+#   robust_module: ~
+
 # MultiScaleProcessor:
 #   modules:
 #     - { type: SimpleNN, embed_dims: 128 }

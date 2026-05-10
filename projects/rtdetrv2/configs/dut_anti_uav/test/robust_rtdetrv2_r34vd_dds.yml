@@ -8,9 +8,13 @@ __include__: [
     "../../common/models/robust_rtdetrv2_r34vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/dds/robust_rtdetrv2_r34vd_50e_5e-4_lr_spatial_afr_relu_no_cst_loss_no_train_heads_no_color_augs_in_clear_degraded
+output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/dds/robust_rtdetrv2_r34vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads_no_color_augs_in_clear_degraded
 
 use_ema: True
+
+# RobustRTDETR:
+#   robust_image_module: ~
+#   robust_module: ~
 
 # MultiScaleProcessor:
 #   modules:

@@ -8,9 +8,13 @@ __include__: [
     "../../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/uav_eagle/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_cst_loss_no_train_heads_no_color_augs_in_clear_degraded
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/uav_eagle/robust_rtdetrv2_r18vd_120e_1e-4_lr_fine_tuning_no_color_augs_in_clear_degraded
 
 use_ema: True
+
+RobustRTDETR:
+  robust_image_module: ~
+  robust_module: ~
 
 # MultiScaleProcessor:
 #   modules:
@@ -48,11 +52,11 @@ use_ema: True
 #     - { type: SpatialAFR, embed_dims: 256 }
 #     - { type: SpatialAFR, embed_dims: 512 }
 
-MultiScaleProcessor:
-  modules:
-    - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
-    - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
-    - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
 
 # MultiScaleProcessor:
 #   modules:

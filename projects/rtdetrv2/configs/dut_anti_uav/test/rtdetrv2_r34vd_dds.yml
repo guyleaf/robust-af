@@ -1,13 +1,13 @@
 __include__: [
     # clear ver.
-    "../../common/dataset/dds_detection.yml",
+    # "../../common/dataset/dds_detection.yml",
     # degraded ver.
-    # "../../common/dataset/dds_degraded_detection.yml",
+    "../../common/dataset/dds_degraded_detection.yml",
     "../../common/runtime.yml",
     "../../common/dataloader.yml",
     "../../common/models/rtdetrv2_r34vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/dds/rtdetrv2_r34vd_120e
+output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/dds/rtdetrv2_r34vd_120e_degraded
 
 use_ema: True
