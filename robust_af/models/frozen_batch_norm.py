@@ -27,6 +27,7 @@ class _FrozenBatchNorm(nn.modules.batchnorm._NormBase):
         super().__init__(
             num_features, eps, momentum, affine, track_running_stats, **factory_kwargs
         )
+        # TODO: make parameters always require no gradient
         self.requires_grad_(False)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
