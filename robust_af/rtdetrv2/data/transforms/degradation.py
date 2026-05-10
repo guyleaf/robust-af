@@ -94,8 +94,15 @@ class Degradation(T.Transform):
                 np_random_generator=self.np_random_generator,
                 py_random=self.py_random,
             )
-        return dict(name=name)
+        self._params = dict(name=name)
+        return self._params
 
     def transform(self, inpt: Image.Image, params: dict):
         inpt = self._apply_degradation(inpt, name=params["name"])
         return inpt
+
+    def forward(self, *inputs):
+        outputs = super().forward(*inputs)
+        _, target, _ = outputs
+        target["degradation"] = self._params["name"]
+        return outputs

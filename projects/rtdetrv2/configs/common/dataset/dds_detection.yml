@@ -16,7 +16,7 @@ remap_mscoco_category: False
 val_dataloader:
   type: DataLoader
   dataset:
-    type: CocoDetection
+    type: CocoDetectionv2
     img_folder: ./dataset/DDS/images/
     ann_file: ./dataset/DDS/annotations/test.json
     return_masks: False

@@ -16,7 +16,7 @@ remap_mscoco_category: False
 train_dataloader:
   type: DataLoader
   dataset:
-    type: CocoDetection
+    type: CocoDetectionv2
     img_folder: ./dataset/Robust_Anti_UAV_Low/images/
     ann_file: ./dataset/Robust_Anti_UAV_Low/annotations/train.json
     return_masks: False
@@ -32,7 +32,7 @@ train_dataloader:
 val_dataloader:
   type: DataLoader
   dataset:
-    type: CocoDetection
+    type: CocoDetectionv2
     img_folder: ./dataset/Robust_Anti_UAV_Low/images/
     ann_file: ./dataset/Robust_Anti_UAV_Low/annotations/val.json
     return_masks: False
@@ -48,7 +48,7 @@ val_dataloader:
 val_train_dataloader:
   type: DataLoader
   dataset:
-    type: CocoDetection
+    type: CocoDetectionv2
     img_folder: ./dataset/Robust_Anti_UAV_Low/images/
     ann_file: ./dataset/Robust_Anti_UAV_Low/annotations/train.json
     return_masks: False

@@ -11,7 +11,31 @@ from ....utils import RandomContext
 
 
 @register()
-class RobustCocoDetection(ORIGINAL_CocoDetection):
+class CocoDetectionv2(ORIGINAL_CocoDetection):
+    def __init__(
+        self, *args, degradations: Optional[Union[list[str], set[str]]] = None, **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        if degradations is not None:
+            degradations = set(degradations)
+
+            def _filter(id: int):
+                return self.coco.imgs[id].get("degradation", "identity") in degradations
+
+            # only return images with specific degradations
+            self.ids = list(filter(_filter, self.ids))
+            print(f"Specified degradations: {', '.join(degradations)}")
+
+    def load_item(self, idx: int):
+        image, target = super().load_item(idx)
+
+        metadata = self.coco.load_imgs([target["image_id"].item()])[0]
+        target["degradation"] = metadata.get("degradation", "identity")
+        return image, target
+
+
+@register()
+class RobustCocoDetection(CocoDetectionv2):
     __inject__ = ["transforms", "robust_transforms"]
 
     def __init__(

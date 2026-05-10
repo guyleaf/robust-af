@@ -16,7 +16,7 @@ remap_mscoco_category: False
 train_dataloader:
   type: DataLoader
   dataset:
-    type: CocoDetection
+    type: CocoDetectionv2
     img_folder: ./dataset/DUT_Anti_UAV/detection/images/
     ann_file: ./dataset/DUT_Anti_UAV/detection/annotations/train.json
     return_masks: False
@@ -32,7 +32,7 @@ train_dataloader:
 val_dataloader:
   type: DataLoader
   dataset:
-    type: CocoDetection
+    type: CocoDetectionv2
     img_folder: ./dataset/DUT_Anti_UAV/detection/images/
     ann_file: ./dataset/DUT_Anti_UAV/detection/annotations/val.json
     return_masks: False
@@ -48,7 +48,7 @@ val_dataloader:
 val_train_dataloader:
   type: DataLoader
   dataset:
-    type: CocoDetection
+    type: CocoDetectionv2
     img_folder: ./dataset/DUT_Anti_UAV/detection/images/
     ann_file: ./dataset/DUT_Anti_UAV/detection/annotations/train.json
     return_masks: False

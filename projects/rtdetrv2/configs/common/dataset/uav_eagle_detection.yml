@@ -16,7 +16,7 @@ remap_mscoco_category: False
 val_dataloader:
   type: DataLoader
   dataset:
-    type: CocoDetection
+    type: CocoDetectionv2
     img_folder: ./dataset/Sim2Air/UAV_Eagle/images/
     ann_file: ./dataset/Sim2Air/UAV_Eagle/annotations/test.json
     return_masks: False
