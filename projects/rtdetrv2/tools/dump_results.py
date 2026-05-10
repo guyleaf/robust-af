@@ -13,8 +13,12 @@ from rtdetrv2.misc import setup_seed
 from torch.utils.data import DataLoader, Subset
 
 from robust_af.rtdetrv2.apis import Inferencer
+from robust_af.rtdetrv2.data.dataset import CocoDetectionv2
 from robust_af.rtdetrv2.data.transforms import Degradation
-from robust_af.rtdetrv2.misc import convert_prediction_to_coco, show_prediction
+from robust_af.rtdetrv2.misc import (
+    convert_prediction_to_coco,
+    save_image,
+)
 from robust_af.transforms import DEGRADATION_TRANSFORMS
 from robust_af.utils import dump_json, dump_results
 
@@ -80,61 +84,44 @@ class DumpInferencer(Inferencer):
         name: str = "val_dataloader",
         shuffle: bool = False,
         seed: int = 2026,
+        online: bool = True,
     ):
         cfg = deepcopy(cfg)
         dataloader_cfg = cfg.yaml_cfg[name]
+        dataset_cfg = dataloader_cfg["dataset"]
         dataloader_cfg["total_batch_size"] = 1
+        assert dataset_cfg["type"] == CocoDetectionv2.__name__
 
         dataloaders: dict[str, DataLoader] = {}
         for degradation in degradations:
             transforms = deepcopy(TEST_TRANSFORMS)
 
-            # specify name of degradation
-            aug = transforms["ops"][0]
+            aug = transforms["ops"].pop(0)
             assert aug["type"] == Degradation.__name__
-            aug["name"] = degradation
-            aug["seed"] = seed
+            if online:
+                # specify name of degradation
+                aug["name"] = degradation
+                aug["seed"] = seed
+                transforms["ops"].insert(0, aug)
+            else:
+                # utilize dataset filter to get images with specific degradation
+                dataset_cfg["degradations"] = [degradation]
 
-            dataloader_cfg["dataset"]["transforms"] = transforms
+            dataset_cfg["transforms"] = transforms
             # make shuffle determinitic
             setup_seed(seed)
             dataloaders[degradation] = self.prepare_dataloader(
                 cfg, max_num_samples, name=name, shuffle=shuffle
             )
 
-        # validate consistency across degradations
-        indices = dataloaders[degradations[0]].dataset.indices
-        for dataloader in dataloaders.values():
-            assert dataloader.dataset.indices == indices
+        if online:
+            # validate consistency across degradations
+            indices = dataloaders[degradations[0]].dataset.indices
+            for dataloader in dataloaders.values():
+                assert dataloader.dataset.indices == indices
         return dataloaders
 
-    def __call__(
-        self,
-        cfg: Union[str, Path, YAMLConfig],
-        degradations: list[str],
-        shuffle: bool = False,
-        seed: int = 2026,
-        max_num_samples: int = 100,
-    ):
-        """Infer images from dataloader
-
-        Args:
-            cfg (Union[str, Path, YAMLConfig]): Config. If it is a file path, load it and use the val dataloader.
-            shuffle (bool, optional): Shuffle dataset before inference. Defaults to False.
-            seed (int): The seed for randomness. Defaults to 2026.
-            max_num_samples (int, optional): Total number of images to be inferred. Defaults to 100.
-
-        Yields:
-            predictions (dict[str, torch.Tensor]): The predictions of the sample. Labels are dataset categories.
-            target (dict): The metadata of the sample.
-        """
-        # build dataloader
-        if not isinstance(cfg, YAMLConfig):
-            cfg = YAMLConfig(str(cfg))
-        dataloaders = self.prepare_dataloaders(
-            cfg, degradations, max_num_samples, shuffle=shuffle, seed=seed
-        )
-
+    def _inference(self, dataloaders: dict[str, DataLoader], seed: int = 2026):
         # avoid any randomness
         setup_seed(seed)
         for name, dataloader in dataloaders.items():
@@ -154,8 +141,9 @@ class DumpInferencer(Inferencer):
                 preds = self.forward(samples, targets, label2category=label2category)
 
                 for i, (pred, target) in enumerate(zip(preds, targets)):
+                    assert target["degradation"] == name, "Inconsistent degradation."
+
                     target["image"] = samples[i]
-                    target["degradation"] = name
                     target["category2name"] = category2name
 
                     target["backbone_features"] = {
@@ -170,6 +158,42 @@ class DumpInferencer(Inferencer):
                     last_sample = counter == num_samples
                     yield pred, target, counter, last_sample
 
+    def __call__(
+        self,
+        cfg: Union[str, Path, YAMLConfig],
+        degradations: list[str],
+        shuffle: bool = False,
+        seed: int = 2026,
+        max_num_samples: int = 100,
+        online: bool = True,
+    ):
+        """Infer images from dataloader
+
+        Args:
+            cfg (Union[str, Path, YAMLConfig]): Config. If it is a file path, load it and use the val dataloader.
+            shuffle (bool): Shuffle dataset before inference. Defaults to False.
+            seed (int): The seed for randomness. Defaults to 2026.
+            max_num_samples (int): Total number of images to be inferred. Defaults to 100.
+            online (bool): Augment images by degradations online.
+
+        Yields:
+            predictions (dict[str, torch.Tensor]): The predictions of the sample. Labels are dataset categories.
+            target (dict): The metadata of the sample.
+        """
+        # build dataloader
+        if not isinstance(cfg, YAMLConfig):
+            cfg = YAMLConfig(str(cfg))
+        # TODO: refactor to support offline dataset
+        dataloaders = self.prepare_dataloaders(
+            cfg,
+            degradations,
+            max_num_samples,
+            shuffle=shuffle,
+            seed=seed,
+            online=online,
+        )
+        yield from self._inference(dataloaders, seed=seed)
+
 
 def main(cfg: YAMLConfig, args: argparse.Namespace):
     inferencer = DumpInferencer(cfg)
@@ -179,6 +203,7 @@ def main(cfg: YAMLConfig, args: argparse.Namespace):
         shuffle=args.shuffle,
         seed=cfg.seed,
         max_num_samples=args.max_num_samples,
+        online=args.online,
     )
 
     images = {}
@@ -219,6 +244,7 @@ def main(cfg: YAMLConfig, args: argparse.Namespace):
             )
             dump_results(out_dir / name, predictions, backbone_features, **kwargs)
 
+            backbone_features = {}
             images = {}
             features = {}
             predictions = []
@@ -226,13 +252,14 @@ def main(cfg: YAMLConfig, args: argparse.Namespace):
         if image_id in vis_image_ids:
             image_dir = out_dir / name / "images"
             image_dir.mkdir(parents=True, exist_ok=True)
-            out_file = image_dir / f"{image_id:05d}.jpg"
-            show_prediction(
-                sample["image"],
-                pred,
-                label2name=sample["category2name"],
-                out_file=out_file.as_posix(),
-            )
+            out_file = image_dir / f"{image_id:05d}.png"
+            # show_prediction(
+            #     sample["image"],
+            #     pred,
+            #     label2name=sample["category2name"],
+            #     out_file=out_file.as_posix(),
+            # )
+            save_image(sample["image"], out_file)
 
 
 def parse_args():
@@ -264,6 +291,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--online",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Apply online augmentation.",
+    )
+    parser.add_argument(
         "--degradations",
         type=str,
         nargs="+",
@@ -289,6 +322,12 @@ def parse_args():
         default=False,
         help="Shuffle dataset before dumping.",
     )
+    # parser.add_argument(
+    #     "--use-freeze-norm",
+    #     action=argparse.BooleanOptionalAction,
+    #     default=False,
+    #     help="Use FrozenBN instead of BN to keep bit-exact across configs.",
+    # )
     parser.add_argument(
         "-u", "--update", nargs="+", default=[], help="update yaml config"
     )
@@ -303,6 +342,9 @@ if __name__ == "__main__":
     update_dict["resume"] = args.checkpoint
     update_dict["seed"] = args.seed
     update_dict["print_method"] = "rich"
+    # if args.use_freeze_norm:
+    #     # use the same BN forward path to avoid inconsistent outputs between detector and frozen version.
+    #     update_dict["PResNet"]["freeze_norm"] = True
     cfg = YAMLConfig(args.config_file, **update_dict)
 
     out_dir = Path(cfg.output_dir)
@@ -310,6 +352,8 @@ if __name__ == "__main__":
         out_dir = Path(args.out_dir) / out_dir.name
 
     suffix = f"{len(args.degradations)}_degrads_max_num_{args.max_num_samples}"
+    if not args.online:
+        suffix = f"offline_{suffix}"
     if args.shuffle:
         suffix += "_shuffle"
 

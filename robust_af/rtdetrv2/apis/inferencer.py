@@ -50,8 +50,10 @@ class Inferencer:
                 print(f"Load last_epoch: {last_epoch}")
 
             if cfg.use_ema and "ema" in checkpoint:
+                print("Load checkpoint.ema")
                 state = checkpoint["ema"]["module"]
             else:
+                print("Load checkpoint.model")
                 state = checkpoint["model"]
         else:
             raise AttributeError("Only support resume to load model.state_dict by now.")
