@@ -25,6 +25,9 @@ dependencies = [
     "scikit-learn < 2",
     "packaging",
     "pillow < 13",
+    "plotly < 7",
+    "kaleido",
+    # TODO: move analysis dependencies as optional
 ]
 
 [project.optional-dependencies]

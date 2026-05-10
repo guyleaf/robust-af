@@ -1,15 +1,18 @@
 import argparse
 import json
+import math
 import os
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional
 
-import matplotlib.pyplot as plt
 import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
 import torch
 import torch.nn.functional as F
+from plotly.subplots import make_subplots
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from rich.console import Console
@@ -21,11 +24,70 @@ from sklearn.preprocessing import MinMaxScaler
 
 from robust_af.transforms import DEGRADATION_TRANSFORMS
 
+_SPATIAL_SIZE_WARN = True
+
+# 15 degradations + 1 identity
+PALETTE = px.colors.qualitative.Plotly + [
+    px.colors.qualitative.D3[1],
+    px.colors.qualitative.D3[3],
+    px.colors.qualitative.D3[5],
+    px.colors.qualitative.D3[7],
+    px.colors.qualitative.D3[8],
+    px.colors.qualitative.D3[9],
+]
+PLOTLY_SCRIPT_PATH = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "plotly_script.js"
+)
+
 CONSOLE = Console()
 
 
+def setup(args: argparse.Namespace):
+    dump_dir = Path(args.dump_dirs[-1])
+
+    # load metadata
+    with open(dump_dir / "metadata.json", "r") as f:
+        metadata: dict = json.load(f)
+
+    # filter degradations if exists
+    target_degradations = set(args.degradations)
+    args.degradations = list(
+        filter(lambda name: name in target_degradations, metadata["degradations"])
+    )
+    if args.annotation_file is None:
+        args.annotation_file = metadata.get("annotation_file")
+
+    # determine out_dir
+    if args.out_dir is None:
+        out_dir = dump_dir
+    else:
+        out_dir = Path(args.out_dir)
+    if args.find_failures:
+        dir_name = "failure_analysis"
+        if len(args.failure_exclude) > 0:
+            dir_name += "_exclude_" + "_".join(args.failure_exclude)
+        if not args.fp:
+            dir_name += "_no_fp"
+        out_dir = out_dir / dir_name
+    out_dir = (
+        out_dir
+        / f"tsne_{len(args.degradations)}_{args.feat_size}_{args.perplexity}_{args.n_components}d_iou_{args.iou_threshold}_score_{args.score_threshold}_dumps_{len(args.dump_dirs)}"
+    )
+    args.out_dir = out_dir.as_posix()
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # save args
+    with open(out_dir / "args.json", "w") as f:
+        content = vars(args)
+        json.dump(content, f, indent=4)
+
+
 def find_failures(
-    coco_gt: COCO, coco_results_file: Path, iou_thr: float = 0.5, score_thr: float = 0.3
+    coco_gt: COCO,
+    coco_results_file: Path,
+    iou_thr: float = 0.5,
+    score_thr: float = 0.3,
+    find_fp: bool = True,
 ):
     coco_dt = coco_gt.loadRes(coco_results_file.as_posix())
     coco_eval = COCOeval(cocoGt=coco_gt, cocoDt=coco_dt, iouType="bbox")
@@ -51,14 +113,17 @@ def find_failures(
 
     failures = set()
     for sample in eval_imgs:
-        # FP: confident, non-ignored detections that matched nothing
-        # [1 x D]
-        dt_m = sample["dtMatches"][iou_index, :max_det]
-        dt_scores = np.array(sample["dtScores"])[:max_det]
-        dt_ig = sample["dtIgnore"][iou_index, :max_det]
+        if find_fp:
+            # FP: confident, non-ignored detections that matched nothing
+            # [1 x D]
+            dt_m = sample["dtMatches"][iou_index, :max_det]
+            dt_scores = np.array(sample["dtScores"])[:max_det]
+            dt_ig = sample["dtIgnore"][iou_index, :max_det]
 
-        confident = (dt_scores >= score_thr) & (dt_ig == 0)
-        has_fp = np.any(dt_m[confident] == 0)
+            confident = (dt_scores >= score_thr) & (dt_ig == 0)
+            has_fp = np.any(dt_m[confident] == 0)
+        else:
+            has_fp = False
 
         # FN: non-ignored GTs not matched or matched by low-score dt
         # [1 x G]
@@ -86,13 +151,22 @@ def find_failures(
 def standardize_representations(
     features: dict[str, list[torch.Tensor]], output_size: int = 1
 ) -> dict[str, np.ndarray]:
+    global _SPATIAL_SIZE_WARN
     results = {}
     for scale, samples in features.items():
-        # [[C, H, W], ...] -> [[C, new_H, new_W], ...]
-        samples = [F.adaptive_avg_pool2d(sample, output_size) for sample in samples]
+        for i, sample in enumerate(samples):
+            h, w = sample.shape[-2:]
+            if _SPATIAL_SIZE_WARN and (h < output_size or w < output_size):
+                CONSOLE.log(
+                    f"[yellow]Warning: spatial size of features is smaller than pool size, ({h}, {w}) < ({output_size}, {output_size})"
+                )
+            # [C, H, W] -> [C, new_H, new_W]
+            samples[i] = F.adaptive_avg_pool2d(sample, output_size)
         # [[C, new_H, new_W], ...] -> [B, C, new_H, new_W] -> [B, C * new_H * new_W]
         samples = torch.stack(samples, axis=0).flatten(1)
         results[scale] = samples.numpy()
+    # warning once in one of features
+    _SPATIAL_SIZE_WARN = False
     return results
 
 
@@ -115,56 +189,121 @@ def load_degradation_features(
     ), image_ids
 
 
-def collect_features(
-    dump_dir: Path, args: argparse.Namespace
+def collect_dump(
+    dump_dir: Path,
+    args: argparse.Namespace,
+    extract_features: bool = True,
+    image_idss: Optional[dict[str, np.ndarray]] = None,
 ) -> tuple[
     dict[str, dict[str, dict[str, np.ndarray]]], dict[str, dict[str, np.ndarray]]
 ]:
+    if image_idss is None:
+        image_idss = {}
+
     coco = COCO(args.annotation_file)
 
     backbone_features = {}
     features = {}
-    image_idss = {}
     failed_image_idss = {}
     degradations: list[str] = args.degradations
     for name in track(
-        degradations, description="Collecting features...", console=CONSOLE
+        degradations,
+        description="Collecting features and predictions...",
+        console=CONSOLE,
     ):
         degradation_dir = dump_dir / name
         backbone_features_file = degradation_dir / "backbone_features.pt"
         features_file = degradation_dir / "features.pt"
         coco_results_file = degradation_dir / "coco_results.json"
 
-        backbone_features[name], image_ids = load_degradation_features(
-            backbone_features_file, args.feat_size, max_num_samples=args.max_num_samples
-        )
-        if features_file.exists():
-            features[name], _ = load_degradation_features(
-                features_file, args.feat_size, max_num_samples=args.max_num_samples
+        if extract_features:
+            backbone_features[name], image_ids = load_degradation_features(
+                backbone_features_file,
+                args.feat_size,
+                max_num_samples=args.max_num_samples,
             )
+            if features_file.exists():
+                features[name], _ = load_degradation_features(
+                    features_file, args.feat_size, max_num_samples=args.max_num_samples
+                )
+            image_ids = np.array(image_ids)
+        else:
+            image_ids = image_idss[name]
 
-        image_ids = np.array(image_ids)
+        assert set(coco.getImgIds(imgIds=image_ids)) == set(image_ids)
         failed_image_ids = find_failures(
             coco,
             coco_results_file,
             iou_thr=args.iou_threshold,
             score_thr=args.score_threshold,
+            find_fp=args.fp,
         )
         image_idss[name] = image_ids
         failed_image_idss[name] = failed_image_ids
 
-    return dict(backbone_features=backbone_features, features=features), dict(
+    return dict(backbone=backbone_features, adapter=features), dict(
         image_idss=image_idss, failed_image_idss=failed_image_idss
     )
 
 
-def preprocess_metadata(metadata: dict, args: argparse.Namespace):
+def collect_dumps(args: argparse.Namespace):
+    def _count_failures(failures: dict[str, np.ndarray]):
+        num_failures = sum(np.count_nonzero(f) for f in failures.values())
+        return num_failures
+
+    # collect features and predictions
+    results, main_metadata = collect_dump(Path(args.dump_dirs[-1]), args)
+
+    if args.find_failures:
+        # collect predictions for others
+        failuress = {}
+        excluded_failed_image_idss = None
+        for i, dump_dir in enumerate(args.dump_dirs[:-1]):
+            _, metadata = collect_dump(
+                Path(dump_dir),
+                args,
+                extract_features=False,
+                image_idss=main_metadata["image_idss"],
+            )
+            metadata = preprocess_metadata(
+                metadata, args, excluded_failed_image_idss=excluded_failed_image_idss
+            )
+            excluded_failed_image_idss = metadata["excluded_failed_image_idss"]
+
+            failures = metadata["failures"]
+            args.titles[i] += f" (failures={_count_failures(failures)})"
+            failuress[args.titles[i]] = failures
+
+        main_metadata = preprocess_metadata(
+            main_metadata, args, excluded_failed_image_idss=excluded_failed_image_idss
+        )
+        failures = main_metadata["failures"]
+        args.titles[-1] += f" (main, failures={_count_failures(failures)})"
+        failuress[args.titles[-1]] = failures
+    else:
+        failuress = None
+    main_metadata["failuress"] = failuress
+    return results, main_metadata
+
+
+def preprocess_metadata(
+    metadata: dict,
+    args: argparse.Namespace,
+    excluded_failed_image_idss: Optional[dict[str, np.ndarray]] = None,
+):
     # filter failures
     failed_image_idss = metadata["failed_image_idss"]
+    new_excluded_failed_image_idss = {}
     for degradation in args.failure_exclude:
-        exclusive = deepcopy(failed_image_idss[degradation])
+        if excluded_failed_image_idss is None:
+            exclusive = deepcopy(failed_image_idss[degradation])
+        else:
+            exclusive = excluded_failed_image_idss[degradation]
+
         for name, image_ids in failed_image_idss.items():
             failed_image_idss[name] = np.setdiff1d(image_ids, exclusive)
+        new_excluded_failed_image_idss[degradation] = exclusive
+    metadata["excluded_failed_image_idss"] = new_excluded_failed_image_idss
 
     # generate failure boolean map
     failures = {}
@@ -177,12 +316,7 @@ def preprocess_metadata(metadata: dict, args: argparse.Namespace):
     return metadata
 
 
-def visualize_with_tsne(
-    out_dir: Path,
-    features: dict[str, dict[str, np.ndarray]],
-    failures: dict[str, np.ndarray],
-    args: argparse.Namespace,
-):
+def run_tsne(features: dict[str, dict[str, np.ndarray]], args: argparse.Namespace):
     # build t-SNE model
     # disable OpenBLAS multi-threading, due to it is already multi-threaded
     # reference: https://github.com/OpenMathLib/OpenBLAS/blob/develop/USAGE.md#how-can-i-use-openblas-in-multi-threaded-applications
@@ -202,24 +336,13 @@ def visualize_with_tsne(
     )
 
     CONSOLE.log("Running t-SNE.")
-    fig = plt.figure(figsize=(9, 6), layout="constrained")
 
     _degradation_features = next(iter(features.values()))
-    _tmp = next(iter(_degradation_features.values()))
-
     # degradations -> multi-scales -> samples
-    degradations = list(features.keys())
     scales = list(_degradation_features.keys())
-    batch_size = _tmp.shape[0]
-
-    colors = [i for i in range(len(degradations)) for _ in range(batch_size)]
-    linewidths = [
-        linewidth.item()
-        for k in degradations
-        for linewidth in np.where(failures[k], 1.0, 0.2)
-    ]
 
     # visualize feature distribution for each scale
+    results = {}
     minmax = MinMaxScaler(feature_range=(-10, 10))
     for scale in track(scales, description="Running t-SNE...", console=CONSOLE):
         samples = [v[scale] for v in features.values()]
@@ -232,30 +355,174 @@ def visualize_with_tsne(
         result = tsne_model.fit_transform(samples)
 
         # normalization + scale to a specific range for better vis
-        result = minmax.fit_transform(result)
+        results[scale] = minmax.fit_transform(result)
+    return results
 
-        fig.suptitle(f"{scale} backbone layer")
-        axes = fig.add_subplot(projection="3d" if args.n_components == 3 else None)
-        scatter = axes.scatter(
-            *np.transpose(result),
-            alpha=0.8,
-            s=20,
-            c=colors,
-            linewidths=linewidths,
-            edgecolors="black",
-            cmap="tab20",
+
+def draw_plotly_plot(
+    result: np.ndarray,
+    image_idss: dict[str, np.ndarray],
+    args: argparse.Namespace,
+    failures: Optional[dict[str, np.ndarray]] = None,
+    marker: dict = dict(size=6, opacity=0.8),
+    line: dict = dict(width=0, color="black"),
+    failed_line: dict = dict(width=1.5, color="black"),
+    show_failures: bool = False,
+) -> list[go.Scatter]:
+    num_dims = result.shape[1]
+    degradations = list(image_idss.keys())
+    num_images = len(next(iter(image_idss.values())))
+
+    ScatterCls = go.Scatter3d if num_dims == 3 else go.Scatter
+    traces = []
+    for i, name in enumerate(degradations):
+        marker["color"] = PALETTE[i % len(PALETTE)]
+        hovertemplate = "image_id: %{customdata[0]}"
+
+        start = i * num_images
+        end = start + num_images
+        data = dict(x=result[start:end, 0], y=result[start:end, 1])
+        if num_dims == 3:
+            data["z"] = result[start:end, 2]
+        ids = image_idss[name]
+        fail = np.zeros_like(ids, dtype=bool) if failures is None else failures[name]
+
+        # normal points
+        normal = ~fail
+        if np.any(normal):
+            customdata = np.stack([ids[normal], fail[normal].astype(int)], axis=-1)
+            kwargs = {k: v[normal].tolist() for k, v in data.items()}
+            traces.append(
+                ScatterCls(
+                    mode="markers",
+                    name=name,
+                    marker=dict(line=line, **marker),
+                    hovertemplate=hovertemplate,
+                    legendgroup=name,
+                    showlegend=True,
+                    customdata=customdata.tolist(),
+                    **kwargs,
+                )
+            )
+
+        # failed points
+        if np.any(fail):
+            customdata = np.stack([ids[fail], fail[fail].astype(int)], axis=-1)
+            kwargs = {k: v[fail].tolist() for k, v in data.items()}
+            traces.append(
+                ScatterCls(
+                    mode="markers",
+                    name=f"{name} (failed)",
+                    marker=dict(line=failed_line, **marker),
+                    hovertemplate=hovertemplate,
+                    # legendgroup=f"{name}_failed",
+                    legendgroup=name,
+                    showlegend=False,
+                    customdata=customdata.tolist(),
+                    **kwargs,
+                )
+            )
+    if failures is not None and show_failures:
+        kwargs = dict(x=[None], y=[None])
+        if num_dims == 3:
+            kwargs["z"] = [None]
+
+        name = "failed ("
+        if args.fp:
+            name += "FP or "
+        name += "FN)"
+        traces.append(
+            go.Scatter(
+                mode="markers",
+                marker=dict(line=failed_line, color="#FFFFFF"),
+                name=f"{name}<br> @ IoU: {args.iou_threshold}, conf: {args.score_threshold}",
+                showlegend=True,
+                **kwargs,
+            )
         )
-        # axes.set_xlim(-10, 10)
-        # axes.set_ylim(-10, 10)
-        handles, _ = scatter.legend_elements(prop="colors", num=None)
-        fig.legend(handles, degradations, loc="outside right")
+    return traces
 
-        fig.savefig(out_dir / f"backbone_{scale}.png")
+
+def render_plotly(
+    out_dir: Path,
+    # scales -> features
+    tsne_results: dict[str, np.ndarray],
+    # degradations -> ids
+    image_idss: dict[str, np.ndarray],
+    args: argparse.Namespace,
+    # dumps -> degradations -> failed boolean map (ids)
+    failuress: Optional[dict[str, dict[str, np.ndarray]]] = None,
+    prefix_title: str = "backbone layer",
+    post_title: str = "",
+):
+    # make chrome run in headless mode
+    os.environ.pop("DISPLAY", None)
+
+    import plotly.io as pio
+
+    pio.get_chrome()
+
+    num_plots = 1 if failuress is None else len(failuress)
+    cols = min(num_plots, args.num_col_plots)
+    rows = math.ceil(num_plots / cols)
+    width = cols * args.plot_size
+    height = rows * args.plot_size
+
+    figs: dict[str, go.Figure] = {}
+    for scale, result in track(tsne_results.items(), "Drawing figures..."):
+        fig = make_subplots(
+            rows=rows,
+            cols=cols,
+            shared_xaxes="all",
+            shared_yaxes="all",
+            subplot_titles=args.titles,
+            horizontal_spacing=0.01,
+            vertical_spacing=0.01,
+        )
+        # fig = go.Figure()
+
+        if failuress is None:
+            traces = draw_plotly_plot(result, image_idss, args, show_failures=False)
+            fig.add_traces(traces)
+        else:
+            for i, failures in enumerate(failuress.values()):
+                show = i == 0  # 只第一個 subplot 顯示 legend
+                traces = draw_plotly_plot(
+                    result,
+                    image_idss,
+                    args,
+                    failures=failures,
+                    show_failures=args.find_failures and show,
+                )
+
+                row = i // cols + 1
+                col = i % cols + 1
+                for trace in traces:
+                    trace.showlegend &= show
+                    fig.add_trace(trace, row=row, col=col)
+
+        fig.update_layout(title=f"{prefix_title} - layer: {scale}{post_title}")
+        # make y-axis's scale same with x-axis
+        fig.update_yaxes(scaleanchor="x", scaleratio=1)
+        figs[scale] = fig
+
+    with CONSOLE.status("[yellow]Rendering plots..."):
+        with open(PLOTLY_SCRIPT_PATH, "r") as f:
+            post_script = f.read()
+
+        for scale, fig in figs.items():
+            fig.write_html(
+                file=out_dir / f"backbone_{scale}.html", post_script=post_script
+            )
+            fig.write_image(
+                file=out_dir / f"backbone_{scale}.pdf", width=width, height=height
+            )
+
+    CONSOLE.log(f"Saved plots to {out_dir}")
+
+    for fig in figs.values():
         if args.show:
             fig.show()
-        fig.clear()
-    plt.close(fig)
-    CONSOLE.log(f"Save results to {out_dir}")
 
 
 def parse_args():
@@ -263,7 +530,11 @@ def parse_args():
         description="t-SNE feature visualization",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("dump_dir", help="path of dump directory")
+    parser.add_argument(
+        "dump_dirs",
+        nargs="+",
+        help="path of dump directories. We use the features and predictions of the last dump to visualize. For others, we only use the predictions.",
+    )
     parser.add_argument(
         "--annotation-file",
         type=str,
@@ -297,6 +568,9 @@ def parse_args():
         help="Visualized degradations. If it is not existed in dump_dir, ignore it.",
     )
     parser.add_argument(
+        "--find-failures", action=argparse.BooleanOptionalAction, default=False
+    )
+    parser.add_argument(
         "--iou-threshold",
         type=float,
         default=0.5,
@@ -309,15 +583,34 @@ def parse_args():
         help="Score threshold to filter invalid predictions.",
     )
     parser.add_argument(
+        "--fp",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Mark false positives.",
+    )
+    parser.add_argument(
         "--failure-exclude",
         type=str,
         nargs="*",
         default=[],
-        help="Don't show any failures (same image_id) if fail in specific degradations",
+        help="Don't show any failures (same image_id) if fail in specific degradations based on the first dump.",
     )
     parser.add_argument(
         "--show", action="store_true", help="Display the result in a graphical window."
     )
+
+    # plotly settings
+    parser.add_argument(
+        "--titles",
+        nargs="+",
+        default=[""],
+        # default=["Detector", "Detector with SpatialAFR"],
+        help="The titles for subplots, following the order of dump_dirs.",
+    )
+    parser.add_argument(
+        "--num-col-plots", type=int, default=3, help="Number of plots per row"
+    )
+    parser.add_argument("--plot-size", type=int, default=800, help="The size of a plot")
 
     # t-SNE settings
     parser.add_argument(
@@ -390,55 +683,54 @@ def parse_args():
     parser.add_argument(
         "--n-jobs",
         type=int,
-        default=-1,
+        default=20,
         help="The number of parallel jobs to run for neighbors search.",
     )
     args = parser.parse_args()
+    num_dumps = len(args.dump_dirs)
+    assert num_dumps == len(args.titles)
+    if not args.find_failures:
+        assert num_dumps == 1, "No meaning without showing failures."
     args.learning_rate = "auto" if args.learning_rate is None else args.learning_rate
     return args
 
 
 if __name__ == "__main__":
     args = parse_args()
-    dump_dir = Path(args.dump_dir)
-
-    # load metadata
-    with open(dump_dir / "metadata.json", "r") as f:
-        metadata: dict = json.load(f)
-
-    # filter degradations if exists
-    target_degradations = set(args.degradations)
-    args.degradations = list(
-        filter(lambda name: name in target_degradations, metadata["degradations"])
-    )
-    if args.annotation_file is None:
-        args.annotation_file = metadata.get("annotation_file")
-
-    # determine out_dir
-    if args.out_dir is None:
-        out_dir = dump_dir
-    else:
-        out_dir = Path(args.out_dir)
-    out_dir = (
-        out_dir
-        / f"tsne_{len(args.degradations)}_{args.feat_size}_{args.perplexity}_{args.n_components}d_iou_{args.iou_threshold}_score_{args.score_threshold}"
-    )
-    args.out_dir = out_dir.as_posix()
-
-    out_dir.mkdir(parents=True, exist_ok=True)
-    # save args
-    with open(out_dir / "args.json", "w") as f:
-        content = vars(args)
-        json.dump(content, f, indent=4)
-
-    results, metadata = collect_features(dump_dir, args)
-    metadata = preprocess_metadata(metadata, args)
+    setup(args)
+    titles = deepcopy(args.titles)
+    results, metadata = collect_dumps(args)
+    out_dir = Path(args.out_dir)
     with Live(console=CONSOLE):
         for name, features in results.items():
             if len(features) == 0:
                 continue
 
+            prefix_title = f"{name} outputs"
+            post_title = ""
+            if args.find_failures:
+                prefix_title = (
+                    f"Failure distribution on {prefix_title} (from main model)"
+                )
+                if len(args.failure_exclude) > 0:
+                    post_title = (
+                        "<br>Filters: "
+                        + ", ".join(args.failure_exclude)
+                        + f"-fail in {titles[0]}"
+                    )
+            else:
+                prefix_title = prefix_title.capitalize()
+
             CONSOLE.log(f"t-SNE features: {name}")
             tsne_out_dir = out_dir / name
             tsne_out_dir.mkdir(parents=True, exist_ok=True)
-            visualize_with_tsne(tsne_out_dir, features, metadata["failures"], args)
+            tsne_results = run_tsne(features, args)
+            render_plotly(
+                tsne_out_dir,
+                tsne_results,
+                metadata["image_idss"],
+                args,
+                failuress=metadata["failuress"],
+                prefix_title=prefix_title,
+                post_title=post_title,
+            )
