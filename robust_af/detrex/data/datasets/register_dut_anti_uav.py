@@ -20,6 +20,8 @@ ANN_FILES = dict(
     ),
     val_degraded_weather=os.path.join("annotations", "degraded_weather_val.json"),
     test_degraded_weather=os.path.join("annotations", "degraded_weather_test.json"),
+    val_mixed=os.path.join("annotations", "mixed_val.json"),
+    test_mixed=os.path.join("annotations", "mixed_test.json"),
 )
 
 METADATA = dict(
