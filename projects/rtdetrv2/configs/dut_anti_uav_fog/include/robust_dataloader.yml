@@ -7,9 +7,6 @@ train_dataloader:
       ops:
         - { type: Degradation, degradations: ["fog", "identity"] }
 
-  collate_fn:
-    scales: ~
-
 val_train_dataloader:
   dataset:
     transforms:
