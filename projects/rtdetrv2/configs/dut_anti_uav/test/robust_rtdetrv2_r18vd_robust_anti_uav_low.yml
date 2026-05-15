@@ -1,20 +1,44 @@
 __include__: [
     # clear ver.
-    # "../../common/dataset/robust_anti_uav_low_detection.yml",
+    "../../common/dataset/robust_anti_uav_low_detection.yml",
     # degraded ver.
-    "../../common/dataset/robust_anti_uav_low_degraded_detection.yml",
+    # "../../common/dataset/robust_anti_uav_low_degraded_detection.yml",
     "../../common/runtime.yml",
     "../../common/robust_dataloader.yml",
     "../../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_anti_uav_low/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_cst_loss_no_train_heads_no_color_augs_in_clear_degraded
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_anti_uav_low/robust_rtdetrv2_r18vd_120e_1e-4_lr_fine_tuning_no_color_augs_in_clear
 
 use_ema: True
 
+RobustRTDETR:
+  robust_image_module: ~
+  robust_module: ~
+
+############## image-level adapters ###########
+
+# RobustRTDETR:
+#   # robust_image_module: DENet
+#   robust_image_module: DIP
+#   # robust_image_module: GDIP
+#   robust_module: ~
+
+# DENet:
+#   # original code bug: mm1 used for all 4 branches
+#   # compat_mode=True => their config in source code
+#   # compat_mode=False => their config in paper
+#   compat_mode: false
+
+# GDIP:
+#   multi_level: false
+#   # multi_level: true
+
+############## feature-level adapters ###########
+
 # RobustRTDETR:
 #   robust_image_module: ~
-#   robust_module: ~
+#   robust_module: MultiScaleProcessor
 
 # MultiScaleProcessor:
 #   modules:
@@ -52,11 +76,11 @@ use_ema: True
 #     - { type: SpatialAFR, embed_dims: 256 }
 #     - { type: SpatialAFR, embed_dims: 512 }
 
-MultiScaleProcessor:
-  modules:
-    - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
-    - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
-    - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
 
 # MultiScaleProcessor:
 #   modules:

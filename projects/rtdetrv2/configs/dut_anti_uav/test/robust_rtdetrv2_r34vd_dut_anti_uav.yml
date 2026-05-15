@@ -10,19 +10,43 @@ __include__: [
     "../../common/models/robust_rtdetrv2_r34vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/dut_anti_uav/robust_rtdetrv2_r34vd_50e_5e-4_lr_simple_nn_no_train_heads_no_color_augs_in_clear
+output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/dut_anti_uav/robust_rtdetrv2_r34vd_120e_1e-4_lr_fine_tuning_no_color_augs_in_clear
 
 use_ema: True
 
+RobustRTDETR:
+  robust_image_module: ~
+  robust_module: ~
+
+############## image-level adapters ###########
+
 # RobustRTDETR:
-#   robust_image_module: ~
+#   # robust_image_module: DENet
+#   robust_image_module: DIP
+#   # robust_image_module: GDIP
 #   robust_module: ~
 
-MultiScaleProcessor:
-  modules:
-    - { type: SimpleNN, embed_dims: 128 }
-    - { type: SimpleNN, embed_dims: 256 }
-    - { type: SimpleNN, embed_dims: 512 }
+# DENet:
+#   # original code bug: mm1 used for all 4 branches
+#   # compat_mode=True => their config in source code
+#   # compat_mode=False => their config in paper
+#   compat_mode: false
+
+# GDIP:
+#   multi_level: false
+#   # multi_level: true
+
+############## feature-level adapters ###########
+
+# RobustRTDETR:
+#   robust_image_module: ~
+#   robust_module: MultiScaleProcessor
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SimpleNN, embed_dims: 128 }
+#     - { type: SimpleNN, embed_dims: 256 }
+#     - { type: SimpleNN, embed_dims: 512 }
 
 # MultiScaleProcessor:
 #   modules:
@@ -50,6 +74,12 @@ MultiScaleProcessor:
 
 # MultiScaleProcessor:
 #   modules:
+#     - { type: SpatialAFR, embed_dims: 128 }
+#     - { type: SpatialAFR, embed_dims: 256 }
+#     - { type: SpatialAFR, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
 #     - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
 #     - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
 #     - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
@@ -67,3 +97,20 @@ MultiScaleProcessor:
 #     - type: SpatialAFR
 #       embed_dims: 512
 #       spatial_cfg: { conv: False, activation: ~ }
+
+# MultiScaleProcessor:
+#   modules:
+#     - type: SpatialAFR
+#       embed_dims: 128
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
+
+#     - type: SpatialAFR
+#       embed_dims: 256
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
+
+#     - type: SpatialAFR
+#       embed_dims: 512
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU

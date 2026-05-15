@@ -1,20 +1,44 @@
 __include__: [
     # clear ver.
-    # "../../common/dataset/uav_eagle_detection.yml",
+    "../../common/dataset/uav_eagle_detection.yml",
     # degraded ver.
-    "../../common/dataset/uav_eagle_degraded_detection.yml",
+    # "../../common/dataset/uav_eagle_degraded_detection.yml",
     "../../common/runtime.yml",
     "../../common/robust_dataloader.yml",
     "../../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/uav_eagle/robust_rtdetrv2_r18vd_120e_1e-4_lr_fine_tuning_no_color_augs_in_clear_degraded
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/uav_eagle/robust_rtdetrv2_r18vd_120e_1e-4_lr_fine_tuning_no_color_augs_in_clear
 
 use_ema: True
 
 RobustRTDETR:
   robust_image_module: ~
   robust_module: ~
+
+############## image-level adapters ###########
+
+# RobustRTDETR:
+#   # robust_image_module: DENet
+#   robust_image_module: DIP
+#   # robust_image_module: GDIP
+#   robust_module: ~
+
+# DENet:
+#   # original code bug: mm1 used for all 4 branches
+#   # compat_mode=True => their config in source code
+#   # compat_mode=False => their config in paper
+#   compat_mode: false
+
+# GDIP:
+#   multi_level: false
+#   # multi_level: true
+
+############## feature-level adapters ###########
+
+# RobustRTDETR:
+#   robust_image_module: ~
+#   robust_module: MultiScaleProcessor
 
 # MultiScaleProcessor:
 #   modules:
