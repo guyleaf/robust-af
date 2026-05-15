@@ -3,3 +3,5 @@
 /output
 /output/
 *.txt
+/logs
+/logs/

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eu
+set -euo pipefail
 
 CWD=$(dirname "$0")
 
@@ -8,6 +8,7 @@ GPUS=${GPUS:-4}
 PORT=${PORT:-9909}
 SEED=${SEED:-2025}
 
+mkdir -p logs
 # TODO: missing --use-amp
 torchrun \
     --master-port "$PORT" \
@@ -16,4 +17,4 @@ torchrun \
     --config "$CONFIG" \
     --print-method rich \
     --seed "$SEED" \
-    "${@:2}" 2>&1 | tee "log_$(date +%Y%m%d%H%M%S).txt"
+    "${@:2}" 2>&1 | tee "logs/log_$(date +%Y%m%d%H%M%S).txt"

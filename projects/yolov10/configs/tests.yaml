@@ -1,0 +1,28 @@
+model: /home/leafying/data/checkpoints/yolov10/yolov10m/dut_anti_uav/robust_yolov10m_300e_1e-2_lr_spatial_afr_relu_no_cst_loss_no_train_head/best.pt
+name: robust_yolov10m_300e_1e-2_lr_spatial_afr_relu_no_cst_loss_no_train_head
+
+# for each run, it runs on one of gpus
+# devices: [0, 1, 2, 3]
+devices: [0, 1]
+# devices: [2, 3]
+
+# config
+root: configs/dut_anti_uav/test
+prefix: robust_yolov10m
+configs:
+  - name: dut_anti_uav
+    # follow the subset definitions in configs/datasets/xxx.yaml
+    splits: [val, degraded_val, test, degraded_test]
+  - name: uav_eagle
+    splits: [test, degraded_test]
+  - name: robust_anti_uav_low
+    splits: [test, degraded_test]
+  - name: dds
+    splits: [test, degraded_test]
+
+#############################################################################
+
+# custom settings
+# NOTE: Be careful! Make sure setting full config. Otherwise, you may encounter any side effects from test configs.
+batch: 128
+exist_ok: True

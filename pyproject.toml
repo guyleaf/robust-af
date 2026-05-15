@@ -27,6 +27,7 @@ dependencies = [
     "pillow < 13",
     "plotly < 7",
     "kaleido",
+    "pyyaml"
     # TODO: move analysis dependencies as optional
 ]
 

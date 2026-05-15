@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-set -eu
+set -euo pipefail
 
 CWD=$(dirname "$0")
 
 CONFIG=$1
 CHECKPOINT=$2
 GPUS=${GPUS:-4}
-PORT=${PORT:-9909}
 SEED=${SEED:-2025}
 
+mkdir -p logs
 torchrun \
-    --master-port "$PORT" \
+    --standalone \
     --nproc-per-node "$GPUS" \
     "$CWD/tools/base/train.py" \
     --config "$CONFIG" \
@@ -18,4 +18,4 @@ torchrun \
     --print-method rich \
     --seed "$SEED" \
     --test-only \
-    "${@:3}" 2>&1 | tee "log_test_$(date +%Y%m%d%H%M%S).txt"
+    "${@:3}" 2>&1 | tee "logs/log_test_$(date +%Y%m%d%H%M%S%N).txt"
