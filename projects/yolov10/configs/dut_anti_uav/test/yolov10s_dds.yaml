@@ -21,7 +21,7 @@ cache: False # (bool) True/ram, disk or False. Use cache for data loading
 device: 0 # (int | str | list, optional) device to run on, i.e. cuda device=0 or device=0,1,2,3 or device=cpu
 workers: 4 # (int) number of worker threads for data loading (per RANK if DDP)
 project: yolov10 # (str, optional) project name
-name: yolov10s/dut_anti_uav/dds/yolov10s_500e_1e-2_lr_degraded # (str, optional) experiment name, results saved to 'project/name' directory
+name: yolov10s/dut_anti_uav/dds/yolov10s_500e_1e-2_lr # (str, optional) experiment name, results saved to 'project/name' directory
 exist_ok: False # (bool) whether to overwrite existing experiment
 pretrained: False # (bool | str) whether to use a pretrained model (bool) or a model to load weights from (str)
 # optimizer: SGD # (str) optimizer to use, choices=[SGD, Adam, Adamax, AdamW, NAdam, RAdam, RMSProp, auto]
@@ -46,8 +46,8 @@ deterministic: False # (bool) whether to enable deterministic mode
 
 # Val/Test settings ----------------------------------------------------------------------------------------------------
 # val: True # (bool) validate/test during training
-# split: test # (str) dataset split to use for validation, i.e. 'val', 'test' or 'train'
-split: degraded_test
+split: test # (str) dataset split to use for validation, i.e. 'val', 'test' or 'train'
+# split: degraded_test
 save_json: False # (bool) save results to JSON file
 save_hybrid: False # (bool) save hybrid version of labels (labels + additional predictions)
 # conf: # (float, optional) object confidence threshold for detection (default 0.25 predict, 0.001 val)
