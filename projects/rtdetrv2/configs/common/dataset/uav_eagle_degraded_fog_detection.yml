@@ -1,0 +1,5 @@
+__include__: ["./uav_eagle_detection.yml"]
+
+val_dataloader:
+  dataset:
+    ann_file: ./dataset/Sim2Air/UAV_Eagle/annotations/degraded_fog_test.json

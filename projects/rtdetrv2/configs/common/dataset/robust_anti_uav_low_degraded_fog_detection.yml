@@ -1,0 +1,5 @@
+__include__: ["./robust_anti_uav_low_detection.yml"]
+
+val_dataloader:
+  dataset:
+    ann_file: ./dataset/Robust_Anti_UAV_Low/annotations/degraded_fog_val.json

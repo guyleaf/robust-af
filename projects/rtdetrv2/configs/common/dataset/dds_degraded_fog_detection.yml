@@ -1,0 +1,5 @@
+__include__: ["./dds_detection.yml"]
+
+val_dataloader:
+  dataset:
+    ann_file: ./dataset/DDS/annotations/degraded_fog_test.json
