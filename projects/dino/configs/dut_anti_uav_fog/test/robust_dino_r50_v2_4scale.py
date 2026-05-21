@@ -19,6 +19,7 @@ from robust_af.detrex.data.datasets.register_dut_anti_uav import (
 )
 from robust_af.detrex.modeling.processors import MultiScaleProcessor  # noqa: F401
 from robust_af.models.feature_adapters import SimpleNN, SpatialAFR  # noqa: F401
+from robust_af.models.image_adapters.baselines import DIP, GDIP, DENet  # noqa: F401
 
 from ...models.robust_dino_r50_v2 import model
 
@@ -45,7 +46,17 @@ output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}_fog/{test_dataset_name}_
 
 # ==============================================================
 
-# model.robust_module = None
+
+model.robust_module = None
+model.robust_image_module = None
+
+############## image-level adapters ###########
+
+# model.robust_image_module = L(DENet)(compat_mode=False)
+# model.robust_image_module = L(GDIP)(multi_level=False)
+# model.robust_image_module = L(DIP)()
+
+############## feature-level adapters ###########
 
 # model.robust_module = L(MultiScaleProcessor)(
 #     res3=L(SimpleNN)(embed_dims=512),

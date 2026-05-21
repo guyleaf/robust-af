@@ -40,37 +40,37 @@ num_epochs = 36
 #     res4=L(AFR)(embed_dims=1024, activation="ReLU"),
 #     res5=L(AFR)(embed_dims=2048, activation="ReLU"),
 # )
-# model.robust_module = L(MultiScaleProcessor)(
-#     res3=L(SpatialAFR)(embed_dims=512, activation="ReLU"),
-#     res4=L(SpatialAFR)(embed_dims=1024, activation="ReLU"),
-#     res5=L(SpatialAFR)(embed_dims=2048, activation="ReLU"),
-# )
+model.robust_module = L(MultiScaleProcessor)(
+    res3=L(SpatialAFR)(embed_dims=512, activation="ReLU"),
+    res4=L(SpatialAFR)(embed_dims=1024, activation="ReLU"),
+    res5=L(SpatialAFR)(embed_dims=2048, activation="ReLU"),
+)
 # model.robust_module = L(MultiScaleProcessor)(
 #     res3=L(SpatialAFR)(embed_dims=512, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"),
 #     res4=L(SpatialAFR)(embed_dims=1024, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"),
 #     res5=L(SpatialAFR)(embed_dims=2048, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"),
 # )
-model.robust_module = L(MultiScaleProcessor)(
-    res3=L(SpatialAFR)(
-        embed_dims=512,
-        activation="ReLU",
-        # use_bn=True,
-        # spatial_cfg=dict(spatial_attention=1),
-    ),
-    res4=L(SpatialAFR)(
-        embed_dims=1024,
-        activation="ReLU",
-        # use_bn=True,
-        # spatial_cfg=dict(spatial_attention=1),
-    ),
-    res5=L(SpatialAFR)(
-        embed_dims=2048,
-        activation="ReLU",
-        # use_bn=True,
-        # spatial_cfg=dict(spatial_attention=1),
-    ),
-)
-train.sync_bn = True
+# model.robust_module = L(MultiScaleProcessor)(
+#     res3=L(SpatialAFR)(
+#         embed_dims=512,
+#         activation="ReLU",
+#         use_bn=True,
+#         spatial_cfg=dict(spatial_attention=1),
+#     ),
+#     res4=L(SpatialAFR)(
+#         embed_dims=1024,
+#         activation="ReLU",
+#         use_bn=True,
+#         spatial_cfg=dict(spatial_attention=1),
+#     ),
+#     res5=L(SpatialAFR)(
+#         embed_dims=2048,
+#         activation="ReLU",
+#         use_bn=True,
+#         spatial_cfg=dict(spatial_attention=1),
+#     ),
+# )
+# train.sync_bn = True
 
 # no cst loss
 # model.criterion.loss_cst = None
