@@ -9,6 +9,7 @@ IMAGES_ROOT = "images"
 ANN_FILES = dict(
     test=os.path.join("annotations", "test.json"),
     test_degraded=os.path.join("annotations", "degraded_test.json"),
+    test_degraded_fog=os.path.join("annotations", "degraded_fog_test.json"),
 )
 
 METADATA = dict(

@@ -4,7 +4,7 @@ from detectron2.data import get_detection_dataset_dicts
 from omegaconf import DictConfig
 
 from robust_af.detrex.configs import get_config
-from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
+from robust_af.detrex.data.datasets.register_robust_anti_uav_low import DATASET_NAME
 from robust_af.detrex.data.transforms import Degradation
 
 _base = get_config(f"datasets/{DATASET_NAME}_detr.py")
