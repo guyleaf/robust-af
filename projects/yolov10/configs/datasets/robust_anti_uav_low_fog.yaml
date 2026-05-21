@@ -1,0 +1,24 @@
+# Ultralytics YOLO 🚀, AGPL-3.0 license
+# COCO 2017 dataset https://cocodataset.org by Microsoft
+# Documentation: https://docs.ultralytics.com/datasets/detect/coco/
+# Example usage: yolo train data=coco.yaml
+# parent
+# ├── ultralytics
+# └── datasets
+#     └── coco  ← downloads here (20.1 GB)
+
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: Robust_Anti_UAV_Low # dataset root dir
+train: train.txt # train images (relative to 'path')
+val: val.txt # val images (relative to 'path')
+test: val.txt # test images (relative to 'path')
+
+# NOTE: The train subset contains clear and degraded images (online augmentation).
+# We only evaluate degraded images in val. So, the loss gaps between train and val are for reference only.
+# if you want to include clear images, you could make it with our dataset script.
+degraded_val: degraded_fog_val.txt # val images (relative to 'path')
+degraded_test: degraded_fog_val.txt # test images (relative to 'path')
+
+# Classes
+names:
+  0: drone
