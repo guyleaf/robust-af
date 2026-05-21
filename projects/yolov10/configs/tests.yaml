@@ -1,14 +1,20 @@
-model: /home/leafying/data/checkpoints/yolov10/yolov10m/dut_anti_uav/robust_yolov10m_300e_1e-2_lr_spatial_afr_relu_no_cst_loss_no_train_head/best.pt
-name: robust_yolov10m_300e_1e-2_lr_spatial_afr_relu_no_cst_loss_no_train_head
+model: /home/leafying/data/checkpoints/yolov10/yolov10n/dut_anti_uav/fine_tuning/robust_yolov10n_500e_1e-3_lr_fine_tuning/best.pt
+name: robust_yolov10n_500e_1e-3_lr_fine_tuning
 
 # for each run, it runs on one of gpus
-# devices: [0, 1, 2, 3]
-devices: [0, 1]
+devices: [0, 1, 2, 3]
+# devices: [0, 1]
 # devices: [2, 3]
 
 # config
 root: configs/dut_anti_uav/test
-prefix: robust_yolov10m
+# root: configs/dut_anti_uav_fog/test
+dataset_root: configs/datasets
+# prefix: yolov10m
+prefix: robust_yolov10n
+
+degradations: ~
+# degradations: [fog]
 configs:
   - name: dut_anti_uav
     # follow the subset definitions in configs/datasets/xxx.yaml
