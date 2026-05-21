@@ -1,18 +1,22 @@
-checkpoint: /home/leafying/data/checkpoints/rtdetrv2/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads_mixed_selection/best.pth
-name: robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads_mixed_selection
-max_runs: 2
+checkpoint: /home/leafying/data/checkpoints/rtdetrv2/rtdetrv2_r18vd/dut_anti_uav_fog/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads/best.pth
+name: robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads
+max_runs: 4
 
 # environmental variables
 # tip: check the content of test.sh
 envs:
+  # how many GPUs used per run
   GPUS: 4
 
 # config
-root: configs/dut_anti_uav/test
+# root: configs/dut_anti_uav/test
+root: configs/dut_anti_uav_fog/test
 dataset_root: configs/common/dataset
 prefix: robust_rtdetrv2_r18vd
-# prefix: robust_rtdetrv2_r18vd_image
 # prefix: robust_rtdetrv2_r34vd
+
+# degradations: ~
+degradations: [fog]
 configs:
   - name: dut_anti_uav
     # subset keys are customizable
@@ -34,6 +38,27 @@ configs:
     subsets:
       test: dds_detection.yml
       test_degraded: dds_degraded_detection.yml
+# configs:
+#   - name: dut_anti_uav_fog
+#     # subset keys are customizable
+#     # accept absolute or relative path to dataset_root
+#     subsets:
+#       val: dut_anti_uav_detection.yml
+#       val_degraded: dut_anti_uav_degraded_fog_detection.yml
+#       test: dut_anti_uav_test_detection.yml
+#       test_degraded: dut_anti_uav_test_degraded_fog_detection.yml
+#   - name: uav_eagle_fog
+#     subsets:
+#       test: uav_eagle_detection.yml
+#       test_degraded: uav_eagle_degraded_fog_detection.yml
+#   - name: robust_anti_uav_low_fog
+#     subsets:
+#       test: robust_anti_uav_low_detection.yml
+#       test_degraded: robust_anti_uav_low_degraded_fog_detection.yml
+#   - name: dds_fog
+#     subsets:
+#       test: dds_detection.yml
+#       test_degraded: dds_degraded_fog_detection.yml
 
 #############################################################################
 
@@ -49,8 +74,8 @@ use_ema: True
 
 # RobustRTDETR:
 #   # robust_image_module: DENet
-#   robust_image_module: DIP
-#   # robust_image_module: GDIP
+#   # robust_image_module: DIP
+#   robust_image_module: GDIP
 #   robust_module: ~
 
 # DENet:
@@ -60,8 +85,8 @@ use_ema: True
 #   compat_mode: false
 
 # GDIP:
-#   multi_level: false
-#   # multi_level: true
+#   # multi_level: false
+#   multi_level: true
 
 ############## feature-level adapters ###########
 

@@ -4,6 +4,8 @@ import os
 import subprocess
 import tempfile
 from concurrent.futures import as_completed
+from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -13,16 +15,31 @@ from rich.console import Console
 CONSOLE = Console()
 
 
+@dataclass
+class Subset:
+    name: str
+    path: Path
+
+
+@dataclass
+class Dataset:
+    name: str
+    subset: Optional[Subset] = None
+
+
 def run(
     config: Path,
     checkpoint: Path,
     name: str,
-    subset: str,
-    dataset: Path,
+    dataset: Dataset,
     envs: Optional[dict[str, str]] = None,
     updates: dict = {},
 ):
-    splits = [item for item in subset.replace("val", "").split("_") if len(item) != 0]
+    splits = [
+        item
+        for item in dataset.subset.name.replace("val", "").split("_")
+        if len(item) != 0
+    ]
     if len(splits) != 0:
         suffix = "_".join(splits)
         name = f"{name}_{suffix}"
@@ -33,7 +50,7 @@ def run(
     # find & replace the dataset path in __include__
     includes: list[str] = cfg["__include__"]
     assert "dataset" in includes[0]
-    includes[0] = dataset.as_posix()
+    includes[0] = dataset.subset.path.as_posix()
 
     # resolve all paths because we save the config file to /tmp
     for i, include in enumerate(includes):
@@ -45,7 +62,9 @@ def run(
         includes[i] = include.as_posix()
 
     work_dir = Path(cfg["output_dir"])
-    work_dir = work_dir.with_name(name)
+    # concat with folder of training dataset
+    # test structure: <training dataset>/<testing dataset>/<exp_name>
+    work_dir = work_dir.parent.parent / dataset.name / name
     cfg["output_dir"] = work_dir.as_posix()
 
     # clear adapter config to avoid any side effects from the test config
@@ -88,17 +107,39 @@ def parse_configs(cfg: dict):
     root = Path(cfg.pop("root"))
     dataset_root = Path(cfg.pop("dataset_root")).resolve()
     prefix: str = cfg.pop("prefix")
+    degradations: Optional[list[str]] = cfg.pop("degradations", None)
     configs: list[dict] = cfg.pop("configs")
+
+    if degradations is None:
+        degradations = ["degraded"]
 
     for config in configs:
         dataset_name = config["name"]
         path = root / f"{prefix}_{dataset_name}.yml"
-        for subset, dataset_path in config["subsets"].items():
-            dataset_path = Path(dataset_path)
-            if not dataset_path.is_absolute():
-                dataset_path = dataset_root / dataset_path
-            assert dataset_path.is_file(), dataset_path
-            yield path, dict(subset=subset, dataset=dataset_path)
+
+        for degradation in degradations:
+            if degradation != "degraded":
+                new_dataset_name = f"{dataset_name}_{degradation}"
+            else:
+                new_dataset_name = dataset_name
+            origin_metadata = Dataset(new_dataset_name)
+
+            for subset, subset_path in config["subsets"].items():
+                subset_path = Path(subset_path)
+                # switch to the specific degradation type if the subset is degraded version.
+                if "degraded" in subset_path.name and degradation != "degraded":
+                    subset_name = subset_path.name.replace(
+                        "degraded", f"degraded_{degradation}"
+                    )
+                    subset_path = subset_path.with_name(subset_name)
+
+                if not subset_path.is_absolute():
+                    subset_path = dataset_root / subset_path
+                assert subset_path.is_file(), subset_path
+
+                metadata = deepcopy(origin_metadata)
+                metadata.subset = Subset(subset, subset_path)
+                yield path, dict(dataset=metadata)
 
 
 def parse_args():
@@ -126,8 +167,6 @@ if __name__ == "__main__":
     assert max_runs > 0
     envs = cfg.pop("envs")
 
-    # let torchrun discover automatically
-    # envs["PORT"] = 0
     envs = {k: str(v) for k, v in envs.items()}
     with thread.ThreadPoolExecutor(max_workers=max_runs) as executor:
         futures = []
