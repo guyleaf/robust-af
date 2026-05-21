@@ -7,7 +7,7 @@ __include__:
     "../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_denet_no_train_heads_no_color_augs_in_clear
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_denet_no_train_heads
 
 RobustRTDETR:
   train_heads: False
