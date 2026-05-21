@@ -13,20 +13,26 @@ from robust_af.models.feature_adapters import SimpleNN, SpatialAFR  # noqa: F401
 from robust_af.models.image_adapters.baselines import DIP, GDIP, DENet
 
 config = OmegaConf.create()
-config.checkpoint = "/home/leafying/data/checkpoints/detrex/dino_r50_4scale/dut_anti_uav/robust_dino_r50_v2_4scale_50ep_1e-5_lr_spatial_afr_relu_no_train_heads_from_24ep_mixed_selection/model_best_0032500.pth"
-config.name = "robust_dino_r50_v2_4scale_50ep_1e-5_lr_spatial_afr_relu_no_train_heads_from_24ep_mixed_selection"
+config.checkpoint = "/home/leafying/data/checkpoints/detrex/dino_r50_4scale/dut_anti_uav_fog/robust_dino_r50_v2_4scale_50ep_1e-5_lr_spatial_afr_relu_no_train_heads_from_24ep/model_best_0020149.pth"
+config.name = (
+    "robust_dino_r50_v2_4scale_50ep_1e-5_lr_spatial_afr_relu_no_train_heads_from_24ep"
+)
 
 # for each run, it runs on one of gpus
-# config.devices = [0, 1, 2, 3]
+config.devices = [0, 1, 2, 3]
 # config.devices = [0, 1]
-config.devices = [2, 3]
+# config.devices = [2, 3]
 
 # config
-# config.config = "configs/dut_anti_uav/test/dino_r50_4scale.py"
-config.config = "configs/dut_anti_uav/test/robust_dino_r50_v2_4scale.py"
-# config.config = "configs/dut_anti_uav/test/robust_dino_r50_v2_4scale_image.py"
-# config.config = "configs/dut_anti_uav/test/dino_swin_small_224_4scale.py"
-# config.config = "configs/dut_anti_uav/test/robust_dino_swin_small_224_v2_4scale.py"
+# train_dataset_name = "dut_anti_uav"
+train_dataset_name = "dut_anti_uav_fog"
+# config.degradations = None
+config.degradations = ["fog"]
+# config.config = "dino_r50_4scale.py"
+# config.config = "dino_swin_small_224_4scale.py"
+config.config = "robust_dino_r50_v2_4scale.py"
+# config.config = "robust_dino_swin_small_224_v2_4scale.py"
+
 config.datasets = [
     dict(
         name=dut_anti_uav.DATASET_NAME,
@@ -70,6 +76,7 @@ config.datasets = [
         ),
     ),
 ]
+config.config = f"configs/{train_dataset_name}/test/{config.config}"
 
 #############################################################################
 
@@ -77,15 +84,16 @@ config.datasets = [
 # NOTE: Be careful! Make sure setting full config. Otherwise, you may encounter any side effects from test configs.
 model = OmegaConf.create()
 
-model.robust_module = None
-model.robust_image_module = None
+if "robust" in config.config:
+    model.robust_module = None
+    model.robust_image_module = None
 
 ########### DINO R50 ###########
 # (DINO R50 only) use the original implementation of dab-detr position embedding if training epochs > 12.
 model.position_embedding = dict(temperature=20, offset=0.0)
 
 # model.robust_image_module = L(DENet)(compat_mode=False)
-# model.robust_image_module = L(GDIP)(multi_level=True)
+# model.robust_image_module = L(GDIP)(multi_level=False)
 # model.robust_image_module = L(DIP)()
 
 # model.robust_module = L(MultiScaleProcessor)(

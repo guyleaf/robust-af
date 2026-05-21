@@ -1,9 +1,11 @@
 import argparse
 import concurrent.futures.thread as thread
 import os
+import queue
 import subprocess
 import tempfile
 from concurrent.futures import as_completed
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -20,14 +22,15 @@ CONSOLE = Console()
 
 @dataclass
 class Subset:
-    split: str  # custom key appended to the output_dir
     name: str  # registered subset name
+    output_name: str  # custom name appended to the output_dir
     robust: bool = False  # use the robust version of dataloader
 
 
 @dataclass
 class Dataset:
     name: str  # registered dataset name
+    metadata_name: str  # registered metadata name
     subset: Optional[Subset] = None
 
 
@@ -41,7 +44,7 @@ def run(
 ):
     splits = [
         item
-        for item in dataset.subset.split.replace("val", "").split("_")
+        for item in dataset.subset.output_name.replace("val", "").split("_")
         if len(item) != 0
     ]
     if len(splits) != 0:
@@ -51,7 +54,7 @@ def run(
     cfg = LazyConfig.load(config.as_posix())
     assert isinstance(cfg, DictConfig)
 
-    metadata = MetadataCatalog.get(dataset.name)
+    metadata = MetadataCatalog.get(dataset.metadata_name)
     cfg.model.num_classes = metadata.num_classes
 
     # switch dataloader and change dataset name
@@ -93,15 +96,40 @@ def run(
         subprocess.run(cmd, check=True, env=envs)
 
 
+def run_with_device(device_pool: queue.Queue, **kwargs):
+    # in theory, it shouldn't be blocked here because the num_workers == num_devices.
+    device: int = device_pool.get_nowait()
+    try:
+        envs = dict(CUDA_VISIBLE_DEVICES=str(device))
+        return run(envs=envs, **kwargs)
+    finally:
+        # always return, even on exception
+        device_pool.put(device)
+
+
 def parse_configs(cfg: DictConfig):
     config = Path(cfg.config)
     datasets: list[dict] = cfg.datasets
+    degradations: Optional[list[str]] = cfg.pop("degradations", None)
+
+    if degradations is None:
+        degradations = ["degraded"]
 
     for dataset in datasets:
-        metadata = Dataset(dataset["name"])
-        for name, subset in dataset["subsets"].items():
-            metadata = Dataset(dataset["name"], Subset(name, **subset))
-            yield (config, dict(dataset=metadata))
+        dataset_name = dataset["name"]
+        for degradation in degradations:
+            if degradation != "degraded":
+                new_dataset_name = f"{dataset_name}_{degradation}"
+            else:
+                new_dataset_name = dataset_name
+            origin_metadata = Dataset(new_dataset_name, dataset["name"])
+
+            for name, subset in dataset["subsets"].items():
+                metadata = deepcopy(origin_metadata)
+                metadata.subset = Subset(output_name=name, **subset)
+                if metadata.subset.robust and degradation != "degraded":
+                    metadata.subset.name += f"_{degradation}"
+                yield (config, dict(dataset=metadata))
 
 
 def parse_args():
@@ -130,20 +158,15 @@ if __name__ == "__main__":
     devices: list[int] = config.devices
     assert len(devices) > 0
 
-    # TODO: manage GPU queue?
-    num_devices = len(devices)
-    with thread.ThreadPoolExecutor(max_workers=num_devices) as executor:
+    device_pool = queue.Queue()
+    for device in devices:
+        device_pool.put(device)
+    with thread.ThreadPoolExecutor(max_workers=len(devices)) as executor:
         futures = []
         for i, (path, kwargs) in enumerate(parse_configs(config)):
-            envs = dict(CUDA_VISIBLE_DEVICES=str(devices[i % num_devices]))
             kwargs = dict(
-                config=path,
-                checkpoint=checkpoint,
-                name=name,
-                envs=envs,
-                updates=cfg,
-                **kwargs,
+                config=path, checkpoint=checkpoint, name=name, updates=cfg, **kwargs
             )
-            futures.append(executor.submit(run, **kwargs))
+            futures.append(executor.submit(run_with_device, device_pool, **kwargs))
         for f in as_completed(futures):
             f.result()
