@@ -13,6 +13,7 @@ from ultralytics.utils.torch_utils import (
     make_divisible,
 )
 
+from ... import models
 from ...models import feature_adapters, image_adapters
 from ..utils.loss import RobustDetectLoss
 
@@ -175,6 +176,26 @@ class RobustDetectionModel(tasks.DetectionModel):
             return x, (rhss[:index], rhss[index:])
         else:
             return x
+
+    def is_fused(self, thresh=10):
+        """
+        Check if the model has less than a certain threshold of BatchNorm layers.
+
+        Args:
+            thresh (int, optional): The threshold number of BatchNorm layers. Default is 10.
+
+        Returns:
+            (bool): True if the number of BatchNorm layers in the model is less than the threshold, False otherwise.
+        """
+        bn = tuple(
+            v for k, v in nn.__dict__.items() if "Norm" in k
+        )  # normalization layers, i.e. BatchNorm2d()
+        bn += tuple(
+            v for k, v in models.__dict__.items() if "Norm" in k
+        )  # Frozen normalization layers made by us, i.e.
+        return (
+            sum(isinstance(v, bn) for v in self.modules()) < thresh
+        )  # True if < 'thresh' BatchNorm layers in model
 
     def load(self, weights: Union[dict, nn.Module], verbose: bool = True):
         """
