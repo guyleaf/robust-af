@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import PIL.Image as Image
 import plotly.express as px
 import plotly.graph_objects as go
 import torch
@@ -73,6 +74,8 @@ def setup(args: argparse.Namespace):
         out_dir
         / f"tsne_{len(args.degradations)}_{args.feat_size}_{args.perplexity}_{args.n_components}d_iou_{args.iou_threshold}_score_{args.score_threshold}_dumps_{len(args.dump_dirs)}"
     )
+    if not args.show_legend:
+        out_dir = out_dir.with_name(f"{out_dir.name}_no_legend")
     args.out_dir = out_dir.as_posix()
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -399,7 +402,7 @@ def draw_plotly_plot(
                     marker=dict(line=line, **marker),
                     hovertemplate=hovertemplate,
                     legendgroup=name,
-                    showlegend=True,
+                    showlegend=args.show_legend,
                     customdata=customdata.tolist(),
                     **kwargs,
                 )
@@ -436,11 +439,87 @@ def draw_plotly_plot(
                 mode="markers",
                 marker=dict(line=failed_line, color="#FFFFFF"),
                 name=f"{name}<br> @ IoU: {args.iou_threshold}, conf: {args.score_threshold}",
-                showlegend=True,
+                showlegend=args.show_legend,
                 **kwargs,
             )
         )
     return traces
+
+
+def autocrop_whitespace(
+    path: Path,
+    bg_color: tuple[int, int, int] = (255, 255, 255),
+    padding: int = 25,
+    width: bool = False,
+    height: bool = True,
+):
+    img = Image.open(path).convert("RGB")
+    arr = np.array(img)
+
+    # 找出非背景色的 pixel 範圍
+    mask = np.any(arr != bg_color, axis=-1)
+    rows = np.any(mask, axis=1)
+    cols = np.any(mask, axis=0)
+
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
+
+    # 加一點 padding 避免貼邊
+    # 決定 cropped area
+    if width:
+        cmin = max(0, cmin - padding)
+        cmax = min(arr.shape[1], cmax + padding)
+    else:
+        cmin = 0
+        cmax = arr.shape[1]
+    # 只 crop 底部
+    rmin = 0
+    if height:
+        # rmin = max(0, rmin - padding)
+        rmax = min(arr.shape[0], rmax + padding)
+    else:
+        rmax = arr.shape[0]
+
+    cropped = img.crop((cmin, rmin, cmax, rmax))
+    cropped.save(path)
+    # path = path.with_suffix(".pdf")
+    # cropped.save(path)
+    return path
+
+
+def render_plotly_legend(
+    out_dir: Path,
+    degradations: list[str],
+    args: argparse.Namespace,
+    marker: dict = dict(size=6, opacity=0.8),
+    line: dict = dict(width=0, color="black"),
+):
+    legend_fig = go.Figure()
+    for i, d in enumerate(degradations):
+        marker["color"] = PALETTE[i % len(PALETTE)]
+        legend_fig.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="markers",
+                marker=dict(line=line, **marker),
+                name=d,
+                showlegend=True,
+            )
+        )
+    legend_fig.update_layout(
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        width=150,
+        height=args.plot_size,
+        margin=dict(l=0, r=0, t=0, b=0),
+    )
+
+    out_file = out_dir / "legend_only.png"
+    legend_fig.write_image(out_file, scale=3)
+    autocrop_whitespace(out_file)
 
 
 def render_plotly(
@@ -501,7 +580,8 @@ def render_plotly(
                     trace.showlegend &= show
                     fig.add_trace(trace, row=row, col=col)
 
-        fig.update_layout(title=f"{prefix_title} - layer: {scale}{post_title}")
+        if args.show_main_title:
+            fig.update_layout(title=f"{prefix_title} - layer: {scale}{post_title}")
         # make y-axis's scale same with x-axis
         fig.update_yaxes(scaleanchor="x", scaleratio=1)
         figs[scale] = fig
@@ -511,12 +591,16 @@ def render_plotly(
             post_script = f.read()
 
         for scale, fig in figs.items():
-            fig.write_html(
-                file=out_dir / f"backbone_{scale}.html", post_script=post_script
-            )
+            fig.write_html(file=out_dir / f"{scale}.html", post_script=post_script)
+            if not (args.show_main_title or args.show_legend):
+                fig.update_layout(margin=dict(l=5, r=5, t=5, b=5))
             fig.write_image(
-                file=out_dir / f"backbone_{scale}.pdf", width=width, height=height
+                file=out_dir / f"{scale}.pdf",
+                width=width,
+                height=height,
+                scale=args.scale,
             )
+        render_plotly_legend(out_dir, list(image_idss.keys()), args)
 
     CONSOLE.log(f"Saved plots to {out_dir}")
 
@@ -601,6 +685,18 @@ def parse_args():
 
     # plotly settings
     parser.add_argument(
+        "--show-main-title",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show the main title on the plot",
+    )
+    parser.add_argument(
+        "--show-legend",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show the legend on the plot",
+    )
+    parser.add_argument(
         "--titles",
         nargs="+",
         default=[""],
@@ -611,6 +707,12 @@ def parse_args():
         "--num-col-plots", type=int, default=3, help="Number of plots per row"
     )
     parser.add_argument("--plot-size", type=int, default=800, help="The size of a plot")
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=1.0,
+        help="Scale the plot containing multiple subplots. Each subplot are plot_size x plot_size.",
+    )
 
     # t-SNE settings
     parser.add_argument(
