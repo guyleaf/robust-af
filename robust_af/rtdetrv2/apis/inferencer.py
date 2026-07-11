@@ -27,7 +27,10 @@ class Inferencer:
 
         if deploy:
             self.model = self.model.deploy()
-            self.postprocessor = self.postprocessor.deploy()
+            # always convert from label to category
+            # because we know the category and name from the dataset
+            # self.postprocessor = self.postprocessor.deploy()
+            self.postprocessor = self.postprocessor.eval()
         else:
             self.model = self.model.eval()
             self.postprocessor = self.postprocessor.eval()
@@ -80,12 +83,14 @@ class Inferencer:
         max_num_samples: int,
         name: str = "val_dataloader",
         shuffle: bool = False,
+        image_ids: Optional[list[int]] = None,
     ):
         cfg = deepcopy(cfg)
 
         # create dataset instance (hacky way)
         global_cfg = cfg.global_cfg
-        global_cfg["tmp_dataset"] = cfg.yaml_cfg[name]["dataset"]
+        global_cfg["tmp_dataset"] = dataset_cfg = cfg.yaml_cfg[name]["dataset"]
+        dataset_cfg["image_ids"] = image_ids
         dataset: Dataset = create("tmp_dataset", global_cfg)
         dataset = self.prepare_dataset(dataset, max_num_samples, shuffle=shuffle)
 
@@ -119,12 +124,12 @@ class Inferencer:
             outputs, orig_target_sizes, label2category=label2category
         )
 
-        # if deploy=True
-        if isinstance(outputs, tuple):
-            outputs = [
-                dict(labels=lab, boxes=box, scores=sco)
-                for lab, box, sco in zip(*outputs)
-            ]
+        # # if deploy=True
+        # if isinstance(outputs, tuple):
+        #     outputs = [
+        #         dict(labels=lab, boxes=box, scores=sco)
+        #         for lab, box, sco in zip(*outputs)
+        #     ]
         return outputs
 
     def __call__(
@@ -133,6 +138,7 @@ class Inferencer:
         shuffle: bool = False,
         seed: Optional[int] = 2026,
         max_num_samples: int = 100,
+        image_ids: Optional[list[int]] = None,
     ):
         """Infer images from dataloader
 
@@ -141,6 +147,7 @@ class Inferencer:
             shuffle (bool, optional): Shuffle dataset before inference. Defaults to False.
             seed (Optional[int], optional): The seed for randomness. Defaults to 2026.
             max_num_samples (int, optional): Total number of images to be inferred. Defaults to 100.
+            image_ids (Optional[list[int]], optional): Infer specific images.
 
         Yields:
             predictions (dict[str, torch.Tensor]): The predictions of the sample.
@@ -152,14 +159,21 @@ class Inferencer:
         # build dataloader
         if not isinstance(cfg, YAMLConfig):
             cfg = YAMLConfig(str(cfg))
-        dataloader = self.prepare_dataloader(cfg, max_num_samples, shuffle=shuffle)
+        dataloader = self.prepare_dataloader(
+            cfg, max_num_samples, shuffle=shuffle, image_ids=image_ids
+        )
 
-        dataset: DetDataset = dataloader.dataset
+        dataset = dataloader.dataset
+        if isinstance(dataset, Subset):
+            dataset = dataset.dataset
         assert isinstance(dataset, DetDataset)
         label2category = dataset.label2category
+        category2name = dataset.category2name
+
         for samples, targets in track(dataloader, description="Inference"):
             preds = self.forward(samples, targets, label2category=label2category)
 
             for i, (pred, target) in enumerate(zip(preds, targets)):
                 target["image"] = samples[i]
+                target["category2name"] = category2name
                 yield pred, target

@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Optional, Union
@@ -13,7 +14,11 @@ from ....utils import RandomContext
 @register()
 class CocoDetectionv2(ORIGINAL_CocoDetection):
     def __init__(
-        self, *args, degradations: Optional[Union[list[str], set[str]]] = None, **kwargs
+        self,
+        *args,
+        degradations: Optional[Union[list[str], set[str]]] = None,
+        image_ids: Optional[Union[list[str], set[str]]] = None,
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         if degradations is not None:
@@ -26,10 +31,21 @@ class CocoDetectionv2(ORIGINAL_CocoDetection):
             self.ids = list(filter(_filter, self.ids))
             print(f"Specified degradations: {', '.join(degradations)}")
 
+        if image_ids is not None:
+            image_ids = set(image_ids)
+            assert len(image_ids - self.coco.imgs.keys()) == 0, "Unknown image ids."
+
+            def _filter(id: int):
+                return id in image_ids
+
+            # only return specific images
+            self.ids = list(filter(_filter, self.ids))
+
     def load_item(self, idx: int):
         image, target = super().load_item(idx)
 
         metadata = self.coco.load_imgs([target["image_id"].item()])[0]
+        target["image_path"] = os.path.join(self.root, metadata["file_name"])
         target["degradation"] = metadata.get("degradation", "identity")
         return image, target
 
