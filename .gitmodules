@@ -1,7 +1,7 @@
 [submodule "detrex"]
 	path = 3rdparty/detrex
-	url = https://github.com/IDEA-Research/detrex.git
-	branch = main
+	url = https://github.com/guyleaf/detrex.git
+	branch = robust-af
 [submodule "3rdparty/yolov10"]
 	path = 3rdparty/yolov10
 	url = https://github.com/guyleaf/yolov10.git
