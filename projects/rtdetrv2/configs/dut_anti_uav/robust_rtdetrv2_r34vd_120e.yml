@@ -1,4 +1,5 @@
-__include__: [
+__include__:
+  [
     "../common/dataset/dut_anti_uav_degraded_detection.yml",
     "../common/runtime.yml",
     "../common/robust_dataloader.yml",
@@ -6,7 +7,7 @@ __include__: [
     "../common/models/robust_rtdetrv2_r34vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/robust_rtdetrv2_r34vd_120e_simple_nn_no_train_heads_no_color_augs_in_clear
+output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/robust_rtdetrv2_r34vd_120e_5e-4_lr_simple_nn_no_train_heads
 
 RobustRTDETR:
   train_heads: False
@@ -17,8 +18,70 @@ MultiScaleProcessor:
     - { type: SimpleNN, embed_dims: 256 }
     - { type: SimpleNN, embed_dims: 512 }
 
-# criterion: RobustCriterionDebug
-# RobustCriterionDebug:
+# MultiScaleProcessor:
+#   modules:
+#     - { type: AMFGv2, embed_dims: 128 }
+#     - { type: AMFGv2, embed_dims: 256 }
+#     - { type: AMFGv2, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAMFGv2, embed_dims: 128 }
+#     - { type: SpatialAMFGv2, embed_dims: 256 }
+#     - { type: SpatialAMFGv2, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: AFR, embed_dims: 128 }
+#     - { type: AFR, embed_dims: 256 }
+#     - { type: AFR, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: AFR, embed_dims: 128, activation: ReLU }
+#     - { type: AFR, embed_dims: 256, activation: ReLU }
+#     - { type: AFR, embed_dims: 512, activation: ReLU }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128 }
+#     - { type: SpatialAFR, embed_dims: 256 }
+#     - { type: SpatialAFR, embed_dims: 512 }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128, activation: LeakyReLU }
+#     - { type: SpatialAFR, embed_dims: 256, activation: LeakyReLU }
+#     - { type: SpatialAFR, embed_dims: 512, activation: LeakyReLU }
+
+# MultiScaleProcessor:
+#   modules:
+#     - type: SpatialAFR
+#       embed_dims: 128
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
+
+#     - type: SpatialAFR
+#       embed_dims: 256
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
+
+#     - type: SpatialAFR
+#       embed_dims: 512
+#       spatial_cfg: { conv: False, activation: ~ }
+#       activation: ReLU
+
+# RobustCriterion:
+#   cst_loss: ~
+
+# criterion: RobustCriterionv2
+# RobustCriterionv2:
 #   model_loss: RTDETRCriterionv2
 #   content_loss:
 #     type: MSELoss
@@ -34,6 +97,7 @@ epoches: 120
 
 optimizer:
   type: AdamW
+  lr: 0.0005
   params:
     - params: "^(?=.*(?:norm|bn|BN|IN)).*$"
       weight_decay: 0.
