@@ -7,13 +7,13 @@ __include__:
     "../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav_fog/robust_rtdetrv2_r18vd_50e_5e-4_lr_dip_no_train_heads
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav_fog/robust_rtdetrv2_r18vd_50e_5e-4_lr_gdip_multi_level_no_train_heads
 
 RobustRTDETR:
   train_heads: False
   # robust_image_module: DENet
-  robust_image_module: DIP
-  # robust_image_module: GDIP
+  # robust_image_module: DIP
+  robust_image_module: GDIP
   robust_module: ~
 
 # DENet:
@@ -22,8 +22,8 @@ RobustRTDETR:
 #   # compat_mode=False => their config in paper
 #   compat_mode: False
 
-# GDIP:
-#   multi_level: true
+GDIP:
+  multi_level: true
 
 RobustCriterion:
   # image_cst_loss:

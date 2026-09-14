@@ -7,16 +7,16 @@ __include__:
     "../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav_fog/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav_fog/robust_rtdetrv2_r18vd_50e_5e-4_lr_simple_nn_no_train_heads
 
 RobustRTDETR:
   train_heads: False
 
-# MultiScaleProcessor:
-#   modules:
-#     - { type: SimpleNN, embed_dims: 128 }
-#     - { type: SimpleNN, embed_dims: 256 }
-#     - { type: SimpleNN, embed_dims: 512 }
+MultiScaleProcessor:
+  modules:
+    - { type: SimpleNN, embed_dims: 128 }
+    - { type: SimpleNN, embed_dims: 256 }
+    - { type: SimpleNN, embed_dims: 512 }
 
 # MultiScaleProcessor:
 #   modules:
@@ -48,11 +48,11 @@ RobustRTDETR:
 #     - { type: SpatialAFR, embed_dims: 256 }
 #     - { type: SpatialAFR, embed_dims: 512 }
 
-MultiScaleProcessor:
-  modules:
-    - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
-    - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
-    - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
 
 # MultiScaleProcessor:
 #   modules:

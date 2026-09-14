@@ -7,18 +7,23 @@ __include__:
     "../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_denet_no_train_heads
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_gdip_multi_level_no_train_heads
 
 RobustRTDETR:
   train_heads: False
-  robust_image_module: DENet
+  # robust_image_module: DENet
+  # robust_image_module: DIP
+  robust_image_module: GDIP
   robust_module: ~
 
-DENet:
-  # original code bug: mm1 used for all 4 branches
-  # compat_mode=True => their config in source code
-  # compat_mode=False => their config in paper
-  compat_mode: False
+# DENet:
+#   # original code bug: mm1 used for all 4 branches
+#   # compat_mode=True => their config in source code
+#   # compat_mode=False => their config in paper
+#   compat_mode: False
+
+GDIP:
+  multi_level: true
 
 RobustCriterion:
   # image_cst_loss:

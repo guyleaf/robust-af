@@ -7,7 +7,7 @@ __include__:
     "../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_afr_relu_no_train_heads_no_color_augs_in_clear
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads_mixed_selection
 
 RobustRTDETR:
   train_heads: False
@@ -36,11 +36,11 @@ RobustRTDETR:
 #     - { type: AFR, embed_dims: 256 }
 #     - { type: AFR, embed_dims: 512 }
 
-MultiScaleProcessor:
-  modules:
-    - { type: AFR, embed_dims: 128, activation: ReLU }
-    - { type: AFR, embed_dims: 256, activation: ReLU }
-    - { type: AFR, embed_dims: 512, activation: ReLU }
+# MultiScaleProcessor:
+#   modules:
+#     - { type: AFR, embed_dims: 128, activation: ReLU }
+#     - { type: AFR, embed_dims: 256, activation: ReLU }
+#     - { type: AFR, embed_dims: 512, activation: ReLU }
 
 # MultiScaleProcessor:
 #   modules:
@@ -48,11 +48,32 @@ MultiScaleProcessor:
 #     - { type: SpatialAFR, embed_dims: 256 }
 #     - { type: SpatialAFR, embed_dims: 512 }
 
+MultiScaleProcessor:
+  modules:
+    - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
+    - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
+    - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+
 # MultiScaleProcessor:
 #   modules:
-#     - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
-#     - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
-#     - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+#     - {
+#         type: SpatialAFR,
+#         embed_dims: 128,
+#         activation: ReLU,
+#         spatial_fusion_cfg: { bias: True },
+#       }
+#     - {
+#         type: SpatialAFR,
+#         embed_dims: 256,
+#         activation: ReLU,
+#         spatial_fusion_cfg: { bias: True },
+#       }
+#     - {
+#         type: SpatialAFR,
+#         embed_dims: 512,
+#         activation: ReLU,
+#         spatial_fusion_cfg: { bias: True },
+#       }
 
 # MultiScaleProcessor:
 #   modules:
@@ -108,3 +129,15 @@ train_dataloader:
         epoch: 47
   collate_fn:
     scales: ~
+
+val_dataloader:
+  dataset:
+    ann_file: ./dataset/DUT_Anti_UAV/detection/annotations/mixed_val.json
+
+val_train_dataloader:
+  dataset:
+    transforms:
+      ops:
+        - { type: Degradation, identity: True }
+        - { type: Resize, size: [640, 640] }
+        - { type: ConvertPILImage, dtype: "float32", scale: True }
