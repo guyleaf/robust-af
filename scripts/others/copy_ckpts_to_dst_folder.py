@@ -14,6 +14,11 @@ def parse_args():
         default="*best*.pt?",
         help="The search pattern for the file (Unix-style wildcards)",
     )
+    parser.add_argument(
+        "--force",
+        default=False,
+        help="Overwrite if the file exists in the destination folder",
+    )
     return parser.parse_args()
 
 
@@ -35,4 +40,8 @@ if __name__ == "__main__":
 
         out_dir = dst_dir / exp_folder.name
         out_dir.mkdir(exist_ok=True)
-        shutil.copy2(checkpoint, out_dir)
+
+        if args.force or not (out_dir / checkpoint.name).is_file():
+            shutil.copy2(checkpoint, out_dir)
+        else:
+            print(f"{checkpoint} file exists, skipped.")
