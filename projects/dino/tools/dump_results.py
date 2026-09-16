@@ -91,6 +91,7 @@ class DumpInferencer(Inferencer):
         max_num_samples: int,
         shuffle: bool = False,
         seed: int = 2026,
+        online: bool = True,
     ) -> dict[str, DataLoader]:
         cfg = deepcopy(cfg)
         cfg.batch_size = 1
@@ -99,11 +100,15 @@ class DumpInferencer(Inferencer):
         for name in degradations:
             mapper = deepcopy(TEST_MAPPER)
 
-            # specify name of degradation
-            aug = mapper.augmentations[0]
+            aug = mapper.augmentations.pop(0)
             assert aug["_target_"] is Degradation
-            aug.name = name
-            aug.seed = seed
+            if online:
+                # specify name of degradation
+                aug.name = name
+                aug.seed = seed
+                mapper.augmentations.insert(0, aug)
+            else:
+                cfg.dataset.degradations = [name]
 
             cfg.mapper = mapper
             # make shuffle determinitic
@@ -112,27 +117,14 @@ class DumpInferencer(Inferencer):
                 cfg, max_num_samples, shuffle=shuffle
             )
 
-        # validate consistency across degradations
-        indices = dataloaders[degradations[0]].dataset._dataset.indices
-        for dataloader in dataloaders.values():
-            assert dataloader.dataset._dataset.indices == indices
+        if online:
+            # validate consistency across degradations
+            indices = dataloaders[degradations[0]].dataset._dataset.indices
+            for dataloader in dataloaders.values():
+                assert dataloader.dataset._dataset.indices == indices
         return dataloaders
 
-    def __call__(
-        self,
-        dataloader_cfg: Union[str, Path, DictConfig],
-        degradations: list[str],
-        shuffle: bool = False,
-        seed: int = 2026,
-        max_num_samples: int = 100,
-    ):
-        # build dataloader
-        if not isinstance(dataloader_cfg, DictConfig):
-            dataloader_cfg = LazyConfig.load(dataloader_cfg).dataloader.test
-        dataloaders = self.prepare_dataloaders(
-            dataloader_cfg, degradations, max_num_samples, shuffle=shuffle, seed=seed
-        )
-
+    def _inference(self, dataloaders: dict[str, DataLoader], seed: int = 2026):
         # avoid any randomness
         seed_all_rng(seed)
         for name, dataloader in dataloaders.items():
@@ -158,6 +150,28 @@ class DumpInferencer(Inferencer):
                     last_sample = counter == num_samples
                     yield preds, sample, counter, last_sample
 
+    def __call__(
+        self,
+        dataloader_cfg: Union[str, Path, DictConfig],
+        degradations: list[str],
+        shuffle: bool = False,
+        seed: int = 2026,
+        max_num_samples: int = 100,
+        online: bool = True,
+    ):
+        # build dataloader
+        if not isinstance(dataloader_cfg, DictConfig):
+            dataloader_cfg = LazyConfig.load(dataloader_cfg).dataloader.test
+        dataloaders = self.prepare_dataloaders(
+            dataloader_cfg,
+            degradations,
+            max_num_samples,
+            shuffle=shuffle,
+            seed=seed,
+            online=online,
+        )
+        yield from self._inference(dataloaders, seed=seed)
+
 
 def main(cfg: DictConfig, args: argparse.Namespace):
     metadata = MetadataCatalog.get(cfg.dataloader.test.dataset.names)
@@ -168,6 +182,7 @@ def main(cfg: DictConfig, args: argparse.Namespace):
         shuffle=args.shuffle,
         seed=cfg.train.seed,
         max_num_samples=args.max_num_samples,
+        online=args.online,
     )
 
     images = {}
@@ -257,6 +272,12 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--online",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Apply online augmentation.",
+    )
+    parser.add_argument(
         "--degradations",
         type=str,
         nargs="+",
@@ -272,6 +293,13 @@ def parse_args():
         # ],
         default=list(DEGRADATION_TRANSFORMS.keys()),
         help="Evaluated degradations",
+    )
+    parser.add_argument(
+        "--excluded-degradations",
+        type=str,
+        nargs="*",
+        default=[],
+        help="Excluded degradations. Priority is higher than --degradations.",
     )
     parser.add_argument(
         "--shuffle",
@@ -291,6 +319,8 @@ For python-based LazyConfig, use "path.key=value".
     )
 
     args = parser.parse_args()
+    excluded_degradations = set(args.excluded_degradations)
+    args.degradations = [x for x in args.degradations if x not in excluded_degradations]
     return args
 
 
@@ -305,6 +335,8 @@ if __name__ == "__main__":
         out_dir = Path(args.out_dir) / out_dir.name
 
     suffix = f"{len(args.degradations)}_degrads_max_num_{args.max_num_samples}"
+    if not args.online:
+        suffix = f"offline_{suffix}"
     if args.shuffle:
         suffix += "_shuffle"
 
