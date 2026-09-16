@@ -1,10 +1,10 @@
 import argparse
 import concurrent.futures.thread as thread
 import os
+import shutil
 import subprocess
 import tempfile
 from concurrent.futures import as_completed
-from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -19,12 +19,32 @@ CONSOLE = Console()
 class Subset:
     name: str
     path: Path
+    robust: bool = False
+    split_subset: bool = False
+    degradation: Optional[str] = None
 
 
 @dataclass
 class Dataset:
     name: str
-    subset: Optional[Subset] = None
+    subset: Subset
+
+
+def save_cfg(path: Path, cfg: dict):
+    with open(path, "w") as f:
+        yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
+    return path
+
+
+def resolve_paths(root: Path, paths: list[str]):
+    for i, path in enumerate(paths):
+        path = Path(path)
+        if not path.is_absolute():
+            path = root / path
+            path = path.resolve()
+        assert path.is_file()
+        paths[i] = path.as_posix()
+    return paths
 
 
 def run(
@@ -35,6 +55,8 @@ def run(
     envs: Optional[dict[str, str]] = None,
     updates: dict = {},
 ):
+    tmp_dir = Path(tempfile.mkdtemp(prefix=f"{config.stem}_"))
+
     splits = [
         item
         for item in dataset.subset.name.replace("val", "").split("_")
@@ -47,19 +69,35 @@ def run(
     with open(config, "r", encoding="utf-8") as f:
         cfg: dict = yaml.safe_load(f)
 
+    if dataset.subset.robust and dataset.subset.split_subset:
+        assert (
+            dataset.subset.degradation is not None
+            and dataset.subset.degradation != "degraded"
+        )
+        with open(dataset.subset.path, "r", encoding="utf-8") as f:
+            dataset_cfg: dict = yaml.safe_load(f)
+
+        dataset_cfg.setdefault("val_dataloader", {})
+        dataset_cfg["val_dataloader"].setdefault("dataset", {})
+        dataset_cfg["val_dataloader"]["dataset"]["degradations"] = [
+            dataset.subset.degradation
+        ]
+
+        # resolve all paths because we save the config file to /tmp
+        dataset_cfg["__include__"] = resolve_paths(
+            dataset.subset.path.parent, dataset_cfg["__include__"]
+        )
+
+        dataset.subset.path = tmp_dir / dataset.subset.path.name
+        save_cfg(dataset.subset.path, dataset_cfg)
+
     # find & replace the dataset path in __include__
     includes: list[str] = cfg["__include__"]
     assert "dataset" in includes[0]
     includes[0] = dataset.subset.path.as_posix()
 
     # resolve all paths because we save the config file to /tmp
-    for i, include in enumerate(includes):
-        include = Path(include)
-        if not include.is_absolute():
-            include = config.parent / include
-            include = include.resolve()
-        assert include.is_file()
-        includes[i] = include.as_posix()
+    cfg["__include__"] = resolve_paths(config.parent, includes)
 
     work_dir = Path(cfg["output_dir"])
     # concat with folder of training dataset
@@ -79,14 +117,8 @@ def run(
     cfg.pop("DENet", None)
     cfg.update(updates)
 
-    with tempfile.NamedTemporaryFile(
-        prefix=f"{config.stem}_",
-        suffix=".yml",
-        mode="w",
-        encoding="utf-8",
-        delete=False,
-    ) as file:
-        yaml.safe_dump(cfg, file, sort_keys=False, allow_unicode=True)
+    cfg_path = tmp_dir / config.name
+    save_cfg(cfg_path, cfg)
 
     # prepare envs
     if envs is not None:
@@ -95,12 +127,12 @@ def run(
         envs = new_envs
 
     # command
-    cmd = ["bash", "test.sh", file.name, checkpoint.as_posix()]
+    cmd = ["bash", "test.sh", cfg_path.as_posix(), checkpoint.as_posix()]
     CONSOLE.print("Run command:", " ".join(cmd))
     try:
         subprocess.run(cmd, check=True, env=envs)
     finally:
-        os.unlink(file.name)
+        shutil.rmtree(tmp_dir)
 
 
 def parse_configs(cfg: dict):
@@ -108,6 +140,7 @@ def parse_configs(cfg: dict):
     dataset_root = Path(cfg.pop("dataset_root")).resolve()
     prefix: str = cfg.pop("prefix")
     degradations: Optional[list[str]] = cfg.pop("degradations", None)
+    split_subset: bool = cfg.pop("split_subset", False)
     configs: list[dict] = cfg.pop("configs")
 
     if degradations is None:
@@ -118,28 +151,39 @@ def parse_configs(cfg: dict):
         path = root / f"{prefix}_{dataset_name}.yml"
 
         for degradation in degradations:
-            if degradation != "degraded":
+            if not split_subset and degradation != "degraded":
                 new_dataset_name = f"{dataset_name}_{degradation}"
             else:
                 new_dataset_name = dataset_name
-            origin_metadata = Dataset(new_dataset_name)
 
-            for subset, subset_path in config["subsets"].items():
+            for subset_name, subset_path in config["subsets"].items():
                 subset_path = Path(subset_path)
-                # switch to the specific degradation type if the subset is degraded version.
-                if "degraded" in subset_path.name and degradation != "degraded":
-                    subset_name = subset_path.name.replace(
-                        "degraded", f"degraded_{degradation}"
-                    )
-                    subset_path = subset_path.with_name(subset_name)
-
                 if not subset_path.is_absolute():
                     subset_path = dataset_root / subset_path
-                assert subset_path.is_file(), subset_path
 
-                metadata = deepcopy(origin_metadata)
-                metadata.subset = Subset(subset, subset_path)
-                yield path, dict(dataset=metadata)
+                subset = Subset(
+                    subset_name,
+                    subset_path,
+                    robust="degraded" in subset_path.name,
+                    split_subset=split_subset,
+                    degradation=degradation,
+                )
+
+                if subset.robust:
+                    if degradation != "degraded":
+                        if subset.split_subset:
+                            subset.name = subset.name.replace(
+                                "degraded", f"degraded_{degradation}"
+                            )
+                        else:
+                            # switch to the specific degradation type if the subset is degraded version.
+                            subset_name = subset.path.name.replace(
+                                "degraded", f"degraded_{degradation}"
+                            )
+                            subset.path = subset.path.with_name(subset_name)
+
+                assert subset.path.is_file(), subset.path
+                yield path, dict(dataset=Dataset(new_dataset_name, subset))
 
 
 def parse_args():
