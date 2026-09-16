@@ -7,23 +7,23 @@ from robust_af.detrex.configs import get_config
 #     DATASET_NAME as TEST_DATASET_NAME,
 # )
 from robust_af.detrex.data.datasets.register_dut_anti_uav import DATASET_NAME
-from robust_af.detrex.data.datasets.register_robust_anti_uav_low import (
-    DATASET_NAME as TEST_DATASET_NAME,
-)
 
+# from robust_af.detrex.data.datasets.register_robust_anti_uav_low import (
+#     DATASET_NAME as TEST_DATASET_NAME,
+# )
 # from robust_af.detrex.data.datasets.register_uav_eagle import (
 #     DATASET_NAME as TEST_DATASET_NAME,
 # )
-# from robust_af.detrex.data.datasets.register_dut_anti_uav import (
-#     DATASET_NAME as TEST_DATASET_NAME,
-# )
+from robust_af.detrex.data.datasets.register_dut_anti_uav import (
+    DATASET_NAME as TEST_DATASET_NAME,
+)
 from robust_af.detrex.modeling.processors import MultiScaleProcessor  # noqa: F401
 from robust_af.models.feature_adapters import SimpleNN, SpatialAFR  # noqa: F401
 from robust_af.models.image_adapters.baselines import DIP, GDIP, DENet  # noqa: F401
 
 from ...models.robust_dino_r50_v2 import model
 
-test_subset = False
+test_subset = True
 degraded = True
 fog = False
 test_dataset_name = TEST_DATASET_NAME
@@ -45,7 +45,7 @@ dataloader.test.dataset.names = name
 train = get_config("train.py").train
 suffix = "_test" if test_subset else ""
 suffix += "_degraded" if degraded else ""
-output_dir = f"./outputs/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_50ep_1e-5_lr_spatial_afr_relu_no_train_heads_from_24ep{suffix}"
+output_dir = f"./outputs_2/dino_r50_4scale/{DATASET_NAME}/{test_dataset_name}/robust_dino_r50_v2_4scale_50ep_1e-5_lr_gdip_no_train_heads_from_24ep{suffix}"
 
 # ==============================================================
 
@@ -55,7 +55,7 @@ model.robust_image_module = None
 ############## image-level adapters ###########
 
 # model.robust_image_module = L(DENet)(compat_mode=False)
-# model.robust_image_module = L(GDIP)(multi_level=False)
+model.robust_image_module = L(GDIP)(multi_level=False)
 # model.robust_image_module = L(DIP)()
 
 ############## feature-level adapters ###########
@@ -85,11 +85,11 @@ model.robust_image_module = None
 #     res4=L(SpatialAFR)(embed_dims=1024),
 #     res5=L(SpatialAFR)(embed_dims=2048),
 # )
-model.robust_module = L(MultiScaleProcessor)(
-    res3=L(SpatialAFR)(embed_dims=512, activation="ReLU"),
-    res4=L(SpatialAFR)(embed_dims=1024, activation="ReLU"),
-    res5=L(SpatialAFR)(embed_dims=2048, activation="ReLU"),
-)
+# model.robust_module = L(MultiScaleProcessor)(
+#     res3=L(SpatialAFR)(embed_dims=512, activation="ReLU"),
+#     res4=L(SpatialAFR)(embed_dims=1024, activation="ReLU"),
+#     res5=L(SpatialAFR)(embed_dims=2048, activation="ReLU"),
+# )
 # model.robust_module = L(MultiScaleProcessor)(
 #     res3=L(SpatialAFR)(
 #         embed_dims=512, spatial_cfg=dict(conv=False, activation=None), activation="ReLU"
