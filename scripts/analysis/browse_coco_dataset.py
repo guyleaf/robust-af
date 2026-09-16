@@ -10,13 +10,39 @@ from pathlib import Path
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from pycocotools.coco import COCO
 
 
 def get_color_map(num_classes: int) -> list[tuple[float, float, float]]:
     rng = random.Random(42)
     return [(rng.random(), rng.random(), rng.random()) for _ in range(num_classes)]
+
+
+def draw(coco: COCO, img_id: int, image_dir: Path):
+    img_info = coco.imgs[img_id]
+    ann_ids = coco.getAnnIds(imgIds=img_id)
+    anns = coco.loadAnns(ann_ids)
+
+    img_path = image_dir / img_info["file_name"]
+    image = Image.open(img_path).convert("RGB")
+    draw = ImageDraw.Draw(image)
+
+    cat_id_to_name = {cat["id"]: cat["name"] for cat in coco.dataset["categories"]}
+
+    font = ImageFont.load_default()
+    for ann in anns:
+        x, y, w, h = ann["bbox"]
+        cat_id = ann["category_id"]
+
+        draw.rectangle([x, y, x + w, y + h], outline="red", width=2)
+
+        text = cat_id_to_name[cat_id]
+        bbox = draw.textbbox((x + 2, y), text, font=font)
+        draw.rectangle(bbox, fill="blue")
+        draw.text((x + 2, y), text=text, font=font, fill="white")
+
+    return image
 
 
 def visualize_sample(
@@ -38,7 +64,7 @@ def visualize_sample(
         _, ax = plt.subplots(1, 1, figsize=(12, 8))
 
     ax.imshow(image)
-    ax.set_title(f"{img_info['file_name']} ({len(anns)} annotations)", fontsize=10)
+    # ax.set_title(f"{img_info['file_name']} ({len(anns)} annotations)", fontsize=10)
     ax.axis("off")
 
     cat_id_to_idx = {cat["id"]: i for i, cat in enumerate(coco.dataset["categories"])}
@@ -77,6 +103,7 @@ def browse(
     show_labels: bool = True,
     out_file: str | Path | None = "result.png",
     show: bool = False,
+    single: bool = False,
 ) -> None:
     image_dir = Path(image_dir)
     coco = COCO(annotation_file)
@@ -89,32 +116,49 @@ def browse(
     else:
         ids = all_ids[:num_images]
 
-    num_classes = len(coco.dataset.get("categories", []))
-    color_map = get_color_map(max(num_classes, 1))
+    if single:
+        for i, img_id in enumerate(ids):
+            image = draw(coco, img_id, image_dir)
+            if out_file is not None:
+                out_dir = out_file.with_name(out_file.stem)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                image.save(out_dir / f"{img_id:05d}.png")
 
-    cols = min(3, len(ids))
-    rows = (len(ids) + cols - 1) // cols
-    fig, axes = plt.subplots(
-        rows, cols, figsize=(6 * cols, 4 * rows), constrained_layout=True
-    )
-    axes = np.array(axes).flatten() if len(ids) > 1 else [axes]
+            if show:
+                image.show(title=f"image_id: {img_id}")
+        if out_file is not None:
+            print(f"Saved to {out_file.parent} folder")
+    else:
+        num_classes = len(coco.dataset.get("categories", []))
+        color_map = get_color_map(max(num_classes, 1))
 
-    for i, img_id in enumerate(ids):
-        visualize_sample(coco, img_id, image_dir, color_map, show_labels, axes[i])
+        cols = min(4, len(ids))
+        rows = (len(ids) + cols - 1) // cols
+        fig, axes = plt.subplots(
+            rows,
+            cols,
+            figsize=(13 * cols, 9 * rows),
+            constrained_layout=True,
+            # rgidspec_kw={"wspace": 0, "hspace": 0},
+        )
+        axes = np.array(axes).flatten() if len(ids) > 1 else [axes]
 
-    for j in range(i + 1, len(axes)):
-        axes[j].axis("off")
+        for i, img_id in enumerate(ids):
+            visualize_sample(coco, img_id, image_dir, color_map, show_labels, axes[i])
 
-    if out_file is not None:
-        out_file = Path(out_file)
-        out_file.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(out_file, dpi=150, bbox_inches="tight")
-        print(f"Saved to {out_file}")
+        for j in range(i + 1, len(axes)):
+            axes[j].axis("off")
 
-    if show:
-        plt.show()
+        if out_file is not None:
+            out_file = Path(out_file)
+            out_file.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(out_file, bbox_inches="tight")
+            print(f"Saved to {out_file}")
 
-    plt.close(fig)
+        if show:
+            plt.show()
+
+        plt.close(fig)
 
 
 def parse_args() -> argparse.Namespace:
@@ -136,7 +180,7 @@ def parse_args() -> argparse.Namespace:
         "-n",
         "--num-images",
         type=int,
-        default=9,
+        default=12,
         help="Number of images to display (default: 9)",
     )
     parser.add_argument(
@@ -163,6 +207,12 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Display the visualization interactively",
     )
+    parser.add_argument(
+        "--single",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Save images as files instead of one graph",
+    )
     return parser.parse_args()
 
 
@@ -179,6 +229,7 @@ if __name__ == "__main__":
         seed=args.seed,
         show_labels=args.labels,
         show=args.show,
+        single=args.single,
     )
     out_dir = Path(args.out_dir)
     for annotation in args.annotations:
