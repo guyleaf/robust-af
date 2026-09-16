@@ -1,8 +1,8 @@
 from copy import deepcopy
 
 from detectron2.config import LazyCall as L
-from detectron2.data import get_detection_dataset_dicts
 
+from robust_af.detrex.data.build import get_detection_dataset_dicts
 from robust_af.detrex.data.datasets.register_robust_dut_anti_uav_low import (
     DATASET_NAME,
 )

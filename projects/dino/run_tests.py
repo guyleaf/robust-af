@@ -25,6 +25,8 @@ class Subset:
     name: str  # registered subset name
     output_name: str  # custom name appended to the output_dir
     robust: bool = False  # use the robust version of dataloader
+    degradation: Optional[str] = None
+    split_subset: bool = False
 
 
 @dataclass
@@ -61,6 +63,12 @@ def run(
     dataset_cfg = get_config(f"datasets/{dataset.name}_detr.py")
     if dataset.subset.robust:
         dataloader_cfg = dataset_cfg.robust_dataloader
+        if dataset.subset.split_subset:
+            assert (
+                dataset.subset.degradation is not None
+                and dataset.subset.degradation != "degraded"
+            )
+            dataloader_cfg.test.dataset.degradations = [dataset.subset.degradation]
     else:
         dataloader_cfg = dataset_cfg.dataloader
     dataloader_cfg.test.dataset.names = dataset.subset.name
@@ -111,6 +119,7 @@ def parse_configs(cfg: DictConfig):
     config = Path(cfg.config)
     datasets: list[dict] = cfg.datasets
     degradations: Optional[list[str]] = cfg.pop("degradations", None)
+    split_subset: bool = cfg.pop("split_subset", False)
 
     if degradations is None:
         degradations = ["degraded"]
@@ -118,7 +127,7 @@ def parse_configs(cfg: DictConfig):
     for dataset in datasets:
         dataset_name = dataset["name"]
         for degradation in degradations:
-            if degradation != "degraded":
+            if not split_subset and degradation != "degraded":
                 new_dataset_name = f"{dataset_name}_{degradation}"
             else:
                 new_dataset_name = dataset_name
@@ -126,9 +135,24 @@ def parse_configs(cfg: DictConfig):
 
             for name, subset in dataset["subsets"].items():
                 metadata = deepcopy(origin_metadata)
-                metadata.subset = Subset(output_name=name, **subset)
-                if metadata.subset.robust and degradation != "degraded":
-                    metadata.subset.name += f"_{degradation}"
+                metadata.subset = Subset(
+                    output_name=name,
+                    **subset,
+                    split_subset=split_subset,
+                    degradation=degradation,
+                )
+
+                if metadata.subset.robust:
+                    if degradation != "degraded":
+                        if split_subset:
+                            metadata.subset.output_name = (
+                                metadata.subset.output_name.replace(
+                                    "degraded", f"degraded_{degradation}"
+                                )
+                            )
+                        else:
+                            metadata.subset.name += f"_{degradation}"
+
                 yield (config, dict(dataset=metadata))
 
 

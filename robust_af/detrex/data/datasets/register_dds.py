@@ -1,7 +1,8 @@
 import os
 
 from detectron2.data import MetadataCatalog
-from detectron2.data.datasets import register_coco_instances
+
+from .coco import register_coco_instances
 
 DATASET_FOLDER = "DDS"
 DATASET_NAME = DATASET_FOLDER.lower()

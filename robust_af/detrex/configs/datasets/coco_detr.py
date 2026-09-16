@@ -2,19 +2,24 @@ from copy import deepcopy
 
 import detectron2.data.transforms as T
 from detectron2.config import LazyCall as L
-from detectron2.data import get_detection_dataset_dicts
 from detrex.config import get_config
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
+from robust_af.detrex.data.build import get_detection_dataset_dicts
 from robust_af.detrex.data.dataset_mappers import (
     DetrDatasetMapper,
     RobustDetrDatasetMapper,
 )
 from robust_af.detrex.data.transforms import Degradation
+from robust_af.detrex.evaluation import COCOEvaluator
 
 # normal version of dataset
 
 dataloader: DictConfig = get_config("common/data/coco_detr.py").dataloader
+dataloader.evaluator = OmegaConf.merge(dataloader.evaluator, L(COCOEvaluator)())
+dataloader.train.dataset = OmegaConf.merge(
+    dataloader.train.dataset, L(get_detection_dataset_dicts)()
+)
 dataloader.train.persistent_workers = True
 dataloader.train.pin_memory = True
 dataloader.train.mapper = L(DetrDatasetMapper)(
@@ -56,6 +61,10 @@ dataloader.train.mapper = L(DetrDatasetMapper)(
     is_train=True,
     use_instance_mask=False,
     image_format="RGB",
+)
+
+dataloader.test.dataset = OmegaConf.merge(
+    dataloader.test.dataset, L(get_detection_dataset_dicts)()
 )
 dataloader.test.mapper = L(DetrDatasetMapper)(
     augmentations=[
