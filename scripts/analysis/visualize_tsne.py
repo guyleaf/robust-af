@@ -123,7 +123,7 @@ def find_failures(
             dt_scores = np.array(sample["dtScores"])[:max_det]
             dt_ig = sample["dtIgnore"][iou_index, :max_det]
 
-            confident = (dt_scores >= score_thr) & (dt_ig == 0)
+            confident = (dt_scores > score_thr) & (dt_ig == 0)
             has_fp = np.any(dt_m[confident] == 0)
         else:
             has_fp = False
@@ -142,7 +142,7 @@ def find_failures(
                 has_fn = True
                 break
             dt_idx = np.where(dt_ids == dt_id)[0]
-            if len(dt_idx) > 0 and sample["dtScores"][dt_idx[0]] < score_thr:
+            if len(dt_idx) > 0 and sample["dtScores"][dt_idx[0]] <= score_thr:
                 has_fn = True
                 break
 
@@ -215,6 +215,10 @@ def collect_dump(
         console=CONSOLE,
     ):
         degradation_dir = dump_dir / name
+        if not degradation_dir.exists():
+            CONSOLE.log(f"The degradation {name} is not found. Skipped.")
+            continue
+
         backbone_features_file = degradation_dir / "backbone_features.pt"
         features_file = degradation_dir / "features.pt"
         coco_results_file = degradation_dir / "coco_results.json"
@@ -298,9 +302,11 @@ def preprocess_metadata(
     failed_image_idss = metadata["failed_image_idss"]
     new_excluded_failed_image_idss = {}
     for degradation in args.failure_exclude:
+        # (first dump)
         if excluded_failed_image_idss is None:
             exclusive = deepcopy(failed_image_idss[degradation])
         else:
+            # (other dumps)
             exclusive = excluded_failed_image_idss[degradation]
 
         for name, image_ids in failed_image_idss.items():
@@ -663,7 +669,7 @@ def parse_args():
     parser.add_argument(
         "--score-threshold",
         type=float,
-        default=0.3,
+        default=0.5,
         help="Score threshold to filter invalid predictions.",
     )
     parser.add_argument(
