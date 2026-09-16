@@ -26,9 +26,6 @@ def visualize_image_adapter(dump_dir: Path, out_dir: Path, args: argparse.Namesp
 
         image_ids = list(images.keys())
         for image_id in image_ids[:: args.vis_period]:
-            image_name = f"{image_id:05d}.jpg"
-            image = images[image_id]
-
             for k, image in images[image_id].items():
                 image_name = f"{image_id:05d}_{k}.jpg"
 
