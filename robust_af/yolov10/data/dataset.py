@@ -1,11 +1,17 @@
+import glob
 import inspect
+import os
+import random
+from pathlib import Path
 from types import SimpleNamespace
-from typing import Optional
+from typing import Optional, Union
 
 from torch.utils.data import Dataset
 from ultralytics.data import YOLODataset as ORIGINAL_YOLODataset
 from ultralytics.data.augment import Compose, Format, LetterBox
-from ultralytics.utils import LOGGER
+from ultralytics.data.dataset import DATASET_CACHE_VERSION, load_dataset_cache_file
+from ultralytics.data.utils import HELP_URL, IMG_FORMATS, get_hash, img2label_paths
+from ultralytics.utils import LOCAL_RANK, LOGGER, TQDM
 
 from ...utils import RandomContext
 from .augment import (
@@ -18,6 +24,144 @@ from .augment import (
 
 
 class YOLODataset(ORIGINAL_YOLODataset):
+    def _filter_images_with_degradations(
+        self, metadata: list[tuple[str, str]], degradations: Union[set[str], list[str]]
+    ):
+        degradations = set(degradations)
+        num_before = len(metadata)
+
+        # read COCO annotation to get info?
+        metadata = [(f, d) for f, d in metadata if d in degradations]
+
+        num_after = len(metadata)
+        LOGGER.info(
+            "Removed {} images with not in specific degradations. {} images left.".format(
+                num_before - num_after, num_after
+            )
+        )
+        return metadata
+
+    def _get_cache_path(self):
+        # split cache file by degradations to avoid getting wrong evaluation
+        # while running multiple experiments at the same time
+        cache_path = Path(self.label_files[0]).parent.with_suffix(".cache")
+        degradations = self.data.get("degradations", None)
+        if degradations is not None:
+            cache_path = cache_path.with_stem(
+                f"{cache_path.stem}_degraded_" + "_".join(degradations)
+            )
+        return cache_path
+
+    def get_img_files(self, img_path: Union[str, list[str]]):
+        """Read and Filter image files."""
+        try:
+            metadata = []  # image metadata
+            for p in img_path if isinstance(img_path, list) else [img_path]:
+                p = Path(p)  # os-agnostic
+                if p.is_dir():  # dir
+                    metadata = [
+                        (f, "identity")
+                        for f in glob.iglob(str(p / "**" / "*.*"), recursive=True)
+                    ]
+                elif p.is_file():  # file
+                    with open(p) as t:
+                        t = t.read().strip().splitlines()
+                        parent = str(p.parent) + os.sep
+                        for x in t:
+                            x = x.split(" ")
+                            metadata.append(
+                                (
+                                    # local to global path
+                                    x[0].replace("./", parent)
+                                    if x[0].startswith("./")
+                                    else x[0],
+                                    x[1] if len(x) > 1 else "identity",
+                                    # ignore other metadata if exists
+                                )
+                            )
+                else:
+                    raise FileNotFoundError(f"{self.prefix}{p} does not exist")
+
+            metadata = sorted(
+                (
+                    (f.replace("/", os.sep), d)
+                    for f, d in metadata
+                    if f.split(".")[-1].lower() in IMG_FORMATS
+                ),
+                key=lambda x: x[0],
+            )
+            assert metadata, f"{self.prefix}No images found in {img_path}"
+        except Exception as e:
+            raise FileNotFoundError(
+                f"{self.prefix}Error loading data from {img_path}\n{HELP_URL}"
+            ) from e
+
+        degradations = self.data.get("degradations", None)
+        if degradations is not None:
+            metadata = self._filter_images_with_degradations(metadata, degradations)
+
+        if self.fraction < 1:
+            num_elements_to_select = round(len(metadata) * self.fraction)
+            metadata = random.sample(metadata, num_elements_to_select)
+        return [f for f, _ in metadata]
+
+    def get_labels(self):
+        """
+        Returns dictionary of labels for YOLO training.
+        Fix cache_path to avoid using the same cache file in per-degradation experiemnts.
+        """
+        self.label_files = img2label_paths(self.im_files)
+        cache_path = self._get_cache_path()
+        try:
+            cache, exists = (
+                load_dataset_cache_file(cache_path),
+                True,
+            )  # attempt to load a *.cache file
+            assert cache["version"] == DATASET_CACHE_VERSION  # matches current version
+            assert cache["hash"] == get_hash(
+                self.label_files + self.im_files
+            )  # identical hash
+        except (FileNotFoundError, AssertionError, AttributeError):
+            cache, exists = self.cache_labels(cache_path), False  # run cache ops
+
+        # Display cache
+        nf, nm, ne, nc, n = cache.pop(
+            "results"
+        )  # found, missing, empty, corrupt, total
+        if exists and LOCAL_RANK in (-1, 0):
+            d = f"Scanning {cache_path}... {nf} images, {nm + ne} backgrounds, {nc} corrupt"
+            TQDM(None, desc=self.prefix + d, total=n, initial=n)  # display results
+            if cache["msgs"]:
+                LOGGER.info("\n".join(cache["msgs"]))  # display warnings
+
+        # Read cache
+        [cache.pop(k) for k in ("hash", "version", "msgs")]  # remove items
+        labels = cache["labels"]
+        if not labels:
+            LOGGER.warning(
+                f"WARNING ⚠️ No images found in {cache_path}, training may not work correctly. {HELP_URL}"
+            )
+        self.im_files = [lb["im_file"] for lb in labels]  # update im_files
+
+        # Check if the dataset is all boxes or all segments
+        lengths = (
+            (len(lb["cls"]), len(lb["bboxes"]), len(lb["segments"])) for lb in labels
+        )
+        len_cls, len_boxes, len_segments = (sum(x) for x in zip(*lengths))
+        if len_segments and len_boxes != len_segments:
+            LOGGER.warning(
+                f"WARNING ⚠️ Box and segment counts should be equal, but got len(segments) = {len_segments}, "
+                f"len(boxes) = {len_boxes}. To resolve this only boxes will be used and all segments will be removed. "
+                "To avoid this please supply either a detect or segment dataset, not a detect-segment mixed dataset."
+            )
+            for lb in labels:
+                lb["segments"] = []
+        if len_cls == 0:
+            LOGGER.warning(
+                f"WARNING ⚠️ No labels found in {cache_path}, training may not work correctly. {HELP_URL}"
+            )
+        return labels
+
     def _build_degradation_transform(self, hyp: SimpleNamespace):
         if hyp.degradation["enabled"]:
             LOGGER.info("Degradation transform enabled!")

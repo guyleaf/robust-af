@@ -82,7 +82,11 @@ if __name__ == "__main__":
                 content = json.load(f)
             with open(root_dir / subset.with_suffix(".txt").name, "w") as f:
                 f.writelines(
-                    f"./{image_dir}/" + image["file_name"] + "\n"
+                    f"./{image_dir}/"
+                    + image["file_name"]
+                    + " "
+                    + image.get("degradation", "identity")
+                    + "\n"
                     for image in content["images"]
                 )
 
