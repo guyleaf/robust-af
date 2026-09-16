@@ -14,7 +14,7 @@ def draw(
     labels: torch.Tensor,
     boxes: torch.Tensor,
     scores: Optional[torch.Tensor] = None,
-    thrh: float = 0.3,
+    thrh: float = 0.5,
     label2name: Optional[dict[int, str]] = None,
 ):
     if label2name is None:
@@ -23,9 +23,9 @@ def draw(
     draw = ImageDraw.Draw(image)
 
     if scores is not None:
-        labels = labels[scores >= thrh]
-        boxes = boxes[scores >= thrh]
-        scores = scores[scores >= thrh]
+        labels = labels[scores > thrh]
+        boxes = boxes[scores > thrh]
+        scores = scores[scores > thrh]
     else:
         scores = torch.full_like(labels, -1)
 
@@ -103,7 +103,7 @@ def parse_args():
     parser.add_argument(
         "--score-threshold",
         type=float,
-        default=0.3,
+        default=0.5,
         help="Score threshold to filter invalid predictions.",
     )
 
@@ -122,6 +122,8 @@ def parse_args():
 
     args = parser.parse_args()
     assert 1 >= args.score_threshold > 0
+    if args.image_ids is not None:
+        args.max_num_samples = max(args.max_num_samples, len(args.image_ids))
     return args
 
 
