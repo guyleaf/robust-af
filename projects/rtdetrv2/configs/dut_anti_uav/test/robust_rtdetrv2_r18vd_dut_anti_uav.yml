@@ -1,29 +1,29 @@
 __include__: [
     # clear ver.
-    "../../common/dataset/dut_anti_uav_detection.yml",
+    # "../../common/dataset/dut_anti_uav_detection.yml",
     # "../../common/dataset/dut_anti_uav_test_detection.yml",
     # degraded ver.
     # "../../common/dataset/dut_anti_uav_degraded_detection.yml",
-    # "../../common/dataset/dut_anti_uav_test_degraded_detection.yml",
+    "../../common/dataset/dut_anti_uav_test_degraded_detection.yml",
     "../../common/runtime.yml",
     "../../common/robust_dataloader.yml",
     "../../common/models/robust_rtdetrv2_r18vd.yml",
   ]
 
-output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/dut_anti_uav/robust_rtdetrv2_r18vd_120e_1e-4_lr_fine_tuning_no_color_augs_in_clear
+output_dir: ./output/rtdetrv2_r18vd/dut_anti_uav/dut_anti_uav/robust_rtdetrv2_r18vd_120e_5e-4_lr_simple_nn_no_train_heads_test_degraded
 
 use_ema: True
 
-RobustRTDETR:
-  robust_image_module: ~
-  robust_module: ~
+# RobustRTDETR:
+#   robust_image_module: ~
+#   robust_module: ~
 
 ############## image-level adapters ###########
 
 # RobustRTDETR:
 #   # robust_image_module: DENet
-#   robust_image_module: DIP
-#   # robust_image_module: GDIP
+#   # robust_image_module: DIP
+#   robust_image_module: GDIP
 #   robust_module: ~
 
 # DENet:
@@ -33,20 +33,20 @@ RobustRTDETR:
 #   compat_mode: false
 
 # GDIP:
-#   multi_level: false
-#   # multi_level: true
+#   # multi_level: false
+#   multi_level: true
 
 ############## feature-level adapters ###########
 
-# RobustRTDETR:
-#   robust_image_module: ~
-#   robust_module: MultiScaleProcessor
+RobustRTDETR:
+  robust_image_module: ~
+  robust_module: MultiScaleProcessor
 
-# MultiScaleProcessor:
-#   modules:
-#     - { type: SimpleNN, embed_dims: 128 }
-#     - { type: SimpleNN, embed_dims: 256 }
-#     - { type: SimpleNN, embed_dims: 512 }
+MultiScaleProcessor:
+  modules:
+    - { type: SimpleNN, embed_dims: 128 }
+    - { type: SimpleNN, embed_dims: 256 }
+    - { type: SimpleNN, embed_dims: 512 }
 
 # MultiScaleProcessor:
 #   modules:

@@ -1,5 +1,5 @@
-checkpoint: /home/leafying/data/checkpoints/rtdetrv2/rtdetrv2_r18vd/dut_anti_uav_fog/robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads/best.pth
-name: robust_rtdetrv2_r18vd_50e_5e-4_lr_spatial_afr_relu_no_train_heads
+checkpoint: /home/leafying/data/checkpoints/rtdetrv2/rtdetrv2_r18vd/dut_anti_uav/robust_rtdetrv2_r18vd_120e_5e-4_lr_gdip_multi_level_no_train_heads/best.pth
+name: robust_rtdetrv2_r18vd_120e_5e-4_lr_gdip_multi_level_no_train_heads
 max_runs: 4
 
 # environmental variables
@@ -9,56 +9,58 @@ envs:
   GPUS: 4
 
 # config
-# root: configs/dut_anti_uav/test
-root: configs/dut_anti_uav_fog/test
+root: configs/dut_anti_uav/test
+# root: configs/dut_anti_uav_fog/test
 dataset_root: configs/common/dataset
+# prefix: rtdetrv2_r18vd
+# prefix: rtdetrv2_r34vd
 prefix: robust_rtdetrv2_r18vd
 # prefix: robust_rtdetrv2_r34vd
 
-# degradations: ~
-degradations: [fog]
+degradations: ~
+# degradations: [fog]
+# degradations:
+#   [
+#     "snow",
+#     "fog",
+#     "rain",
+#     "gaussian_noise",
+#     "iso_noise",
+#     "multiplicative_noise",
+#     "resampling_blur",
+#     "motion_blur",
+#     "zoom_blur",
+#     "color_jitter",
+#     "compression",
+#     "elastic",
+#     "glass_blur",
+#     "brightness",
+#     "contrast",
+#   ]
+# split current subset by degradations instead of using new subset
+split_subset: False
+# split_subset: True
 configs:
   - name: dut_anti_uav
     # subset keys are customizable
     # accept absolute or relative path to dataset_root
     subsets:
-      val: dut_anti_uav_detection.yml
-      val_degraded: dut_anti_uav_degraded_detection.yml
-      test: dut_anti_uav_test_detection.yml
+      # val: dut_anti_uav_detection.yml
+      # val_degraded: dut_anti_uav_degraded_detection.yml
+      # test: dut_anti_uav_test_detection.yml
       test_degraded: dut_anti_uav_test_degraded_detection.yml
-  - name: uav_eagle
-    subsets:
-      test: uav_eagle_detection.yml
-      test_degraded: uav_eagle_degraded_detection.yml
-  - name: robust_anti_uav_low
-    subsets:
-      test: robust_anti_uav_low_detection.yml
-      test_degraded: robust_anti_uav_low_degraded_detection.yml
-  - name: dds
-    subsets:
-      test: dds_detection.yml
-      test_degraded: dds_degraded_detection.yml
-# configs:
-#   - name: dut_anti_uav_fog
-#     # subset keys are customizable
-#     # accept absolute or relative path to dataset_root
-#     subsets:
-#       val: dut_anti_uav_detection.yml
-#       val_degraded: dut_anti_uav_degraded_fog_detection.yml
-#       test: dut_anti_uav_test_detection.yml
-#       test_degraded: dut_anti_uav_test_degraded_fog_detection.yml
-#   - name: uav_eagle_fog
-#     subsets:
-#       test: uav_eagle_detection.yml
-#       test_degraded: uav_eagle_degraded_fog_detection.yml
-#   - name: robust_anti_uav_low_fog
-#     subsets:
-#       test: robust_anti_uav_low_detection.yml
-#       test_degraded: robust_anti_uav_low_degraded_fog_detection.yml
-#   - name: dds_fog
-#     subsets:
-#       test: dds_detection.yml
-#       test_degraded: dds_degraded_fog_detection.yml
+  # - name: uav_eagle
+  #   subsets:
+  #     # test: uav_eagle_detection.yml
+  #     test_degraded: uav_eagle_degraded_detection.yml
+  # - name: robust_anti_uav_low
+  #   subsets:
+  #     # test: robust_anti_uav_low_detection.yml
+  #     test_degraded: robust_anti_uav_low_degraded_detection.yml
+  # - name: dds
+  #   subsets:
+  #     # test: dds_detection.yml
+  #     test_degraded: dds_degraded_detection.yml
 
 #############################################################################
 
@@ -72,11 +74,11 @@ use_ema: True
 
 ############## image-level adapters ###########
 
-# RobustRTDETR:
-#   # robust_image_module: DENet
-#   # robust_image_module: DIP
-#   robust_image_module: GDIP
-#   robust_module: ~
+RobustRTDETR:
+  # robust_image_module: DENet
+  # robust_image_module: DIP
+  robust_image_module: GDIP
+  robust_module: ~
 
 # DENet:
 #   # original code bug: mm1 used for all 4 branches
@@ -84,15 +86,15 @@ use_ema: True
 #   # compat_mode=False => their config in paper
 #   compat_mode: false
 
-# GDIP:
-#   # multi_level: false
-#   multi_level: true
+GDIP:
+  # multi_level: false
+  multi_level: true
 
 ############## feature-level adapters ###########
 
-RobustRTDETR:
-  robust_image_module: ~
-  robust_module: MultiScaleProcessor
+# RobustRTDETR:
+#   robust_image_module: ~
+#   robust_module: MultiScaleProcessor
 
 # MultiScaleProcessor:
 #   modules:
@@ -100,8 +102,8 @@ RobustRTDETR:
 #     - { type: SimpleNN, embed_dims: 256, activation: LeakyReLU }
 #     - { type: SimpleNN, embed_dims: 512, activation: LeakyReLU }
 
-MultiScaleProcessor:
-  modules:
-    - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
-    - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
-    - { type: SpatialAFR, embed_dims: 512, activation: ReLU }
+# MultiScaleProcessor:
+#   modules:
+#     - { type: SpatialAFR, embed_dims: 128, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 256, activation: ReLU }
+#     - { type: SpatialAFR, embed_dims: 512, activation: ReLU }

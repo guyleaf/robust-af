@@ -14,17 +14,17 @@ output_dir: ./output/rtdetrv2_r34vd/dut_anti_uav/dut_anti_uav/robust_rtdetrv2_r3
 
 use_ema: True
 
-RobustRTDETR:
-  robust_image_module: ~
-  robust_module: ~
+# RobustRTDETR:
+#   robust_image_module: ~
+#   robust_module: ~
 
 ############## image-level adapters ###########
 
-# RobustRTDETR:
-#   # robust_image_module: DENet
-#   robust_image_module: DIP
-#   # robust_image_module: GDIP
-#   robust_module: ~
+RobustRTDETR:
+  # robust_image_module: DENet
+  # robust_image_module: DIP
+  robust_image_module: GDIP
+  robust_module: ~
 
 # DENet:
 #   # original code bug: mm1 used for all 4 branches
@@ -32,9 +32,9 @@ RobustRTDETR:
 #   # compat_mode=False => their config in paper
 #   compat_mode: false
 
-# GDIP:
-#   multi_level: false
-#   # multi_level: true
+GDIP:
+  # multi_level: false
+  multi_level: true
 
 ############## feature-level adapters ###########
 
