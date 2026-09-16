@@ -314,6 +314,13 @@ def parse_args():
         help="Evaluated degradations",
     )
     parser.add_argument(
+        "--excluded-degradations",
+        type=str,
+        nargs="*",
+        default=[],
+        help="Excluded degradations. Priority is higher than --degradations.",
+    )
+    parser.add_argument(
         "--seed", type=int, default=2025, help="Make randomness deterministic"
     )
     parser.add_argument(
@@ -333,6 +340,8 @@ def parse_args():
     )
 
     args = parser.parse_args()
+    excluded_degradations = set(args.excluded_degradations)
+    args.degradations = [x for x in args.degradations if x not in excluded_degradations]
     return args
 
 
