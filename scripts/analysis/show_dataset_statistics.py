@@ -169,7 +169,7 @@ def make_area_plot(axes: Axes, areas: np.ndarray):
     # Object size
     bins = 100
     axes.hist(areas, bins, color="orange")
-    axes.set_xlabel("Object area ratio", fontsize="x-large")
+    axes.set_xlabel("UAV area ratio (relative to image area)", fontsize="x-large")
     axes.set_ylabel("Number of annotations", fontsize="x-large")
     # axes_2.set_xlim([0, 1.0])
     # axes_2.set_ylim([0, 12.5])
@@ -247,19 +247,19 @@ def make_image_area_plot(axes: Axes, sizes: np.ndarray):
 
     # remove outliers
     # reference: https://en.wikipedia.org/wiki/Interquartile_range
-    upper_quartile = np.percentile(areas, 75)
-    lower_quartile = np.percentile(areas, 25)
-    IQR = (upper_quartile - lower_quartile) * 1.5
-    lower_bound, upper_bound = lower_quartile - IQR, upper_quartile + IQR
-    areas = areas[np.logical_and(upper_bound >= areas, areas >= lower_bound)]
+    # upper_quartile = np.percentile(areas, 75)
+    # lower_quartile = np.percentile(areas, 25)
+    # IQR = (upper_quartile - lower_quartile) * 1.5
+    # lower_bound, upper_bound = lower_quartile - IQR, upper_quartile + IQR
+    # areas = areas[np.logical_and(upper_bound >= areas, areas >= lower_bound)]
 
     # Image sizes
     bins = 100
     axes.hist(areas, bins, color="orange")
-    axes.set_xlabel(f"Image area ratio (max={max_area})", fontsize="x-large")
+    axes.set_xlabel(f"Image area ratio (relative to maximum image area, max={max_area})", fontsize="x-large")
     axes.set_ylabel("Number of images", fontsize="x-large")
     axes.tick_params(axis="both", labelsize="large")
-    axes.set_title("Image Area (Outlier removed)")
+    axes.set_title("Image Area")
 
 
 def make_label_dist_plot(
