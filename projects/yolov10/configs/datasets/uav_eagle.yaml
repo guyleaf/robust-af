@@ -23,3 +23,6 @@ degraded_test: degraded_test.txt # test images (relative to 'path')
 # Classes
 names:
   0: drone
+
+# (optional) filter images with degradations
+degradations: ~

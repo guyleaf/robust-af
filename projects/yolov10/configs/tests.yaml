@@ -1,5 +1,5 @@
-model: /home/leafying/data/checkpoints/yolov10/yolov10n/dut_anti_uav/fine_tuning/robust_yolov10n_500e_1e-3_lr_fine_tuning/best.pt
-name: robust_yolov10n_500e_1e-3_lr_fine_tuning
+model: /home/leafying/data/checkpoints/yolov10/yolov10n/dut_anti_uav/yolov10n_500e_1e-2_lr/best.pt
+name: yolov10n_500e_1e-2_lr
 
 # for each run, it runs on one of gpus
 devices: [0, 1, 2, 3]
@@ -10,21 +10,45 @@ devices: [0, 1, 2, 3]
 root: configs/dut_anti_uav/test
 # root: configs/dut_anti_uav_fog/test
 dataset_root: configs/datasets
+prefix: yolov10n
+# prefix: yolov10s
 # prefix: yolov10m
-prefix: robust_yolov10n
+# prefix: robust_yolov10n
+# prefix: robust_yolov10s
+# prefix: robust_yolov10m
 
-degradations: ~
+# degradations: ~
 # degradations: [fog]
+degradations:
+  [
+    # "snow",
+    # "fog",
+    # "rain",
+    # "gaussian_noise",
+    # "iso_noise",
+    # "multiplicative_noise",
+    "resampling_blur",
+    # "motion_blur",
+    # "zoom_blur",
+    # "color_jitter",
+    # "compression",
+    # "elastic",
+    # "glass_blur",
+    # "brightness",
+    # "contrast",
+  ]
+split_subset: True
 configs:
   - name: dut_anti_uav
     # follow the subset definitions in configs/datasets/xxx.yaml
-    splits: [val, degraded_val, test, degraded_test]
-  - name: uav_eagle
-    splits: [test, degraded_test]
-  - name: robust_anti_uav_low
-    splits: [test, degraded_test]
-  - name: dds
-    splits: [test, degraded_test]
+    # splits: [val, degraded_val, test, degraded_test]
+    splits: [degraded_test]
+  # - name: uav_eagle
+  #   splits: [test, degraded_test]
+  # - name: robust_anti_uav_low
+  #   splits: [test, degraded_test]
+  # - name: dds
+  #   splits: [test, degraded_test]
 
 #############################################################################
 
