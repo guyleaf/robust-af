@@ -429,8 +429,11 @@ class RobustYOLOv10DetectionTrainer(YOLOv10DetectionTrainer):
             robust=robust,
         )
 
+        # by default, paried images are present in training stage
         if robust:
             return robust_dataset
+
+        # NOTE: require paired images in validation stage due to validation loss logging (see validator)
 
         if img_path == self.data.get("val"):
             img_path = self.data.get("degraded_val")
